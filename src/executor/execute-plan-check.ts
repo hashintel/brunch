@@ -42,6 +42,16 @@ export function checkExecutionSpecForPlan(snapshot: ExecutionSpecSnapshot): Exec
   const findings: ExecutePlanCheckFinding[] = [];
   const requirementIds = new Set(snapshot.requirements.map((requirement) => requirement.itemId));
   const verifiedRequirementIds = new Set<string>();
+  const scopedRequirementsByCriterion = new Map<string, Set<string>>();
+  for (const scope of snapshot.scopes) {
+    for (const criterion of scope.criteria) {
+      const scopedRequirements = scopedRequirementsByCriterion.get(criterion.itemId) ?? new Set<string>();
+      for (const requirementId of scope.requirementIds) {
+        if (requirementIds.has(requirementId)) scopedRequirements.add(requirementId);
+      }
+      scopedRequirementsByCriterion.set(criterion.itemId, scopedRequirements);
+    }
+  }
   let criteriaWithRequirement = 0;
 
   if (snapshot.requirements.length === 0) {
@@ -53,10 +63,11 @@ export function checkExecutionSpecForPlan(snapshot: ExecutionSpecSnapshot): Exec
   }
 
   for (const criterion of snapshot.criteria) {
-    const verifies = criterion.verifiesRequirements.filter((requirementId) =>
-      requirementIds.has(requirementId),
-    );
-    if (verifies.length === 0) {
+    const verifies = new Set([
+      ...criterion.verifiesRequirements.filter((requirementId) => requirementIds.has(requirementId)),
+      ...(scopedRequirementsByCriterion.get(criterion.itemId) ?? []),
+    ]);
+    if (verifies.size === 0) {
       findings.push({
         code: 'criterion_without_requirement',
         severity: 'warning',

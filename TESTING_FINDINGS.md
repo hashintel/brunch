@@ -32,6 +32,80 @@ Current concern groups:
 | New: durable `spec.posture` semantics | Treat as an open product/spec question unless code/session evidence proves a real carrier exists. |
 | New: dynamic model selection | D123-L settled the alpha surface as Pi-native `/model` with a soft default. Role-tiered recommendations remain SPEC Future Direction and re-enter only when foreground/subagent evidence shows one default is inadequate. |
 
+### 2026-07-28 Secure Drop pilot — greenfield elicitation → plan synthesis
+
+#### SD1 · Execute plan preparation · demo-critical · fix in progress
+
+Concern: a review-approved four-scope Secure Drop graph must compile into `plan.json` without manual graph repair.
+Evidence: session `019fa95a-bf25-76b1-afd1-82375712e85f`; `.fixtures/scratch/greenfield-secure-drop-demo/pilot-1/secure-drop-spec.md`; repeated `execute_plan_file` results at 2026-07-28T16:07–16:14 UTC.
+Observation: Specify declared the graph fully covered, but every scope lacked one or more direct D126-L admission edges. Execute-mode preparation tried to backfill them, duplicated REQ3 across scopes, then accumulated superseded scopes/frontiers/milestones and cyclic oracle packaging because settled bad edges could not be removed. Five high-thinking planner rounds timed out at the fixed 120-second deadline. A controlled medium-thinking probe against the retained active graph subsequently wrote `plan.json` in two bounded rounds.
+Expected: plan authoring directly packages each requirement into exactly one active scope and gives every scope direct criterion, design, and verification anchors; the sealed planner returns a structured candidate within the existing timeout without graph mutation.
+Disposition: FE-1289 narrows the planner to medium thinking, makes the direct D126-L scope-edge preflight explicit in mapping guidance, and derives plan-readiness criterion coverage from the canonical scope package rather than future-evidence witness edges. Fresh-workspace rerun remains required before this row closes.
+
+#### SD2 · Assurance projection wording · demo-critical · fixed
+
+Concern: `execute_plan_check` reported `verified 0` and criterion-without-requirement warnings even though each planned criterion and check was intentionally attached through D131-L realization/dependency semantics.
+Evidence: the same retained session, initial `execute_plan_check` at graph LSN 15 (`23 findings`, `verified 0`) and post-repair checks (`18 findings`, `verified 0`).
+Observation: the read-only check counted only legacy positive criterion witness edges as requirement coverage, while current D131-L reserves witness for promoted observed evidence.
+Expected: plan readiness should recognize direct criterion + requirement co-packaging in a D126-L scope without asking planned assertions to counterfeit evidence.
+Disposition: corrected in FE-1289 by deriving readiness coverage from direct scope packages while retaining readable legacy witnesses; no schema or graph-kind change.
+
+#### SD3 · Parallel greenfield repository foundation · demo-critical · fix in progress
+
+Concern: the first independent frontend/crypto and backend slices must run in parallel without inventing incompatible repository roots.
+Evidence: fresh session graph LSN 10; run `run-ms55kdd2`; `reports.jsonl` through `slice_integration_conflict`; Petrinaut terminal marking at 2026-07-28T21:28:04.373Z.
+Observation: S1.1 and S2.1 both started from the same empty base, independently passed `npm test` on repair cycle 3, and then conflicted while integrating separately-created `package.json` files. Adding a shared project-foundation anchor allowed one correct regenerated plan and clean post-foundation parallel firing, but graph LSN 12 later produced an admitted rival with two initially runnable MOD8 carriers. Planner prompt guidance alone is therefore nondeterministic.
+Expected: one accepted design anchor owns the complete root manifest, lockfile, dependency set, build/test configuration, and layout; one foundation slice materializes it before independent crypto/backend slices start in parallel.
+Disposition: FE-1289 retains the shared-root authoring/planner guidance and adds deterministic candidate admission: exactly one shared `Project foundation` carrier is allowed, and every other carrier must transitively depend on it. A fresh regenerated run must demonstrate the repaired dependency shape and conflict-free integration before this row closes.
+
+#### SD4 · Worker result artifact leaked into target worktree · demo-critical · fixed
+
+Concern: executor-owned worker summaries must not become application files or create integration conflicts.
+Evidence: both S1.1 and S2.1 slice worktrees in run `run-ms55kdd2` contained a top-level `result.json`; S2.1 integration reported add/add conflicts for both `package.json` and `result.json`.
+Observation: `agent-runner-port.ts` exposed the external executor result path in the sealed worker task. The worker attempted to honor it through its worktree-only writer, which reduced it to a target-local `result.json`; the port then separately persisted the authoritative result outside the worktree as designed.
+Expected: the worker returns summary text only; the app-layer port writes the executor-owned attempt result after the worker exits, and no result artifact enters source integration.
+Disposition: fixed by removing the result path from worker-visible task text while retaining port-owned durable persistence and regression coverage.
+
+#### SD5 · Cross-realm byte-equality oracle precision · demo-critical · fixed
+
+Concern: the accepted byte-for-byte round-trip criterion must produce a stable value-level oracle across jsdom and Node Web Crypto realms.
+Evidence: runs `run-ms5y9tm9` and `run-ms64ngaw` exhausted six S1 cycles on raw `Uint8Array.toEqual`; intervening runs passed only when a worker happened to choose a different assertion or global equality override.
+Observation: recovered bytes matched visually and by length, but Vitest compared typed-array constructor/backing-buffer structure across realms. A general worker-prompt repair rule was ignored in a restarted live process and was removed rather than retained as an unwitnessed fix.
+Expected: AC1 requires element-wise byte equality (`Array.from`, `Buffer.from`, or explicit iteration), forbids raw cross-realm typed-array deep equality, and forbids changing production representation or global test configuration merely to satisfy the assertion.
+Disposition: fixed in FE-1289 by superseding AC1 with AC5 through the normal Specify review flow while preserving its requirement/scope/verification relationships. Run `run-ms663v20` passed the S1 and S2 AC5 suites, including all eight assertions, without a global equality hook or production accommodation.
+
+#### SD6 · Unspecified test-runner compatibility floor · demo-critical · fixed
+
+Concern: the accepted Project Foundation must carry the minimum test-runner compatibility required by its chosen `node:sqlite` backend.
+Evidence: runs `run-ms5zpmux` and `run-ms611svn` exhausted S3 on guessed Vitest 2.1.x and 1.1.x; restarted run `run-ms626cf8` still guessed Vitest 1.0.x despite a prompt-only current-version rule. All backend suites failed at module load with `Cannot find package 'sqlite'` from `vite-node`.
+Observation: the accepted graph chose Node's mandatory-prefix `node:sqlite` built-in but left Vitest unconstrained. Vitest 3.0.0 shipped the mandatory-`node:`-prefix fix in January 2025; configuration-only repairs cannot recreate resolver support absent from older releases. A worker-prompt rule was not authoritative and failed its live oracle, so it was removed.
+Expected: the shared Project Foundation design explicitly requires Vitest 3 or newer and a compatible Vite release; plan synthesis carries that accepted bound into the sole root-owning slice.
+Disposition: fixed in FE-1289 by superseding the foundation design through the normal Specify review flow and retaining the graph-level compatibility bound as mission truth. Run `run-ms663v20` installed Vitest 3, passed S1, and executed the S3 `node:sqlite` suite successfully.
+
+#### SD7 · Generated test cache entered source integration · demo-critical · fixed
+
+Concern: the post-foundation S2/S3 parallel wave must integrate application source without committing dependency trees or tool-generated caches.
+Evidence: run `run-ms663v20`; S1, S2, and S3 all passed their canonical harnesses, then S3 produced `slice_integration_conflict` on `src/client/node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/results.json`. A second independent integration attempt produced the same three blob SHAs.
+Observation: MOD8 required the manifest, lockfile, test/build configuration, source layout, and toolchain floor but omitted a root `.gitignore`. S1 therefore committed a Vitest cache under `node_modules/`; the parallel S2 and S3 branches each updated that tracked generated file differently.
+Expected: the sole Project Foundation owner writes a root `.gitignore` containing `node_modules/` and `dist/` before project commands run; generated dependency/build artifacts never enter a slice source diff, and the S2/S3 parallel batch integrates without conflict.
+Disposition: fixed in FE-1289 by superseding MOD8 with MOD9 through the normal Specify review flow, preserving its exact foundation content while adding only the required root `.gitignore`. Run `run-ms671oww` retained one foundation owner, fired S2/S3 in parallel, and integrated both cycle-1 results without a generated-artifact conflict.
+
+#### SD8 · Repair recovery rejected valid interleaved Petri history · demo-critical · fixed
+
+Concern: a later serial slice must enter its bounded repair cycle after earlier independent slices fired in parallel without losing Petri/run lifecycle parity.
+Evidence: run `run-ms671oww`; S6 cycle 1 failed because jsdom omits `URL.createObjectURL`; the cycle-2 repair context materialized, but repeated `execute_orchestrate` calls halted at `test_result` with `petri_input_unreadable`. Manual step ingestion proved the repair and test passed but left run metadata ahead of the marking at `slice:S6:cycle:2:agent_attempt:1`, then `epic_integrate` halted with `petri_journal_gap`.
+Observation: `recoverPendingSliceRepair` compares the journal transition sequence to the projected lifecycle as an ordered prefix. The earlier S2/S3 parallel wave produced a different valid interleaving; both histories replay through the compiled topology and have equal transition multisets, but the positional comparison rejects them before dispatching the cycle-2 worker.
+Expected: repair recovery uses the existing compiled-topology and transition-multiset authority. An `equal` relation emits no catch-up transitions; lifecycle-ahead recovery emits only its exact residual multiset in projected order; journal-ahead or mixed residuals remain blocked.
+Disposition: fixed in FE-1289 by replacing the repair-only positional prefix check with the canonical Petri journal authority relation and adding a regression with an earlier parallel wave plus a later dependent-slice repair. Run `run-ms68py2m` fired S2/S3 in parallel, recovered S4 through cycle 2 under `execute_orchestrate` alone, reached `promotion_prepared`, and retained an aligned `net_completed` marking.
+
+#### SD9 · Final harness skipped UI suites and could not build · demo-critical · fix in progress
+
+Concern: a promoted and landed Secure Drop application must execute every authored criterion suite and produce the declared client/server build.
+Evidence: run `run-ms68py2m` landed at `/tmp/brunch-secure-drop-demo-app`; controller `npm test` exited 0 with 31 assertions from only `src/lib` and `src/server`; `npx vitest list` omitted `CreateDropPage.test.tsx` and `ReceiveDropPage.test.tsx`; `npm run build` failed with `Could not resolve entry module "src/client/index.html"`.
+Observation: the generated Vite config sets `root: 'src/client'` while its absolute include pattern discovers sibling lib/server tests but not test files at the configured root. The generated tree also has no `src/client/index.html` or mounted client entrypoint. Slice/epic verification therefore passed without proving the final UI suites or a runnable application.
+Expected: accepted graph truth requires a concrete Vite client entrypoint, complete client/lib/server test discovery with named UI-suite evidence, and canonical test plus build commands before promotion.
+Disposition: FE-1289 will supersede the Project Foundation and authored execution harness through the normal Specify review flow, preserving the settled security/toolchain content while adding only the missing entrypoint, discovery, and final build obligations. The landed tree remains failed evidence; no direct target edits are permitted.
+
 ### 2026-07-09 run A — bare entrypoint, no auth → first digest/review flow
 
 Source notes + screenshots: `testing/walkthroughs/2026-07-09/2026-07-09-A.md`.

@@ -25,7 +25,7 @@ Current runtime support modules:
 
 Model recommendations and latency evidence live in [`docs/model-recommendations.md`](../../docs/model-recommendations.md).
 
-`agent-runner-port.ts` renders I69-L worker context from the validated execution request: exact approved requirement title/body sections plus the relative target-visible packet path, packet digest, and declared file digests. It does not ask the worker to reconstruct requirement truth from graph ids or planner paraphrase, and controller-only oracle paths/bytes never enter the request.
+`agent-runner-port.ts` renders I69-L worker context from the validated execution request: exact approved requirement title/body sections plus the relative target-visible packet path, packet digest, and declared file digests. It does not ask the worker to reconstruct requirement truth from graph ids or planner paraphrase, and controller-only oracle paths/bytes never enter the request. The executor-owned result path also stays out of the worker task: the port persists the returned summary there after the sealed worker exits, so a worker cannot mistake orchestration metadata for a target-worktree deliverable.
 
 ## Does not own
 

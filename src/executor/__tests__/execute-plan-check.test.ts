@@ -66,6 +66,36 @@ describe('checkExecutionSpecForPlan', () => {
     });
   });
 
+  it('derives criterion coverage from the canonical D126-L scope package', () => {
+    const criterion = { ...baseSnapshot.criteria[0]!, verifiesRequirements: [] };
+    const scope = {
+      itemId: 'SCP1',
+      nodeId: 10,
+      title: 'Feature scope',
+      content: 'Build the feature.',
+      dependsOn: [],
+      frontierIds: ['F1'],
+      requirementIds: ['REQ1'],
+      criteria: [criterion],
+      design: [{ itemId: 'MOD1', nodeId: 11, title: 'Module', content: 'Module', dependsOn: [] }],
+      verification: [{ itemId: 'CH1', nodeId: 12, title: 'Check', content: 'Check', dependsOn: [] }],
+    } as const;
+
+    const result = checkExecutionSpecForPlan({
+      ...baseSnapshot,
+      criteria: [criterion],
+      scopes: [scope],
+    });
+
+    expect(result.counts).toMatchObject({
+      verifiedRequirements: 1,
+      criteriaWithRequirement: 1,
+    });
+    expect(result.findings).not.toContainEqual(
+      expect.objectContaining({ code: 'criterion_without_requirement', itemId: 'AC1' }),
+    );
+  });
+
   it('blocks an empty execution snapshot', () => {
     const result = checkExecutionSpecForPlan({ ...baseSnapshot, requirements: [], criteria: [] });
 

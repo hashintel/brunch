@@ -78,4 +78,21 @@ describe('D131-L assurance resource contract', () => {
     expect(ingest).toMatch(/`evidence` is capture-only/iu);
     expect(review).toMatch(/only observed material.*witness.*claim/isu);
   });
+
+  it('keeps D126-L scope packaging on direct canonical edges', () => {
+    const plans = readRepoFile('src/agents/skills/map/references/map-plans.md');
+
+    expect(plans).toMatch(/each requirement.*exactly one active scope/isu);
+    expect(plans).toMatch(/criterion.*vv_method.*check.*dependency.*scope/isu);
+    expect(plans).toMatch(/composition.*scope.*design.*never.*assurance/isu);
+    expect(plans).toMatch(/indirect.*does not satisfy.*plan-ready scope/isu);
+  });
+
+  it('packages a shared greenfield root before parallel feature work', () => {
+    const plans = readRepoFile('src/agents/skills/map/references/map-plans.md');
+
+    expect(plans).toMatch(/greenfield.*shared repository-root files.*project foundation.*design anchor/isu);
+    expect(plans).toMatch(/compose.*foundation.*every scope.*root/isu);
+    expect(plans).toMatch(/foundation slice.*parallel/isu);
+  });
 });

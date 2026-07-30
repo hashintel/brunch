@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { CandidatePlan } from '../candidate-plan.js';
 import type { CapabilityProvider } from '../capability-providers.js';
 import { validateCandidatePlan } from '../plan-validation.js';
+import type { PlanningProjection } from '../planning-projection.js';
 import { coherentCandidate, item, projection, PYTEST_PROVIDER } from './plan-synthesis-fixture.js';
 
 const NODE_TEST_PROVIDER: CapabilityProvider = {
@@ -104,6 +105,63 @@ describe('validateCandidatePlan', () => {
     expect(
       findings.map((finding) => finding.itemId).sort((left = '', right = '') => left.localeCompare(right)),
     ).toEqual(['task-1', 'task-2']);
+  });
+
+  it('sequences every shared greenfield root carrier after one project foundation slice', () => {
+    const foundation = item('MOD_ROOT', 20, 'Project foundation');
+    const firstScope = projection.scopes[0]!;
+    const sharedRootProjection: PlanningProjection = {
+      ...projection,
+      scopes: [
+        { ...firstScope, design: [...firstScope.design, foundation] },
+        {
+          ...firstScope,
+          itemId: 'SCP2',
+          nodeId: 21,
+          title: 'Second scope',
+          design: [...firstScope.design, foundation],
+        },
+      ],
+    };
+    const base = coherentCandidate();
+    const parallelRootCarriers: CandidatePlan = {
+      ...base,
+      slices: [
+        {
+          ...base.slices[0]!,
+          title: 'Initialize the repository and feature core',
+          designItemIds: ['MOD1', 'MOD_ROOT'],
+        },
+        {
+          ...base.slices[1]!,
+          scopeId: 'SCP2',
+          dependsOn: [],
+          designItemIds: ['MOD1', 'MOD_ROOT'],
+        },
+      ],
+    };
+    const validateSharedRoot = (candidate: CandidatePlan) =>
+      validateCandidatePlan({
+        candidate,
+        projection: sharedRootProjection,
+        detected: [],
+        providers,
+      }).findings.map((finding) => finding.code);
+
+    expect(validateSharedRoot(parallelRootCarriers)).toContain('shared_foundation_unsequenced');
+    const sequenced = validateSharedRoot({
+      ...parallelRootCarriers,
+      slices: [
+        parallelRootCarriers.slices[0]!,
+        {
+          ...parallelRootCarriers.slices[1]!,
+          dependsOn: [parallelRootCarriers.slices[0]!.id],
+          designItemIds: ['MOD1'],
+        },
+      ],
+    });
+    expect(sequenced).not.toContain('shared_foundation_unsequenced');
+    expect(sequenced).not.toContain('design_dropped');
   });
 
   it('requires one integrated terminal slice for frontier-verified multi-slice epics', () => {

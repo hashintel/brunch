@@ -121,6 +121,7 @@ Everything executor/orchestrator-shaped or Execute-mode-owned belongs to Kostand
 - `executor-slice-verification-repair` ([FE-1254](https://linear.app/hash/issue/FE-1254/repair-failed-slice-verification-before-halting)) — **implementation complete on `ka/fe-1254-slice-verification-repair`:** terminal failed slice verdicts now enter a finite cycle-qualified Petri repair ladder with crash-durable canonical repair context, grouped validated history, and serial/parallel authority-preserving recovery. The full suite, repository checks, and build pass; next is the owned unchanged Petri comparison rerun. Definition below.
 - `comparison-publication-workflow` ([FE-1251](https://linear.app/hash/issue/FE-1251/publish-traceable-comparison-reports)) — **active on `ka/fe-1251-comparison-publication`, stacked on FE-1250:** capture immutable controller and release provenance before comparison lanes start, then explicitly publish retained validity-first reports into the canonical Notion database through a guarded idempotent skill. Definition below.
 - `prospect-research-workspace-regression` ([FE-1253](https://linear.app/hash/issue/FE-1253/thin-prospect-research-into-a-regression-case)) — **active on `ka/fe-1253-prospect-research-e2e`, stacked on FE-1241:** retain the exploratory mission and calibrated browser/HTTP/SQLite/export oracle while deleting the unexecuted prospect study profile, requirement-ledger expansion, and scored-provider completion gate.
+- `greenfield-secure-drop-demo` ([FE-1289](https://linear.app/hash/issue/FE-1289/close-the-greenfield-secure-drop-demo)) — **active on `ka/fe-1289-greenfield-secure-drop-demo`:** close one bounded product witness from real elicitation through accepted graph, synthesized parallel plan, production cook, live Petrinaut, confirmed greenfield landing, and deterministic Secure Drop checks; then retain one diagonal Brunch/Claude comparison without reopening the general factorial harness.
 - **Carved from FE-1167 (2026-07-13):** the Execute-mode evidence sub-list — Execute entry beats on thin vs rich seeds (assessment honesty: Ask on thin, Proceed on rich) and the FE-1107/KA residue (close-or-narrow, demo/walkthrough session via `TESTING_PLAN.md`, post-KA plan pass). The former sticky-posture question is no longer KA residue: FE-1187 `remediation-4` owns the persistent Specify elicitation-style audit/SPEC revision, and its Continue lexical audit owns the old `continue` ambiguity. Full context in the archived FE-1167 definition (`docs/archive/PLAN_HISTORY.md`).
 - `planning-process-model` — **moved to the KA stream 2026-07-13; reshaped by D126-L**: the durable scope handoff is settled, so this item now owns only plan projection and epistemic-horizon questions beyond committed scopes. Definition below.
 - **[1.x data-model handoff owed by FE-1187](../docs/architecture/BRUNCH_1X_DATA_MODEL_HANDOFF.md):** a concise colleague-facing note must distinguish current canon from directional vocabulary before the consolidated outer checkpoint. Current: `{milestone, frontier, scope}` with executor-derived slices; basis (`explicit | implicit`) orthogonal to settlement (`advisory | settled`); no persisted readiness grade or spec-global elicitation-gap table; active-branch Pi JSONL reads; one CommandExecutor mutation authority with spec-local LSN/change log; no new projected `vv_obligation` (legacy rows remain readable). Directional only: explain stored `thesis` as pitch/concept without renaming it yet, and avoid new coupling to spec-local `term` while its possible workspace lift remains future work. Persisted judgment-shaped reconciliation needs remain current, but are YAGNI-suspect: add no kinds/consumers/orchestration dependency without fresh evidence; re-evaluate derivation/removal when KA work first needs that table. Delivered note: [`Brunch 1.x data-model handoff`](../docs/architecture/BRUNCH_1X_DATA_MODEL_HANDOFF.md); it does not block the deterministic TUI queue.
@@ -426,6 +427,27 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 - **Traceability:** D70-L fixture taxonomy; D134-L/I67-L comparison control topology and isolation; D40-L/D120-L/I62-L execution/no-landing boundaries; FE-1210/FE-1230/FE-1232; [`docs/praxis/comparison-runs.md`](../docs/praxis/comparison-runs.md); [`end-to-end-comparisons.md`](../.agents/skills/comparison-reporting/references/end-to-end-comparisons.md).
 - **Retained witness:** [`.fixtures/runs/end-to-end-comparison/petri-editor-e2e-20260721T132600Z/`](../.fixtures/runs/end-to-end-comparison/petri-editor-e2e-20260721T132600Z/); completion evidence in [`memory/cards/end-to-end-comparison-tracer--factorial-matrix.md`](cards/end-to-end-comparison-tracer--factorial-matrix.md).
 
+### greenfield-secure-drop-demo
+
+- **Name:** Close the greenfield Secure Drop demo
+- **Linear:** [FE-1289](https://linear.app/hash/issue/FE-1289/close-the-greenfield-secure-drop-demo)
+- **Branch:** `ka/fe-1289-greenfield-secure-drop-demo`
+- **Kind:** bounded product/evidence tracer over settled Specify, Execute, Petrinaut, landing, and comparison seams.
+- **Certainty:** proving.
+- **Objective:** prove one colleague-repeatable path from a product-neutral Secure Drop mission through real elicitation and accepted graph truth into an executable parallel plan, live Petrinaut-observed production execution, confirmed greenfield landing, and deterministic application V&V; fix only observed demo-critical failures.
+- **Lights up:** mission → accepted spec graph → authored harness and committed scopes → synthesized parallel plan → production cook → live Petrinaut terminal state → landed verified application.
+- **Stabilizes:** existing security representation through `constraint` / `invariant` / `criterion` / `vv_method` / `check` / `evidence`, without a new security kind or newly generated legacy `vv_obligation`.
+- **Acceptance:**
+  - The settled graph states product intent and user flows, explicit threat/security constraints, executable criteria, frontend/backend boundaries, at least three scopes with at least two dependency-independent, and one deterministic authored execution harness.
+  - A fresh greenfield run uses production plan/cook paths, visibly streams Petrinaut state, reaches `promotion_prepared`, lands only through confirmed `/brunch:land`, and passes the mission-owned browser/API/SQLite/test/build checks without repository surgery.
+  - Two consecutive clean Brunch runs reproduce the result; one reviewed portable run retains graph, plan, Petri, terminal, application, blocker, and limitation evidence.
+  - A separate frozen diagonal pair runs Brunch own-spec→Brunch execution and Claude own-spec→Claude execution under matched public mission, reveal, budget, validity, and external-oracle rules; no factorial, winner, reliability, or landing claim.
+  - Every blocker is classified `demo-critical`, `acceptable demo limitation`, or `software-specific deferred work`; only the first class changes product code.
+- **Verification:** inner — mission/case contract tests and focused regressions for observed blockers; middle — controller-owned browser/API/SQLite security oracle plus authored `npm test` and `npm run build`; outer — two clean product walkthroughs with Petrinaut and landing, then one retained paired comparison. Full local gate only when slow executor/landing/comparison seams change.
+- **Excludes:** brownfield repositories, merge/dependency-reconciliation work, generic coding-agent parity, new graph kinds, production cryptographic certification, messaging/conversation/presence/notification behavior, and unrelated harness abstractions.
+- **Current execution pointer:** `memory/cards/greenfield-secure-drop-demo--mission-and-witness.md`.
+- **Traceability:** D120-L, D126-L, D127-L, D130-L; I58-L, I69-L; `src/executor/TOPOLOGY.md`, `src/rpc/TOPOLOGY.md`, `docs/praxis/comparison-runs.md`.
+
 ### executor-slice-admission-parity
 
 - **Name:** Prevent invalid scoped slices from reaching execution
@@ -688,6 +710,11 @@ KA stream:
         status: active; deterministic full-stack oracle calibrated, campaign expansion retiring
         closes: useful regression oracle coupled to an unexecuted 2x2 campaign
         excludes: provider lanes | requirement ledger | outreach delivery | reliability claims
+  greenfield-secure-drop-demo (FE-1289)
+    status: active; proving one bounded product witness over settled execution seams
+    lights_up: secure-drop mission -> accepted graph -> parallel cook -> Petrinaut -> confirmed land -> deterministic checks
+    reuses: D126-L scopes | D130-L authored harness | FE-1197 execution | FE-1201 landing | existing comparison evidence contracts
+    excludes: brownfield | factorial matrix | generic parity | new graph kinds | messenger behavior
   # executor-run-environment (FE-1166) resolved 2026-07-15: policy merged (PR #302),
   # live remainder folded into executor-plan-synthesis (FE-1197), card consumed.
 

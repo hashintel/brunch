@@ -13,6 +13,8 @@ Current library:
 - [`petrinaut-optimization.md`](petrinaut-optimization.md) — Petrinaut optimization brownfield mission
 - [`prospect-research-workspace.md`](prospect-research-workspace.md) — exploratory full-stack prospect
   research mission with a separate deterministic execution regression case
+- [`secure-drop.md`](secure-drop.md) — bounded greenfield encrypted file-drop product and end-to-end
+  demo mission
 
 This `README.md` is the directory's reserved control file, not a mission. `/compare-specs` must exclude it from mission listing, resolution, revision, and creation.
 
