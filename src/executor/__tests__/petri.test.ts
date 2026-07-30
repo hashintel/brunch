@@ -33,7 +33,12 @@ import {
   projectPetrinautReplayNetDefinition,
   reducePetrinautReplayExport,
 } from '../petrinaut/replay-export.js';
-import { parseSdcpnFile, petriTopologyToSdcpnFile, SDCPN_FILE_FORMAT_VERSION } from '../petrinaut/sdcpn.js';
+import {
+  parseSdcpnFile,
+  petriTopologyToSdcpnFile,
+  SDCPN_FILE_FORMAT_VERSION,
+  type SdcpnNodeDimensions,
+} from '../petrinaut/sdcpn.js';
 import { serializePetrinautSseFrame, serializePetrinautSseFrames } from '../petrinaut/sse.js';
 import { foldPetrinautStreamFrames, projectPetrinautStreamFrames } from '../petrinaut/stream-frames.js';
 import { populatedPlanPath } from '../populate.js';
@@ -1168,7 +1173,7 @@ describe('reducePetrinautReplayExport', () => {
     }
   });
 
-  it('uses stable semantic columns and sorted compact bands regardless of plan array order', () => {
+  it('uses stable semantic columns and sorted non-overlapping bands regardless of plan array order', () => {
     const plan = {
       epics: [
         { id: 'E2', summary: 'Ship UI', depends_on: ['E1'], verification: [] },
@@ -1214,14 +1219,14 @@ describe('reducePetrinautReplayExport', () => {
           (!node.id.startsWith('epic:') && node.id.includes(`:${sliceId}`)),
       );
       const ys = sliceNodes.map((node) => node.y!);
-      expect(Math.max(...ys) - Math.min(...ys)).toBeLessThanOrEqual(240);
+      expect(Math.max(...ys) - Math.min(...ys)).toBeLessThanOrEqual(600);
     }
 
     const nodes = [...first.places, ...first.transitions];
     const xs = nodes.map((node) => node.x!);
     const ys = nodes.map((node) => node.y!);
-    expect(Math.max(...xs) - Math.min(...xs)).toBeLessThan(6_000);
-    expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(3_000);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeLessThan(20_000);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(4_000);
   });
 
   it('allocates a unique coordinate to every run-mrkj5qqo-shaped projected node', () => {
@@ -1245,6 +1250,132 @@ describe('reducePetrinautReplayExport', () => {
     expect(ids.some((id) => id.endsWith(':verification_failed'))).toBe(true);
     expect(ids.some((id) => id.includes(':member:'))).toBe(true);
     expect(new Set(nodes.map((node) => `${node.x}/${node.y}`))).toHaveLength(nodes.length);
+  });
+
+  it('keeps every classic Petrinaut node visible and orders repair cycles left to right', () => {
+    const topology = compileExecutorTopology({
+      epics: [
+        { id: 'E1', summary: 'Bootstrap', depends_on: [], verification: [] },
+        { id: 'E2', summary: 'Backend', depends_on: ['E1'], verification: [] },
+        { id: 'E3', summary: 'Frontend', depends_on: ['E1', 'E2'], verification: [] },
+      ],
+      slices: [
+        { id: 'SL1', epic_id: 'E1' },
+        { id: 'SL2', epic_id: 'E2', depends_on: ['SL1'] },
+        { id: 'SL3', epic_id: 'E2', depends_on: ['SL2'] },
+        { id: 'SL4', epic_id: 'E3', depends_on: ['SL1', 'SL3'] },
+        { id: 'SL5', epic_id: 'E3', depends_on: ['SL1', 'SL3'] },
+      ],
+    });
+    const file = petriTopologyToSdcpnFile({ runId: 'run-layout-regression', topology });
+    const definition = reducePetrinautReplayExport({ sdcpnFile: file, events: [] }).definition;
+    const nodes = [
+      ...definition.places.map((node) => ({ ...node, width: 130, height: 130 })),
+      ...definition.transitions.map((node) => ({ ...node, width: 160, height: 80 })),
+    ];
+
+    for (let leftIndex = 0; leftIndex < nodes.length; leftIndex += 1) {
+      const left = nodes[leftIndex]!;
+      for (let rightIndex = leftIndex + 1; rightIndex < nodes.length; rightIndex += 1) {
+        const right = nodes[rightIndex]!;
+        const horizontallySeparate = Math.abs(left.x! - right.x!) >= (left.width + right.width) / 2 + 24;
+        const verticallySeparate = Math.abs(left.y! - right.y!) >= (left.height + right.height) / 2 + 24;
+        expect(horizontallySeparate || verticallySeparate, `${left.id} overlaps ${right.id}`).toBe(true);
+      }
+    }
+
+    const cycleX = [1, 2, 3].map(
+      (cycle) => file.places.find((place) => place.id === `slice:SL1:cycle:${cycle}:agent_attempt:1`)!.x!,
+    );
+    expect(cycleX[0]).toBeLessThan(cycleX[1]!);
+    expect(cycleX[1]).toBeLessThan(cycleX[2]!);
+  });
+
+  it('derives phase widths from arbitrary valid repair policies', () => {
+    const topology = compileExecutorTopology(
+      { slices: [{ id: 'SL1' }] },
+      { maxRepairCycles: 4, maxStageAttempts: 5 },
+    );
+    const file = petriTopologyToSdcpnFile({ runId: 'run-custom-repair-policy', topology });
+    const cycleStarts = [1, 2, 3, 4].map(
+      (cycle) => file.places.find((place) => place.id === `slice:SL1:cycle:${cycle}:agent_attempt:1`)!.x!,
+    );
+
+    expect(cycleStarts).toEqual([...cycleStarts].sort((left, right) => left - right));
+    expect(
+      file.transitions.find((transition) => transition.id === 'verify_passed:SL1:cycle:1:attempt:5')!.x,
+    ).toBeLessThan(cycleStarts[1]!);
+    for (const cycle of [1, 2, 3, 4]) {
+      for (const placeKind of ['agent_attempt', 'verify_attempt', 'verify_result']) {
+        const attemptXs = [1, 2, 3, 4, 5].map(
+          (attempt) =>
+            file.places.find((place) => place.id === `slice:SL1:cycle:${cycle}:${placeKind}:${attempt}`)!.x!,
+        );
+        expect(attemptXs).toEqual([...attemptXs].sort((left, right) => left - right));
+        expect(new Set(attemptXs)).toHaveLength(attemptXs.length);
+      }
+    }
+  });
+
+  it('places epic-less slice completion before run completion', () => {
+    const file = petriTopologyToSdcpnFile({
+      runId: 'run-epic-less-completion',
+      topology: compileExecutorTopology({ slices: [{ id: 'SL1' }] }),
+    });
+    const sliceCompleteX = file.transitions.find((transition) => transition.id === 'slice_complete:SL1')!.x!;
+    const completedX = file.places.find((place) => place.id === 'slice:SL1:completed')!.x!;
+    const runCompleteX = file.transitions.find((transition) => transition.id === 'run_complete')!.x!;
+
+    expect(completedX).toBeGreaterThan(sliceCompleteX);
+    expect(completedX).toBeLessThan(runCompleteX);
+  });
+
+  it('derives collision-free spacing from the configured Petrinaut node dimensions', () => {
+    const nodeDimensions: SdcpnNodeDimensions = {
+      place: { width: 260, height: 220 },
+      transition: { width: 300, height: 180 },
+      clearance: 300,
+    };
+    const file = petriTopologyToSdcpnFile({
+      runId: 'run-custom-node-dimensions',
+      topology: compileExecutorTopology({ slices: [{ id: 'SL1' }] }),
+      nodeDimensions,
+    });
+    const definition = reducePetrinautReplayExport({ sdcpnFile: file, events: [] }).definition;
+    const nodes = [
+      ...definition.places.map((node) => ({ ...node, ...nodeDimensions.place })),
+      ...definition.transitions.map((node) => ({ ...node, ...nodeDimensions.transition })),
+    ];
+
+    for (let leftIndex = 0; leftIndex < nodes.length; leftIndex += 1) {
+      const left = nodes[leftIndex]!;
+      for (let rightIndex = leftIndex + 1; rightIndex < nodes.length; rightIndex += 1) {
+        const right = nodes[rightIndex]!;
+        expect(
+          Math.abs(left.x! - right.x!) >= (left.width + right.width) / 2 + nodeDimensions.clearance ||
+            Math.abs(left.y! - right.y!) >= (left.height + right.height) / 2 + nodeDimensions.clearance,
+          `${left.id} overlaps ${right.id}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('fails explicitly when executor topology introduces an unclassified node role', () => {
+    const topology = compileExecutorTopology({ slices: [] });
+    const unknownTransition = {
+      ...topology.transitions[0]!,
+      id: 'future_executor_step',
+    };
+
+    expect(() =>
+      petriTopologyToSdcpnFile({
+        runId: 'run-unknown-layout-role',
+        topology: {
+          ...topology,
+          transitions: [...topology.transitions, unknownTransition],
+        },
+      }),
+    ).toThrow('Unknown Petrinaut layout node role: future_executor_step');
   });
 
   it('uses locale-independent natural ID order for semantic bands and fallback coordinates', () => {
@@ -1562,25 +1693,35 @@ describe('reducePetrinautReplayExport', () => {
     ];
 
     const payload = reducePetrinautReplayExport({ sdcpnFile, events });
+    const rightmostX = Math.max(
+      ...sdcpnFile.places.map(({ x }: { readonly x: number }) => x),
+      ...sdcpnFile.transitions.map(({ x }: { readonly x: number }) => x),
+    );
+    const runY = sdcpnFile.places.find(({ id }: { readonly id: string }) => id === 'run:created').y;
 
     expect(payload.initialState).toEqual({ 'run:created': 1 });
     expect(payload.definition.places).toContainEqual(
       expect.objectContaining({
         id: PETRI_RUN_COMPLETED_PLACE,
         name: 'Run · Completed',
-        x: 4_700,
-        y: 40,
+        x: rightmostX + 440,
+        y: runY - 110,
       }),
     );
     expect(payload.definition.places).toContainEqual(
-      expect.objectContaining({ id: PETRI_RUN_HALTED_PLACE, name: 'Run · Halted', x: 4_700, y: 120 }),
+      expect.objectContaining({
+        id: PETRI_RUN_HALTED_PLACE,
+        name: 'Run · Halted',
+        x: rightmostX + 440,
+        y: runY + 110,
+      }),
     );
     expect(payload.definition.transitions).toContainEqual(
       expect.objectContaining({
         id: PETRI_RUN_FINISH_TRANSITION,
         name: 'Run · Finish',
-        x: 4_600,
-        y: 80,
+        x: rightmostX + 220,
+        y: runY,
         inputArcs: [],
         outputArcs: [
           { placeId: PETRI_RUN_COMPLETED_PLACE, weight: 1 },
@@ -1591,8 +1732,8 @@ describe('reducePetrinautReplayExport', () => {
     expect(payload.definition.transitions[0]).toEqual({
       id: 'worktree_create',
       name: 'Run · Worktree create',
-      x: 180,
-      y: 80,
+      x: 284,
+      y: 100,
       inputArcs: [{ placeId: 'run:created', weight: 1, type: 'standard' }],
       outputArcs: [{ placeId: 'run:worktree_created', weight: 1 }],
     });
