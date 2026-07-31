@@ -41,7 +41,7 @@ describe('web-driver-streaming reconnect/resume', () => {
   });
 
   it('reconnects by refetching canonical session projections, not replaying relay frames', async () => {
-    const faux = registerKeptFauxProvider('reconnect', 'KICK opening turn before reconnect proof.');
+    const faux = await registerKeptFauxProvider('reconnect', 'KICK opening turn before reconnect proof.');
     cleanups.push(() => faux.provider.unregister());
 
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-fe873-reconnect-'));

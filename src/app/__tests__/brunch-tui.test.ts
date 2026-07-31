@@ -1819,7 +1819,7 @@ describe('Brunch TUI boot', () => {
     expect(BRUNCH_SETTINGS_POLICY).toMatchObject({
       quietStartup: true,
       defaultProvider: 'anthropic',
-      defaultModel: 'claude-sonnet-4-6',
+      defaultModel: 'claude-opus-5',
       packages: [],
       extensions: [],
       skills: [],

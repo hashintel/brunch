@@ -33,7 +33,7 @@ const BRUNCH_THEME_DIR = fileURLToPath(new URL('../.pi/themes/', import.meta.url
 export const BRUNCH_SETTINGS_POLICY = {
   quietStartup: true,
   defaultProvider: 'anthropic',
-  defaultModel: 'claude-sonnet-4-6',
+  defaultModel: 'claude-opus-5',
   defaultProjectTrust: 'never', // TODO: change this?
   packages: [],
   extensions: [],

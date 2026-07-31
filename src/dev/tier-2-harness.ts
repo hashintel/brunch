@@ -2,9 +2,9 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { fauxAssistantMessage, type Context } from '@earendil-works/pi-ai';
+import { fauxAssistantMessage, InMemoryCredentialStore, type Context } from '@earendil-works/pi-ai';
 import { registerFauxProvider } from '@earendil-works/pi-ai/compat';
-import { AuthStorage, createAgentSessionRuntime, ModelRegistry } from '@earendil-works/pi-coding-agent';
+import { createAgentSessionRuntime, ModelRuntime } from '@earendil-works/pi-coding-agent';
 
 import {
   BRUNCH_KICK_SEND_DEFER_MS,
@@ -15,7 +15,7 @@ import {
 import { openWorkspaceGraphRuntime, type CommandExecutor } from '../graph/index.js';
 import {
   BRUNCH_FAUX_HARNESS_API_KEY,
-  brunchFauxProviderConfig,
+  createBrunchFauxModelRuntime,
   defaultBrunchFauxModel,
 } from '../probes/faux-provider.js';
 import { flushSessionManagerToFile } from '../session/flush-session-manager.js';
@@ -156,7 +156,7 @@ export async function bootTier2RuntimeThroughRunBrunchTui(options: {
         runtime = await createAgentSessionRuntime(
           createBrunchAgentSessionRuntimeFactory({
             ...context,
-            agentServices: options.agentServices ?? createNoModelAgentServices(),
+            agentServices: options.agentServices ?? (await createNoModelAgentServices()),
           }),
           {
             cwd,
@@ -246,7 +246,7 @@ export async function bootTier2RuntimeFromFixture(options: {
         runtime = await createAgentSessionRuntime(
           createBrunchAgentSessionRuntimeFactory({
             ...context,
-            agentServices: options.agentServices ?? createNoModelAgentServices(),
+            agentServices: options.agentServices ?? (await createNoModelAgentServices()),
           }),
           {
             cwd,
@@ -286,9 +286,9 @@ export async function bootTier2RuntimeFromFixture(options: {
  * `createTier2FauxAgentServices` for tests that boot multiple runtimes.
  */
 export async function withTier2FauxAgentServices<T>(
-  fn: (faux: ReturnType<typeof createTier2FauxAgentServices>) => Promise<T>,
+  fn: (faux: Awaited<ReturnType<typeof createTier2FauxAgentServices>>) => Promise<T>,
 ): Promise<T> {
-  const faux = createTier2FauxAgentServices();
+  const faux = await createTier2FauxAgentServices();
   try {
     return await fn(faux);
   } finally {
@@ -296,14 +296,16 @@ export async function withTier2FauxAgentServices<T>(
   }
 }
 
-function createNoModelAgentServices(): BrunchAgentServicesOverride {
-  const authStorage = AuthStorage.inMemory({});
-  const modelRegistry = ModelRegistry.inMemory(authStorage);
-  modelRegistry.getAvailable = () => [];
-  return { authStorage, modelRegistry };
+async function createNoModelAgentServices(): Promise<BrunchAgentServicesOverride> {
+  return {
+    modelRuntime: await ModelRuntime.create({
+      credentials: new InMemoryCredentialStore(),
+      modelsPath: null,
+    }),
+  };
 }
 
-export function createTier2FauxAgentServices(
+export async function createTier2FauxAgentServices(
   options: {
     readonly responseText?: string;
     /**
@@ -314,11 +316,11 @@ export function createTier2FauxAgentServices(
      */
     readonly beforeProviderResponse?: () => void | Promise<void>;
   } = {},
-): {
+): Promise<{
   readonly agentServices: BrunchAgentServicesOverride;
   readonly providerContexts: readonly ProviderContextSnapshot[];
   readonly unregister: () => void;
-} {
+}> {
   const model = defaultBrunchFauxModel();
   const provider = registerFauxProvider({
     provider: model.provider,
@@ -332,21 +334,13 @@ export function createTier2FauxAgentServices(
     return fauxAssistantMessage(options.responseText ?? 'Opening offer from the product-originated turn.');
   };
   provider.setResponses([respond, respond]);
-  const authStorage = AuthStorage.inMemory({
-    [model.provider]: { type: 'api_key', key: BRUNCH_FAUX_HARNESS_API_KEY },
-  });
-  const modelRegistry = ModelRegistry.inMemory(authStorage);
-  modelRegistry.registerProvider(
-    model.provider,
-    brunchFauxProviderConfig(model, provider, BRUNCH_FAUX_HARNESS_API_KEY),
+  const { modelRuntime, registeredModel } = await createBrunchFauxModelRuntime(
+    model,
+    provider,
+    BRUNCH_FAUX_HARNESS_API_KEY,
   );
-  const registeredModel = modelRegistry.find(model.provider, model.modelId);
-  if (!registeredModel) {
-    provider.unregister();
-    throw new Error(`Tier-2 faux model was not registered: ${model.provider}/${model.modelId}`);
-  }
   return {
-    agentServices: { authStorage, modelRegistry, model: registeredModel },
+    agentServices: { modelRuntime, model: registeredModel },
     providerContexts,
     unregister: () => provider.unregister(),
   };
@@ -374,7 +368,7 @@ export async function bootTier2ProductOriginatedTurn(
 
   const restoreEnv = () => {};
 
-  const faux = createTier2FauxAgentServices(
+  const faux = await createTier2FauxAgentServices(
     options.responseText === undefined ? {} : { responseText: options.responseText },
   );
   try {
@@ -481,7 +475,7 @@ export async function rebootTier2Runtime(options: {
       runtime = await createAgentSessionRuntime(
         createBrunchAgentSessionRuntimeFactory({
           ...context,
-          agentServices: options.agentServices ?? createNoModelAgentServices(),
+          agentServices: options.agentServices ?? (await createNoModelAgentServices()),
         }),
         {
           cwd: options.cwd,

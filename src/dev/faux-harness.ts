@@ -8,9 +8,7 @@ import type {
 } from '@earendil-works/pi-ai';
 import { registerFauxProvider } from '@earendil-works/pi-ai/compat';
 import {
-  AuthStorage,
   createAgentSession,
-  ModelRegistry,
   type ResourceLoader,
   SessionManager,
   SettingsManager,
@@ -20,7 +18,7 @@ import {
 
 import {
   BRUNCH_FAUX_HARNESS_API_KEY,
-  brunchFauxProviderConfig,
+  createBrunchFauxModelRuntime,
   defaultBrunchFauxModel,
   type BrunchFauxModelOptions,
 } from '../probes/faux-provider.js';
@@ -29,6 +27,7 @@ export {
   BRUNCH_FAUX_HARNESS_API_KEY,
   BRUNCH_FAUX_HARNESS_ENV_API_KEY,
   brunchFauxProviderConfig,
+  createBrunchFauxModelRuntime,
   defaultBrunchFauxModel,
   type BrunchFauxModelOptions,
 } from '../probes/faux-provider.js';
@@ -72,22 +71,15 @@ export async function createBrunchFauxHarness(
     (options.responses ?? []).map((response) => captureFauxResponse(response, providerContexts)),
   );
 
-  const authStorage = AuthStorage.inMemory({
-    [model.provider]: { type: 'api_key', key: BRUNCH_FAUX_HARNESS_API_KEY },
-  });
-  const modelRegistry = ModelRegistry.inMemory(authStorage);
-  modelRegistry.registerProvider(
-    model.provider,
-    brunchFauxProviderConfig(model, provider, BRUNCH_FAUX_HARNESS_API_KEY),
+  const { modelRuntime, registeredModel } = await createBrunchFauxModelRuntime(
+    model,
+    provider,
+    BRUNCH_FAUX_HARNESS_API_KEY,
   );
-
-  const registeredModel = modelRegistry.find(model.provider, model.modelId);
-  if (!registeredModel) throw new Error(`Faux model was not registered: ${model.provider}/${model.modelId}`);
 
   const { session } = await createAgentSession({
     ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-    authStorage,
-    modelRegistry,
+    modelRuntime,
     model: registeredModel,
     ...(options.resourceLoader ? { resourceLoader: options.resourceLoader } : {}),
     sessionManager: options.sessionManager ?? SessionManager.inMemory(options.cwd),

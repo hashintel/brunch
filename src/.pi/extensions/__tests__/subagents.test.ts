@@ -6,8 +6,6 @@ import { fileURLToPath } from 'node:url';
 import { fauxAssistantMessage, fauxToolCall, type Context } from '@earendil-works/pi-ai';
 import { registerFauxProvider } from '@earendil-works/pi-ai/compat';
 import {
-  AuthStorage,
-  ModelRegistry,
   SettingsManager,
   type CreateAgentSessionServicesOptions,
   type ExtensionAPI,
@@ -18,7 +16,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { GraphSlice } from '../../../graph/queries.js';
 import {
   BRUNCH_FAUX_HARNESS_API_KEY,
-  brunchFauxProviderConfig,
+  createBrunchFauxModelRuntime,
   defaultBrunchFauxModel,
 } from '../../../probes/faux-provider.js';
 import type { GraphReaders } from '../brunch-data/graph/index.js';
@@ -432,6 +430,7 @@ describe('registerBrunchSubagents', () => {
       delegatableAgents: options.delegatableAgents ?? ['explorer', 'projector'],
       maxConcurrency: 2,
       agentDir: '/agent',
+      modelRuntime: {} as never,
       createSettingsManager: () => SettingsManager.inMemory({ quietStartup: true }),
       resourceLoaderOptions: sealedResourceLoaderOptions(),
       runSubagent: async ({ definition, task }): Promise<SubagentResult> => {
@@ -617,6 +616,7 @@ describe('registerBrunchSubagents', () => {
       delegatableAgents: ['explorer'],
       maxConcurrency: 2,
       agentDir: '/agent',
+      modelRuntime: {} as never,
       createSettingsManager: () => SettingsManager.inMemory({ quietStartup: true }),
       resourceLoaderOptions: sealedResourceLoaderOptions(),
       runSubagent,
@@ -698,16 +698,11 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
         return typeof reply === 'function' ? reply(context) : fauxAssistantMessage(reply);
       }),
     );
-    const authStorage = AuthStorage.inMemory({
-      [model.provider]: { type: 'api_key', key: BRUNCH_FAUX_HARNESS_API_KEY },
-    });
-    const modelRegistry = ModelRegistry.inMemory(authStorage);
-    modelRegistry.registerProvider(
-      model.provider,
-      brunchFauxProviderConfig(model, provider, BRUNCH_FAUX_HARNESS_API_KEY),
+    const { modelRuntime, modelRegistry, registeredModel } = await createBrunchFauxModelRuntime(
+      model,
+      provider,
+      BRUNCH_FAUX_HARNESS_API_KEY,
     );
-    const registeredModel = modelRegistry.find(model.provider, model.modelId);
-    if (!registeredModel) throw new Error('faux model not registered');
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-subagent-cwd-'));
     const agentDir = await mkdtemp(join(tmpdir(), 'brunch-subagent-agent-'));
 
@@ -715,6 +710,7 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
       ctx: { cwd, modelRegistry, model: registeredModel, signal: undefined },
       deps: {
         agentDir,
+        modelRuntime,
         createSettingsManager: () => SettingsManager.inMemory({ quietStartup: true }),
         resourceLoaderOptions: sealedResourceLoaderOptions(),
       },
@@ -856,6 +852,7 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
       ctx: { cwd: '/w', modelRegistry: registry, model: undefined, signal: controller.signal },
       deps: {
         agentDir: '/agents',
+        modelRuntime: {} as never,
         createSettingsManager: () => SettingsManager.inMemory({ quietStartup: true }),
         resourceLoaderOptions: sealedResourceLoaderOptions(),
       },
@@ -898,6 +895,7 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
       ctx: { cwd: '/w', modelRegistry: registry, model: undefined, signal: controller.signal },
       deps: {
         agentDir: '/agents',
+        modelRuntime: {} as never,
         createSettingsManager: () => SettingsManager.inMemory({ quietStartup: true }),
         resourceLoaderOptions: sealedResourceLoaderOptions(),
       },

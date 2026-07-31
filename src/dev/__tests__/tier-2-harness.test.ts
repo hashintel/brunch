@@ -231,11 +231,11 @@ describe('origination-kick-live — the product originates the opening turn on i
 
   it('mirrors the wired manual-trigger continuation into operator-readable debug files', async () => {
     const manualProviderGate = deferred();
-    let faux!: ReturnType<typeof createTier2FauxAgentServices>;
+    let faux!: Awaited<ReturnType<typeof createTier2FauxAgentServices>>;
     let manualContinueStarted = false;
     let manualProviderBoundaryReached = false;
     let manualProviderContinue: Promise<unknown> | undefined;
-    faux = createTier2FauxAgentServices({
+    faux = await createTier2FauxAgentServices({
       responseText: 'Manual trigger continuation response.',
       beforeProviderResponse: async () => {
         if (!manualContinueStarted) return;

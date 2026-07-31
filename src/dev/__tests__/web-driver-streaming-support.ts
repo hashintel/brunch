@@ -1,12 +1,12 @@
 import { fauxAssistantMessage, type FauxProviderRegistration } from '@earendil-works/pi-ai';
 import { registerFauxProvider } from '@earendil-works/pi-ai/compat';
-import { AuthStorage, ModelRegistry, type AgentSessionEvent } from '@earendil-works/pi-coding-agent';
+import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import { WebSocket } from 'ws';
 
 import type { BrunchAgentServicesOverride } from '../../app/brunch-tui.js';
 import {
   BRUNCH_FAUX_HARNESS_API_KEY,
-  brunchFauxProviderConfig,
+  createBrunchFauxModelRuntime,
   defaultBrunchFauxModel,
 } from '../../probes/faux-provider.js';
 import { LIVE_SESSION_EVENT_METHOD, type LiveSessionEventFrame } from '../../rpc/live-session-contract.js';
@@ -125,13 +125,13 @@ export class RpcSocket {
   }
 }
 
-export function registerKeptFauxProvider(
+export async function registerKeptFauxProvider(
   apiSuffix: string,
   kickText: string,
-): {
+): Promise<{
   readonly provider: FauxProviderRegistration;
   readonly agentServices: BrunchAgentServicesOverride;
-} {
+}> {
   const model = defaultBrunchFauxModel();
   const provider = registerFauxProvider({
     provider: model.provider,
@@ -139,20 +139,12 @@ export function registerKeptFauxProvider(
     models: [{ id: model.modelId, name: model.modelName, input: ['text'] }],
   });
   provider.setResponses([() => fauxAssistantMessage(kickText)]);
-  const authStorage = AuthStorage.inMemory({
-    [model.provider]: { type: 'api_key', key: BRUNCH_FAUX_HARNESS_API_KEY },
-  });
-  const modelRegistry = ModelRegistry.inMemory(authStorage);
-  modelRegistry.registerProvider(
-    model.provider,
-    brunchFauxProviderConfig(model, provider, BRUNCH_FAUX_HARNESS_API_KEY),
+  const { modelRuntime, registeredModel } = await createBrunchFauxModelRuntime(
+    model,
+    provider,
+    BRUNCH_FAUX_HARNESS_API_KEY,
   );
-  const registeredModel = modelRegistry.find(model.provider, model.modelId);
-  if (!registeredModel) {
-    provider.unregister();
-    throw new Error(`${apiSuffix} faux model not registered: ${model.provider}/${model.modelId}`);
-  }
-  return { provider, agentServices: { authStorage, modelRegistry, model: registeredModel } };
+  return { provider, agentServices: { modelRuntime, model: registeredModel } };
 }
 
 export function assembleAssistantTextFromStream(events: readonly AgentSessionEvent[]): string {

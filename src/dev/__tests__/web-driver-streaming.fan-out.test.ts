@@ -32,7 +32,7 @@ describe('web-driver-streaming observer fan-out', () => {
   });
 
   it('fans out one driven turn and domain notifications to concurrent observers while rejecting observer writes', async () => {
-    const faux = registerKeptFauxProvider('fan-out', 'KICK opening turn before fan-out proof.');
+    const faux = await registerKeptFauxProvider('fan-out', 'KICK opening turn before fan-out proof.');
     cleanups.push(() => faux.provider.unregister());
 
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-fe873-fan-out-'));

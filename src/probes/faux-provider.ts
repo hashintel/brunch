@@ -1,6 +1,6 @@
-import type { FauxProviderRegistration } from '@earendil-works/pi-ai';
+import { InMemoryCredentialStore, type FauxProviderRegistration } from '@earendil-works/pi-ai';
 import { streamSimple } from '@earendil-works/pi-ai/compat';
-import { type ProviderConfig } from '@earendil-works/pi-coding-agent';
+import { ModelRegistry, ModelRuntime, type ProviderConfig } from '@earendil-works/pi-coding-agent';
 
 export const BRUNCH_FAUX_HARNESS_API_KEY = 'brunch-faux-harness-key';
 export const BRUNCH_FAUX_HARNESS_ENV_API_KEY = '$BRUNCH_FAUX_HARNESS_API_KEY';
@@ -16,6 +16,32 @@ export interface BrunchFauxModelOptions {
 
 export interface BrunchFauxModelContainer {
   readonly model?: Partial<BrunchFauxModelOptions>;
+}
+
+export async function createBrunchFauxModelRuntime(
+  model: BrunchFauxModelOptions,
+  provider?: FauxProviderRegistration,
+  apiKey: string = BRUNCH_FAUX_HARNESS_API_KEY,
+): Promise<{
+  readonly modelRuntime: ModelRuntime;
+  readonly modelRegistry: ModelRegistry;
+  readonly registeredModel: NonNullable<ReturnType<ModelRuntime['getModel']>>;
+}> {
+  const modelRuntime = await ModelRuntime.create({
+    credentials: new InMemoryCredentialStore(),
+    modelsPath: null,
+  });
+  modelRuntime.registerProvider(model.provider, brunchFauxProviderConfig(model, provider, apiKey));
+  await modelRuntime.refresh({ allowNetwork: false });
+  const registeredModel = modelRuntime.getModel(model.provider, model.modelId);
+  if (!registeredModel) {
+    throw new Error(`Faux model was not registered: ${model.provider}/${model.modelId}`);
+  }
+  return {
+    modelRuntime,
+    modelRegistry: new ModelRegistry(modelRuntime),
+    registeredModel,
+  };
 }
 
 export function brunchFauxProviderConfig(

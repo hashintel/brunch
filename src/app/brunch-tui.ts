@@ -4,10 +4,10 @@ import process from 'node:process';
 import {
   createAgentSessionFromServices,
   createAgentSessionRuntime,
-  AuthStorage,
   createAgentSessionServices,
   getAgentDir,
   InteractiveMode,
+  ModelRuntime,
   type CreateAgentSessionFromServicesOptions,
   type CreateAgentSessionRuntimeFactory,
   type CreateAgentSessionServicesOptions,
@@ -131,10 +131,7 @@ export interface BrunchTuiLaunchContext {
   agentServices?: BrunchAgentServicesOverride;
 }
 
-export interface BrunchAgentServicesOverride extends Pick<
-  CreateAgentSessionServicesOptions,
-  'authStorage' | 'modelRegistry'
-> {
+export interface BrunchAgentServicesOverride extends Pick<CreateAgentSessionServicesOptions, 'modelRuntime'> {
   readonly model?: CreateAgentSessionFromServicesOptions['model'];
 }
 
@@ -433,6 +430,12 @@ export function createBrunchAgentSessionRuntimeFactory(
     if (comparisonIsolation && resolve(cwd) !== resolve(comparisonIsolation.targetRoot)) {
       throw new Error('Brunch comparison runtime cwd must equal its isolated target root');
     }
+    const modelRuntime =
+      context.agentServices?.modelRuntime ??
+      (await ModelRuntime.create({
+        authPath: join(runtimeAgentDir, 'auth.json'),
+        modelsPath: join(runtimeAgentDir, 'models.json'),
+      }));
     let currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(sessionManager);
     const graph = await openWorkspaceGraphRuntime(cwd);
     const graphDeps = {
@@ -536,6 +539,7 @@ export function createBrunchAgentSessionRuntimeFactory(
       ? await loadBrunchSubagents({
           cwd,
           agentDir: runtimeAgentDir,
+          modelRuntime,
           delegatableAgents:
             allowProductSubagents && agentState.operationalMode === 'specify'
               ? ['explorer', 'researcher', 'projector', 'reviewer']
@@ -665,15 +669,12 @@ export function createBrunchAgentSessionRuntimeFactory(
       ],
     });
 
-    const authStorage =
-      context.agentServices?.authStorage ?? AuthStorage.create(join(runtimeAgentDir, 'auth.json'));
     const services = await createAgentSessionServices({
       cwd,
       agentDir: runtimeAgentDir,
       settingsManager: profile.settingsManager,
       resourceLoaderOptions: profile.resourceLoaderOptions,
-      authStorage,
-      ...(context.agentServices?.modelRegistry ? { modelRegistry: context.agentServices.modelRegistry } : {}),
+      modelRuntime,
     });
     const created = await createAgentSessionFromServices({
       services,

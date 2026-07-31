@@ -45,6 +45,7 @@ Worker body.
     delegatableAgents: [],
     maxConcurrency: 1,
     agentDir: '/agent',
+    modelRuntime: {} as never,
     createSettingsManager: () => ({}) as never,
     resourceLoaderOptions: { noContextFiles: true } as never,
     runSubagent,

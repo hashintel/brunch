@@ -2,9 +2,9 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 
-import { fauxAssistantMessage, fauxToolCall } from '@earendil-works/pi-ai';
+import { fauxAssistantMessage, fauxToolCall, InMemoryCredentialStore } from '@earendil-works/pi-ai';
 import { registerFauxProvider } from '@earendil-works/pi-ai/compat';
-import { AuthStorage, ModelRegistry } from '@earendil-works/pi-coding-agent';
+import { ModelRegistry, ModelRuntime } from '@earendil-works/pi-coding-agent';
 
 import {
   loadSubagentConfig,
@@ -88,17 +88,19 @@ export async function runExecutorAgentRunnerWitness(
   ]);
 
   try {
-    const authStorage = AuthStorage.inMemory({
-      [model.provider]: { type: 'api_key', key: BRUNCH_FAUX_HARNESS_API_KEY },
+    const modelRuntime = await ModelRuntime.create({
+      credentials: new InMemoryCredentialStore(),
+      modelsPath: null,
     });
-    const modelRegistry = ModelRegistry.inMemory(authStorage);
-    modelRegistry.registerProvider(
+    modelRuntime.registerProvider(
       model.provider,
       brunchFauxProviderConfig(model, provider, BRUNCH_FAUX_HARNESS_API_KEY),
     );
-    const registeredModel = modelRegistry.find(model.provider, model.modelId);
+    await modelRuntime.refresh({ allowNetwork: false });
+    const modelRegistry = new ModelRegistry(modelRuntime);
+    const registeredModel = modelRuntime.getModel(model.provider, model.modelId);
     if (!registeredModel) throw new Error('faux model not registered');
-    const subagents = await loadWitnessSubagents(worktreeDir);
+    const subagents = await loadWitnessSubagents(worktreeDir, modelRuntime);
     const port = createAgentRunnerPort({ subagents });
     const result = await port.run({
       worktreeDir,
@@ -128,7 +130,7 @@ export async function runExecutorAgentRunnerWitness(
   }
 }
 
-async function loadWitnessSubagents(cwd: string): Promise<BrunchSubagentsDeps> {
+async function loadWitnessSubagents(cwd: string, modelRuntime: ModelRuntime): Promise<BrunchSubagentsDeps> {
   const [definitions, config] = await Promise.all([
     loadSubagentDefinitions(subagentAgentsDir()),
     loadSubagentConfig(subagentConfigPath()),
@@ -138,6 +140,7 @@ async function loadWitnessSubagents(cwd: string): Promise<BrunchSubagentsDeps> {
     delegatableAgents: [],
     maxConcurrency: config.maxConcurrency,
     agentDir: cwd,
+    modelRuntime,
     createSettingsManager: () => createBrunchSettingsManager(cwd, cwd),
     resourceLoaderOptions: brunchResourceLoaderOptions([]),
   };

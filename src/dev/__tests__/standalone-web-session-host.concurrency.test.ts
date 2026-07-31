@@ -137,7 +137,7 @@ describe('standalone web concurrent session isolation', () => {
   });
 
   it('isolates two production-wired targets under interleaved asks, graph writes, failure, and reconnect', async () => {
-    const faux = registerKeptFauxProvider('standalone-web-concurrency', 'unused');
+    const faux = await registerKeptFauxProvider('standalone-web-concurrency', 'unused');
     cleanups.push(() => faux.provider.unregister());
     faux.provider.setResponses([
       () => fauxAssistantMessage('Concurrent opening A.'),

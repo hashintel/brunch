@@ -52,7 +52,7 @@ describe('standalone web session host production entry', () => {
   });
 
   it('rehydrates a settled candidate offer and request-choice continuation after reconnect', async () => {
-    const faux = registerKeptFauxProvider('standalone-web-candidates', 'Standalone opening turn.');
+    const faux = await registerKeptFauxProvider('standalone-web-candidates', 'Standalone opening turn.');
     cleanups.push(() => faux.provider.unregister());
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-standalone-web-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
@@ -198,7 +198,7 @@ describe('standalone web session host production entry', () => {
   });
 
   it('approves one review set, commits once, settles, and rehydrates its receipt after reconnect', async () => {
-    const faux = registerKeptFauxProvider('standalone-web-review-set', 'Standalone opening turn.');
+    const faux = await registerKeptFauxProvider('standalone-web-review-set', 'Standalone opening turn.');
     cleanups.push(() => faux.provider.unregister());
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-standalone-web-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
@@ -331,7 +331,7 @@ describe('standalone web session host production entry', () => {
   });
 
   it('rehydrates a settled digest offer and feedback continuation after reconnect', async () => {
-    const faux = registerKeptFauxProvider('standalone-web-digest', 'Standalone opening turn.');
+    const faux = await registerKeptFauxProvider('standalone-web-digest', 'Standalone opening turn.');
     cleanups.push(() => faux.provider.unregister());
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-standalone-web-'));
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
