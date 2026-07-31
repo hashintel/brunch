@@ -192,39 +192,42 @@
       "local_id": 16,
       "plane": "intent",
       "kind": "decision",
-      "title": "AEAD additional data: all five operational fields bound into AAD",
-      "body": "The AES-GCM encrypt and decrypt operations include all five operational fields as additional authenticated data: drop id, filename, MIME type, file size (bytes), and expiry timestamp. Any server-side modification to these fields causes decryption to fail. The fields are stored in plaintext on the server but their integrity is enforced by the ciphertext tag.",
+      "title": "Drop identifier and AAD: browser generates UUID v4 before encryption; all five operational fields are bound",
+      "body": "Before encryption, the browser generates the drop id with crypto.randomUUID() and selects the expiry timestamp. The AES-GCM encrypt and decrypt operations include all five operational fields as additional authenticated data: drop id, filename, MIME type, file size (bytes), and expiry timestamp. POST /drops carries that same drop id. The server validates canonical UUID v4 syntax, stores the client-supplied id unchanged as the primary key, and returns 409 on collision; it never substitutes an id after encryption. Any server-side modification to an AAD field causes decryption to fail.",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
       "detail": {
-        "chosen_option": "All five fields: drop id + filename + MIME type + file size + expiry timestamp",
+        "chosen_option": "Browser-generated UUID v4 before encryption; all five fields bound as AAD; server validates and rejects collisions",
         "rejected": [
+          "Server-generated id after upload (the browser cannot bind an unknown id into AAD)",
+          "Two-step server reservation endpoint (adds a round-trip and lifecycle state without a security benefit)",
           "Drop id + expiry only",
           "Drop id only"
         ],
-        "rationale": "Strictest option with no implementation cost. Protects against the server silently extending expiry, substituting a different filename or MIME type, or swapping ciphertexts between drops. Aligns with the honest-but-curious threat model at zero extra cost."
+        "rationale": "Client generation preserves the single-POST flow and makes the id available before encryption. UUID v4 collision risk is negligible, while server-side validation and primary-key uniqueness preserve the trust boundary. Binding all five fields prevents expiry, filename, MIME-type, size, or cross-drop substitution."
       }
     },
     {
       "local_id": 17,
       "plane": "intent",
       "kind": "decision",
-      "title": "Tooling stack: Vite + Express + better-sqlite3",
-      "body": "React/TS frontend uses Vite as build tool. Node.js/TS backend uses Express as the server framework. SQLite is accessed via better-sqlite3 (synchronous API, no native-module setup friction).",
+      "title": "Tooling and test stack: Vite + Vitest + Express + better-sqlite3",
+      "body": "React/TS frontend uses Vite as build tool. Vitest is the single test runner and package.json maps npm test to vitest --run. Crypto-envelope tests use real Web Crypto in the Node test environment; React component tests use jsdom and mock the narrow crypto adapter rather than passing cross-realm ArrayBuffer values into real SubtleCrypto. Express integration tests run under Vitest with Supertest. Node.js/TS backend uses Express, and SQLite is accessed via better-sqlite3.",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
       "detail": {
-        "chosen_option": "Vite (frontend build) + Express (backend framework) + better-sqlite3 (SQLite driver)",
+        "chosen_option": "Vite (frontend build) + Vitest (test runner) + Express/Supertest (backend and integration tests) + better-sqlite3 (SQLite driver)",
         "rejected": [
           "Create React App (deprecated, slower)",
+          "Jest (duplicates Vite transforms and configuration)",
           "Fastify (more setup for minimal gain in demo context)",
           "Hono (less familiar, edge-first)",
           "Drizzle ORM (over-engineering for a small schema)",
           "node:sqlite Node 22 built-in (newer, less documented API)"
         ],
-        "rationale": "Lowest-friction combination for a bounded local demo. Vite outputs a clean dist/ the backend can serve. Express is minimal and widely understood. better-sqlite3 synchronous API suits a single-process demo with deterministic tests."
+        "rationale": "Vitest shares Vite's TypeScript transform path and makes npm test actionable from a greenfield repository. Separating real crypto tests from jsdom component tests avoids cross-realm WebCrypto failures. Express is minimal and widely understood; better-sqlite3 suits a single-process demo with deterministic tests."
       }
     },
     {
@@ -269,7 +272,7 @@
       "plane": "oracle",
       "kind": "vv_method",
       "title": "Project execution harness",
-      "body": "execute.verify: npm test",
+      "body": "execute.verify: npm test\nTest runner contract: package.json script \"test\": \"vitest --run\".",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
@@ -280,7 +283,7 @@
       "plane": "intent",
       "kind": "story",
       "title": "Sender shares an encrypted file and optional note via a capability link",
-      "body": "1. Sender opens the application in a browser.\n2. Sender selects one file (≤ 10 MB) and optionally types a short note.\n3. The browser generates a random AES-GCM key (256-bit) and 12-byte nonce via Web Crypto API.\n4. The browser serialises the file bytes and note text into a bundle and encrypts it; AAD = drop id + filename + MIME type + file size + expiry.\n5. The browser uploads the ciphertext, nonce, and plaintext AAD fields to the server.\n6. The server stores the drop and returns a raw revocation token.\n7. The browser presents the sender with a recipient share link and a separate revocation link.\n8. Sender can use the revocation link to delete the drop before expiry.",
+      "body": "1. Sender opens the application in a browser.\n2. Sender selects one file (≤ 10 MB) and optionally types a short note.\n3. Before encryption, the browser generates the drop id with crypto.randomUUID(), selects the expiry timestamp, and generates a random AES-GCM key (256-bit) plus 12-byte nonce via Web Crypto API.\n4. The browser serialises the file bytes and note text into a bundle and encrypts it; AAD = drop id + filename + MIME type + file size + expiry.\n5. The browser uploads the client-generated drop id, ciphertext, nonce, and plaintext AAD fields to the server in one POST.\n6. The server validates and stores the drop, returning the same drop id and a raw revocation token; malformed ids fail with 400 and collisions fail with 409.\n7. The browser presents the sender with a recipient share link and a separate revocation link.\n8. Sender can use the revocation link to delete the drop before expiry.",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
@@ -301,8 +304,8 @@
       "local_id": 23,
       "plane": "intent",
       "kind": "requirement",
-      "title": "Browser encrypts file+note bundle with AES-GCM-256; AAD = drop id + filename + MIME type + file size + expiry",
-      "body": "The encrypt operation uses SubtleCrypto.encrypt with AES-GCM, a 256-bit key, a 12-byte random nonce from crypto.getRandomValues, and AAD composed of all five operational fields serialised deterministically. The same AAD is reconstructed from server-returned fields at decrypt time.",
+      "title": "Browser generates the drop id before AES-GCM-256 encryption and binds all five operational fields into AAD",
+      "body": "The browser generates a UUID v4 drop id with crypto.randomUUID() before encryption. SubtleCrypto.encrypt uses AES-GCM, a 256-bit key, a 12-byte random nonce from crypto.getRandomValues, and AAD composed of the drop id, filename, MIME type, file size, and expiry timestamp serialised deterministically. POST /drops transmits the same drop id, and decryption reconstructs the same AAD from server-returned fields.",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
@@ -310,13 +313,14 @@
         "form": "gherkin",
         "given": [
           "a file and optional note are ready for upload",
+          "a UUID v4 drop id has been generated with crypto.randomUUID()",
           "a 256-bit key and 12-byte nonce have been generated via Web Crypto API"
         ],
         "when": [
           "the browser calls SubtleCrypto.encrypt with the bundle plaintext and the five-field AAD"
         ],
         "then": [
-          "the ciphertext and nonce are uploaded",
+          "the client-generated drop id, ciphertext, nonce, and plaintext AAD fields are uploaded in one POST",
           "the plaintext bundle is not transmitted",
           "the key is not transmitted"
         ]
@@ -471,7 +475,7 @@
       "plane": "design",
       "kind": "module",
       "title": "Backend API module (Express + SQLite)",
-      "body": "Node.js/TypeScript Express server responsible for:\n- 10 MB upload ceiling enforced before body processing.\n- Generating drop id and raw revocation token via crypto.randomBytes.\n- Storing SHA-256(revocation_token) per drop; never storing the raw token.\n- SQLite schema (better-sqlite3): drops table — id TEXT PK, ciphertext BLOB, nonce BLOB, filename TEXT, mime_type TEXT, file_size INTEGER, expires_at INTEGER (Unix ms), revocation_hash TEXT, revoked INTEGER DEFAULT 0, created_at INTEGER.\n- GET /drops/:id: check expires_at and revoked before returning ciphertext + nonce + AAD fields.\n- DELETE /drops/:id: verify SHA-256(presented_token) = stored hash; set revoked = 1.\n- Content-Disposition: attachment on download responses.\n- Filename sanitisation: strip path separators, bound length to 255 bytes.\n- Serve Vite dist/ as static files in production.",
+      "body": "Node.js/TypeScript Express server responsible for:\n- 10 MB upload ceiling enforced before body processing.\n- Validating the client-supplied drop id as canonical UUID v4, storing it unchanged, returning 400 for malformed ids and 409 for primary-key collisions.\n- Generating only the raw revocation token via crypto.randomBytes.\n- Storing SHA-256(revocation_token) per drop; never storing the raw token.\n- SQLite schema (better-sqlite3): drops table — id TEXT PK, ciphertext BLOB, nonce BLOB, filename TEXT, mime_type TEXT, file_size INTEGER, expires_at INTEGER (Unix ms), revocation_hash TEXT, revoked INTEGER DEFAULT 0, created_at INTEGER.\n- GET /drops/:id: check expires_at and revoked before returning ciphertext + nonce + AAD fields.\n- DELETE /drops/:id: verify SHA-256(presented_token) = stored hash; set revoked = 1.\n- Content-Disposition: attachment on download responses.\n- Filename sanitisation: strip path separators, bound length to 255 bytes.\n- Serve Vite dist/ as static files in production.",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
@@ -482,7 +486,7 @@
       "plane": "design",
       "kind": "module",
       "title": "Frontend sender module (React)",
-      "body": "React/TypeScript sender-flow components:\n- File picker (single file, client-side 10 MB pre-check).\n- Note textarea (plain text).\n- Upload button: calls crypto envelope module to encrypt, then POST /drops.\n- Result view: copiable recipient link and revocation link.\n- Revocation action: DELETE /drops/:id; confirmation message.\n- Error states for upload failure and revocation failure.",
+      "body": "React/TypeScript sender-flow components:\n- File picker (single file, client-side 10 MB pre-check).\n- Note textarea (plain text).\n- Upload button: generates drop id with crypto.randomUUID() and selects expiry before calling the crypto envelope module, then POSTs the id and encrypted envelope to /drops.\n- Result view: copiable recipient link and revocation link.\n- Revocation action: DELETE /drops/:id; confirmation message.\n- Error states for malformed request, id collision, upload failure, and revocation failure.",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
@@ -504,7 +508,7 @@
       "plane": "design",
       "kind": "interface",
       "title": "Drop API",
-      "body": "POST /drops\n  Body: { ciphertext: base64, nonce: base64, filename: string, mimeType: string, fileSize: number, expiresAt: ISO8601 }\n  Response 201: { dropId: string, revocationToken: string }\n  Response 400: malformed request\n  Response 413: payload exceeds 10 MB\n\nGET /drops/:id\n  Response 200: { ciphertext: base64, nonce: base64, filename: string, mimeType: string, fileSize: number, expiresAt: ISO8601 }\n  Response 404/410: not found, expired, or revoked\n\nDELETE /drops/:id\n  Body: { revocationToken: string }\n  Response 204: revoked\n  Response 401: token mismatch\n  Response 404: drop not found",
+      "body": "POST /drops\n  Body: { dropId: UUIDv4, ciphertext: base64, nonce: base64, filename: string, mimeType: string, fileSize: number, expiresAt: ISO8601 }\n  Response 201: { dropId: string, revocationToken: string }\n  Response 400: malformed request or non-canonical/non-v4 drop id\n  Response 409: drop id already exists\n  Response 413: payload exceeds 10 MB\n\nGET /drops/:id\n  Response 200: { ciphertext: base64, nonce: base64, filename: string, mimeType: string, fileSize: number, expiresAt: ISO8601 }\n  Response 404/410: not found, expired, or revoked\n\nDELETE /drops/:id\n  Body: { revocationToken: string }\n  Response 204: revoked\n  Response 401: token mismatch\n  Response 404: drop not found",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
@@ -689,7 +693,7 @@
       "plane": "plan",
       "kind": "scope",
       "title": "Scope: Crypto envelope",
-      "body": "Implements the browser-side crypto envelope module (d-mod-crypto):\n- Bundle serialisation / deserialisation.\n- AES-GCM-256 key + nonce generation.\n- SubtleCrypto.encrypt / SubtleCrypto.decrypt with five-field AAD.\n- Base64url key transport.\n- Unit tests: round-trip byte-identity, tamper detection per AAD field, wrong-key rejection.\n\nNo server dependency. Can be built and tested independently.",
+      "body": "Implements the browser-side crypto envelope module (d-mod-crypto):\n- Bundle serialisation / deserialisation.\n- AES-GCM-256 key + nonce generation.\n- SubtleCrypto.encrypt / SubtleCrypto.decrypt with five-field AAD supplied by the caller, including the already-generated drop id.\n- Base64url key transport.\n- Vitest unit tests with real Node Web Crypto: round-trip byte-identity, tamper detection per AAD field, wrong-key rejection.\n\nNo server dependency. Can be built and tested independently.",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
@@ -700,7 +704,7 @@
       "plane": "plan",
       "kind": "scope",
       "title": "Scope: Backend core",
-      "body": "Implements the Express server and SQLite persistence (d-mod-backend):\n- Schema, migrations (better-sqlite3 synchronous DDL).\n- POST /drops, GET /drops/:id, DELETE /drops/:id.\n- Expiry and revocation enforcement.\n- 10 MB ceiling, filename sanitisation, Content-Disposition.\n- Controlled clock injection for expiry tests.\n- Integration tests for all six server-level acceptance criteria.\n\nRequires stable AAD field contract from Scope: Crypto envelope.",
+      "body": "Implements the Express server and SQLite persistence (d-mod-backend):\n- Schema, migrations (better-sqlite3 synchronous DDL).\n- POST /drops validates and stores the client-generated UUID v4; malformed ids return 400 and collisions return 409.\n- GET /drops/:id and DELETE /drops/:id.\n- Expiry and revocation enforcement.\n- 10 MB ceiling, filename sanitisation, Content-Disposition.\n- Controlled clock injection for expiry tests.\n- Vitest + Supertest integration tests for server-level acceptance criteria, including UUID validation and collision handling.\n\nRequires stable AAD field contract from Scope: Crypto envelope.",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
@@ -711,7 +715,7 @@
       "plane": "plan",
       "kind": "scope",
       "title": "Scope: Frontend sender flow",
-      "body": "Implements d-mod-sender:\n- File picker, note textarea, Upload button.\n- Client-side 10 MB pre-check.\n- Encrypt via Scope: Crypto envelope module API; POST to Scope: Backend core.\n- Display recipient link and revocation link.\n- Revocation action.\n\nDepends on: Scope: Crypto envelope (module API stable), Scope: Backend core (API contract stable).",
+      "body": "Implements d-mod-sender:\n- File picker, note textarea, Upload button.\n- Client-side 10 MB pre-check.\n- Generate UUID v4 drop id and select expiry before encryption.\n- Encrypt via Scope: Crypto envelope module API; POST the same id and envelope to Scope: Backend core.\n- Display recipient link and revocation link.\n- Revocation action.\n- Vitest/jsdom component tests mock the narrow crypto adapter; real Web Crypto remains covered by the crypto-envelope scope.\n\nDepends on: Scope: Crypto envelope (module API stable), Scope: Backend core (API contract stable).",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
@@ -733,7 +737,7 @@
       "plane": "plan",
       "kind": "scope",
       "title": "Scope: End-to-end verification",
-      "body": "Implements the full test suite targeting npm test:\n- Deterministic fixture files with unique plaintext sentinels.\n- Full upload-download round-trip (byte-identical + exact note).\n- Sentinel absence check (SQLite, logs, requests).\n- Expiry enforcement (controlled clock).\n- Revocation enforcement.\n- Tamper tests (ciphertext, nonce, each of five AAD fields).\n- 413 on oversized upload.\n- Fragment not-sent verification (request capture).\n- Build verification: npm run build produces a servable dist/.\n\nDepends on: all prior scopes.",
+      "body": "Implements the full Vitest suite targeting npm test (vitest --run):\n- Deterministic fixture files with unique plaintext sentinels.\n- Full upload-download round-trip (byte-identical + exact note).\n- Client-generated drop id is identical in POST body, stored row, response, share link, and decrypted AAD.\n- Malformed/non-v4 ids return 400; duplicate ids return 409 without replacing the stored row.\n- Sentinel absence check (SQLite, logs, requests).\n- Expiry enforcement (controlled clock).\n- Revocation enforcement.\n- Tamper tests (ciphertext, nonce, each of five AAD fields).\n- 413 on oversized upload.\n- Fragment not-sent verification (request capture).\n- Build verification: npm run build produces a servable dist/.\n\nDepends on: all prior scopes.",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
@@ -757,7 +761,7 @@
       "plane": "plan",
       "kind": "scope",
       "title": "Scope: Frontend (sender + recipient)",
-      "body": "Merged scope implementing both the sender flow (MOD3) and recipient flow (MOD4):\n- Sender: file picker, note textarea, client-side 10 MB pre-check, upload orchestration via the crypto envelope module, result view with copiable recipient and revocation links, revocation action.\n- Recipient: fragment/drop-id extraction, fetch via the Drop API, decryption via the crypto envelope module, plain-text note render, Blob-URL download, generic failure display.\n- Fragment (decryption key) is never forwarded in any request from either flow.\n\nDepends on: Scope: Crypto envelope (module API stable), Scope: Backend core (API contract stable).",
+      "body": "Merged scope implementing both the sender flow (MOD3) and recipient flow (MOD4):\n- Sender: file picker, note textarea, client-side 10 MB pre-check, UUID v4 generation before encryption, upload orchestration via the crypto envelope module, result view with copiable recipient and revocation links, revocation action.\n- Recipient: fragment/drop-id extraction, fetch via the Drop API, decryption via the crypto envelope module, plain-text note render, Blob-URL download, generic failure display.\n- Fragment (decryption key) is never forwarded in any request from either flow.\n- Vitest/jsdom component tests mock the crypto adapter; crypto-envelope tests exercise real Web Crypto separately.\n\nDepends on: Scope: Crypto envelope (module API stable), Scope: Backend core (API contract stable).",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
@@ -768,7 +772,7 @@
       "plane": "oracle",
       "kind": "vv_method",
       "title": "Project execution harness",
-      "body": "execute.setup: npm install\nexecute.build: npm run build\nexecute.verify: npm test",
+      "body": "execute.setup: npm install\nexecute.build: npm run build\nexecute.verify: npm test\nTest runner contract: package.json script \"test\": \"vitest --run\".",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
