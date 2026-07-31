@@ -13,7 +13,8 @@
       "body": "A creator opens a two-person room, shares one single-use invite, and exchanges authenticated encrypted text with the peer in real time or after either browser reconnects.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 2,
@@ -23,7 +24,8 @@
       "body": "Browsers exclusively own plaintext, ECDH private keys, derived message keys, encryption, and decryption. The server coordinates lifecycle and delivery using public handshake material, capability hashes, and ciphertext.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 3,
@@ -33,7 +35,8 @@
       "body": "The local demo contains a Vite React client, a Node backend, and SQLite persistence. The built application is complete and runnable without ambient repository files.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 4,
@@ -43,7 +46,8 @@
       "body": "A room has fixed creator and peer roles. The first valid peer claim atomically consumes the invite; every later claimant fails. Groups, reusable invitations, accounts, and multi-device identity are out of scope.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 5,
@@ -53,7 +57,8 @@
       "body": "The server enforces a fixed 24-hour room lifetime. The creator may revoke earlier with a capability that cannot be derived from the invite or participant access capability.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 6,
@@ -63,7 +68,8 @@
       "body": "The implementation uses Web Crypto P-256 ECDH, HKDF-SHA-256, AES-256-GCM, SHA-256, and crypto.getRandomValues. It must not invent cryptographic primitives or use Math.random for security material.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 7,
@@ -73,7 +79,8 @@
       "body": "Dependency installation may use the package registry, but the local application and its verification run entirely through the authored frontend, backend, browser, and SQLite processes.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 8,
@@ -83,7 +90,8 @@
       "body": "Wrong or consumed invitations, modified envelope fields, duplicate message ids, invalid sequences, expired rooms, and revoked rooms never expose partial plaintext, advance receive state incorrectly, or corrupt persisted server state.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 9,
@@ -93,7 +101,8 @@
       "body": "All actions work by keyboard, focus is visible, connection and delivery changes are announced, color is not the only status signal, revocation is confirmed, and decrypted user content renders as text rather than executable markup.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 10,
@@ -103,7 +112,8 @@
       "body": "Honest-but-curious service or storage operator, accidental server-side disclosure, database or log inspection, guessed opaque room identifiers without a capability, malformed clients, replay, duplicate delivery, and stored content injection.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 11,
@@ -113,7 +123,8 @@
       "body": "A malicious handshake server, compromised endpoint, leaked invite before claim, participant disclosure, traffic analysis, metadata hiding, forward secrecy, post-compromise recovery, groups, attachments, reactions, replies, editing, search, read receipts, and cloud deployment are out of scope.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 12,
@@ -322,7 +333,8 @@
       "body": "As a creator, I can open an encrypted room, copy one invite, see when it is claimed, and retain separate access and revocation authority in this browser.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 24,
@@ -332,7 +344,8 @@
       "body": "As the invited peer, I can verify the creator fingerprint, claim the single peer slot, and establish matching directional message keys without the server learning those keys.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 25,
@@ -342,7 +355,8 @@
       "body": "As either participant, I can send text, see envelope delivery state, disconnect, reconnect in the same browser, and recover ordered messages without duplicate rendering.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 26,
@@ -352,7 +366,8 @@
       "body": "As the creator, I can revoke the room irreversibly. As either participant, I see a clear closed state when the room is revoked or reaches its 24-hour expiry.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 27,
@@ -492,7 +507,8 @@
       "body": "Owns repository bootstrap, Vite and Express entry points, SQLite initialization, same-origin development proxies, production static serving, and the authored command surface.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 38,
@@ -502,7 +518,8 @@
       "body": "Owns IndexedDB room-private state, key generation/import, creator fingerprint verification, claim inputs, peer public-key observation, and directional key derivation.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 39,
@@ -512,7 +529,8 @@
       "body": "Owns message schema validation, deterministic AAD encoding, AES-GCM encrypt/decrypt, id/sequence/nonce validation, replay checks, and safe decryption failures.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 40,
@@ -522,7 +540,8 @@
       "body": "Owns room creation, atomic peer claim, capability authorization, public handshake material, controlled-clock expiry, revocation, and safe lifecycle errors.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 41,
@@ -532,7 +551,8 @@
       "body": "Owns ordered ciphertext persistence, uniqueness constraints, cursor reads, first-frame socket authorization, commit-before-fan-out, acknowledgements, and socket closure.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 42,
@@ -542,7 +562,8 @@
       "body": "Owns create, invite, active-room, reconnect, closed-room, and unrecoverable-key route states. It consumes narrow client interfaces and never manipulates raw cryptographic material directly.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 43,
@@ -552,7 +573,8 @@
       "body": "POST /api/rooms; GET /api/rooms/:roomId/handshake; POST /api/rooms/:roomId/claim; GET /api/rooms/:roomId/messages?after=<cursor>; POST /api/rooms/:roomId/revoke. Access and revocation capabilities use authorization headers.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 44,
@@ -562,7 +584,8 @@
       "body": "The /ws connection authenticates with a first client frame, then carries encrypted envelope submissions, committed peer deliveries, receipt acknowledgements, delivery updates, and terminal lifecycle closure events.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 45,
@@ -572,7 +595,8 @@
       "body": "The walking skeleton proves Vite, Express, SQLite, /api, and /ws work through authored commands rather than direct test-only adapters.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 46,
@@ -582,7 +606,8 @@
       "body": "Real Web Crypto vectors prove creator-send equals peer-receive and peer-send equals creator-receive. Changing ciphertext, nonce, room, message id, sender, or sequence produces no plaintext.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 47,
@@ -592,7 +617,8 @@
       "body": "Concurrent claims produce one accepted peer. A controlled clock and creator revocation capability prove consistent rejection for later claim, history, send, and active socket operations.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 48,
@@ -602,7 +628,8 @@
       "body": "Committed live envelopes reach the peer, peer receipt updates delivered state, offline envelopes return in cursor order, and reconnect creates no gap or duplicate render.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 49,
@@ -612,7 +639,8 @@
       "body": "Create, claim, active room, reconnect, expiry, revocation, and unrecoverable-key states pass keyboard and accessibility checks. Connection/delivery changes announce without stealing focus and decrypted text cannot execute markup.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 50,
@@ -622,7 +650,8 @@
       "body": "A two-real-browser exchange succeeds, yet a post-run scan finds no participant plaintext on any server-side surface. Wrong keys, replay, and adversarial envelopes also fail closed.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 51,
@@ -632,7 +661,8 @@
       "body": "execute.setup: npm install\nexecute.build: npm run build\nexecute.verify: npm test",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 52,
@@ -642,7 +672,8 @@
       "body": "Deliver the complete local accountless two-person encrypted messenger through six vertical scopes, ending with real-browser security evidence.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 53,
@@ -652,7 +683,8 @@
       "body": "Build the Vite secure-terminal shell, Express server, WebSocket endpoint, SQLite bootstrap, dev proxies, production serving, ignored generated artifacts, and two-browser connectivity smoke test.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 54,
@@ -662,7 +694,8 @@
       "body": "Build client vault/handshake and envelope codec boundaries with real Web Crypto directional vectors, schema validation, authenticated metadata, replay rules, and tamper tests.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 55,
@@ -672,7 +705,8 @@
       "body": "Build room persistence and HTTP create, handshake, atomic claim, authorization, expiry, and revocation operations with a controlled clock.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 56,
@@ -682,7 +716,8 @@
       "body": "Build first-frame socket authorization, commit-before-fan-out, delivery acknowledgements, ordered HTTP cursor catch-up, reconnect, and deduplication.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 57,
@@ -692,7 +727,8 @@
       "body": "Build create, invite, claim, active-room, reconnect, expiry, revocation, unrecoverable-key, and safe failure states in the approved Nullwire shell.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 58,
@@ -702,7 +738,8 @@
       "body": "Integrate two real browser contexts, controlled clock, unique sentinel scanning, adversarial envelope mutation, clean setup/test/build commands, and final UI verification.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
     },
     {
       "local_id": 59,
@@ -712,7 +749,39 @@
       "body": "Owns two isolated real-browser contexts, controlled time, HTTP and WebSocket capture, SQLite/log/file sentinel scanning, adversarial envelope mutation, and clean-checkout command execution.",
       "basis": "explicit",
       "settlement": "settled",
-      "source": ".fixtures/seeds/nullwire/README.md"
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": null
+    },
+    {
+      "local_id": 60,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Test runner: Vitest invoked directly by the harness",
+      "body": "Nullwire uses Vitest as its test runner. Vitest is declared in devDependencies so that npm install alone provisions it, satisfying CON5's prohibition on external runtime services. The execution harness invokes the runner directly rather than through a package.json test script, so verification does not depend on per-slice script authoring. Node's built-in --test runner is rejected: the execution runtime does not honour --test with a directory argument and instead resolves the argument as a module path, producing a synthetic failure while running no tests.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "chosen_option": "Vitest, declared as a devDependency and invoked directly by the harness recipe as `npx vitest run`.",
+        "rejected": [
+          "node --test test/ — the execution runtime does not support the directory form and fails to resolve the path, as observed in run-ms87pqq1",
+          "Delegating to a package.json \"test\" script — leaves the runner to per-slice agent authoring, which is what failed",
+          "Jest — heavier configuration burden and no reuse of the existing Vite transform pipeline committed in D7",
+          "Globally installed or network-fetched runner — conflicts with CON5's no-external-runtime-services constraint"
+        ],
+        "rationale": "Vitest reuses the Vite pipeline already committed in D7, arrives through npm install so CON5 holds, and invoking it directly from the harness makes verification identical across all six scopes regardless of what an implementing agent writes into package.json."
+      }
+    },
+    {
+      "local_id": 61,
+      "plane": "oracle",
+      "kind": "vv_method",
+      "title": "Project execution harness",
+      "body": "execute.setup: npm install\nexecute.build: npm run build\nexecute.verify: npx vitest run",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
     }
   ],
   "edges": [
@@ -720,6 +789,7 @@
       "category": "refinement",
       "source_local_id": 1,
       "target_local_id": 2,
+      "stance": null,
       "basis": "explicit",
       "settlement": "settled",
       "rationale": "The ciphertext-only service boundary refines the accountless messaging goal."
@@ -728,736 +798,946 @@
       "category": "refinement",
       "source_local_id": 1,
       "target_local_id": 23,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "refinement",
       "source_local_id": 1,
       "target_local_id": 24,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "refinement",
       "source_local_id": 1,
       "target_local_id": 25,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "refinement",
       "source_local_id": 1,
       "target_local_id": 26,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 2,
       "target_local_id": 6,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 2,
       "target_local_id": 8,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 2,
       "target_local_id": 10,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 3,
       "target_local_id": 36,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 4,
       "target_local_id": 28,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 5,
       "target_local_id": 33,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 6,
       "target_local_id": 29,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 6,
       "target_local_id": 30,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 7,
       "target_local_id": 36,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 8,
       "target_local_id": 32,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 8,
       "target_local_id": 34,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 9,
       "target_local_id": 35,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 12,
       "target_local_id": 35,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 13,
       "target_local_id": 28,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 13,
       "target_local_id": 29,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 14,
       "target_local_id": 29,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 14,
       "target_local_id": 30,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 15,
       "target_local_id": 29,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 16,
       "target_local_id": 27,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 16,
       "target_local_id": 28,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 16,
       "target_local_id": 33,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 17,
       "target_local_id": 31,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 17,
       "target_local_id": 32,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 18,
       "target_local_id": 36,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 19,
       "target_local_id": 30,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 20,
       "target_local_id": 30,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 21,
       "target_local_id": 35,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 22,
       "target_local_id": 36,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 23,
       "target_local_id": 27,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 24,
       "target_local_id": 28,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 24,
       "target_local_id": 29,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 25,
       "target_local_id": 30,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 25,
       "target_local_id": 31,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 25,
       "target_local_id": 32,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 26,
       "target_local_id": 33,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 40,
       "target_local_id": 43,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 41,
       "target_local_id": 44,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "refinement",
       "source_local_id": 36,
       "target_local_id": 45,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "refinement",
       "source_local_id": 29,
       "target_local_id": 46,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "refinement",
       "source_local_id": 30,
       "target_local_id": 46,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "refinement",
       "source_local_id": 28,
       "target_local_id": 47,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "refinement",
       "source_local_id": 33,
       "target_local_id": 47,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "refinement",
       "source_local_id": 31,
       "target_local_id": 48,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "refinement",
       "source_local_id": 32,
       "target_local_id": 48,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "refinement",
       "source_local_id": 35,
       "target_local_id": 49,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "refinement",
       "source_local_id": 34,
       "target_local_id": 50,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 52,
       "target_local_id": 53,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 52,
       "target_local_id": 54,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 52,
       "target_local_id": 55,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 52,
       "target_local_id": 56,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 52,
       "target_local_id": 57,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 52,
       "target_local_id": 58,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 53,
       "target_local_id": 54,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 53,
       "target_local_id": 55,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 54,
       "target_local_id": 56,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 55,
       "target_local_id": 56,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 56,
       "target_local_id": 57,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 54,
       "target_local_id": 58,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 55,
       "target_local_id": 58,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 56,
       "target_local_id": 58,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 57,
       "target_local_id": 58,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 36,
       "target_local_id": 53,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 29,
       "target_local_id": 54,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 30,
       "target_local_id": 54,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 27,
       "target_local_id": 55,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 28,
       "target_local_id": 55,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 33,
       "target_local_id": 55,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 31,
       "target_local_id": 56,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 32,
       "target_local_id": 56,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 35,
       "target_local_id": 57,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 34,
       "target_local_id": 58,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 37,
       "target_local_id": 53,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 38,
       "target_local_id": 54,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 39,
       "target_local_id": 54,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 40,
       "target_local_id": 55,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 43,
       "target_local_id": 55,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 41,
       "target_local_id": 56,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 44,
       "target_local_id": 56,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 42,
       "target_local_id": 57,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 37,
       "target_local_id": 53,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 38,
       "target_local_id": 54,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 39,
       "target_local_id": 54,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 40,
       "target_local_id": 55,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 43,
       "target_local_id": 55,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 41,
       "target_local_id": 56,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 44,
       "target_local_id": 56,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 42,
       "target_local_id": 57,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 43,
       "target_local_id": 58,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 44,
       "target_local_id": 58,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 51,
       "target_local_id": 53,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 51,
       "target_local_id": 54,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 51,
       "target_local_id": 55,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 51,
       "target_local_id": 56,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 51,
       "target_local_id": 57,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 51,
       "target_local_id": 58,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 45,
       "target_local_id": 53,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 46,
       "target_local_id": 54,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 47,
       "target_local_id": 55,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 48,
       "target_local_id": 56,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 49,
       "target_local_id": 57,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 50,
       "target_local_id": 58,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "witness",
@@ -1465,7 +1745,8 @@
       "target_local_id": 53,
       "stance": "for",
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "witness",
@@ -1473,7 +1754,8 @@
       "target_local_id": 54,
       "stance": "for",
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "witness",
@@ -1481,7 +1763,8 @@
       "target_local_id": 55,
       "stance": "for",
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "witness",
@@ -1489,7 +1772,8 @@
       "target_local_id": 56,
       "stance": "for",
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "witness",
@@ -1497,7 +1781,8 @@
       "target_local_id": 57,
       "stance": "for",
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "witness",
@@ -1505,89 +1790,113 @@
       "target_local_id": 58,
       "stance": "for",
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 53,
       "target_local_id": 37,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 54,
       "target_local_id": 38,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 54,
       "target_local_id": 39,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 55,
       "target_local_id": 40,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 55,
       "target_local_id": 43,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 56,
       "target_local_id": 41,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 56,
       "target_local_id": 44,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 57,
       "target_local_id": 42,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "composition",
       "source_local_id": 58,
       "target_local_id": 59,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "realization",
       "source_local_id": 59,
       "target_local_id": 58,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 59,
       "target_local_id": 58,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 36,
       "target_local_id": 29,
+      "stance": null,
       "basis": "explicit",
       "settlement": "settled",
       "rationale": "The cryptographic scope builds on the authored runtime and repository shell."
@@ -1596,6 +1905,7 @@
       "category": "dependency",
       "source_local_id": 36,
       "target_local_id": 27,
+      "stance": null,
       "basis": "explicit",
       "settlement": "settled",
       "rationale": "Room lifecycle builds on the initialized runtime, database, and HTTP shell."
@@ -1604,6 +1914,7 @@
       "category": "dependency",
       "source_local_id": 29,
       "target_local_id": 31,
+      "stance": null,
       "basis": "explicit",
       "settlement": "settled",
       "rationale": "Encrypted transport requires stable directional key derivation."
@@ -1612,6 +1923,7 @@
       "category": "dependency",
       "source_local_id": 27,
       "target_local_id": 31,
+      "stance": null,
       "basis": "explicit",
       "settlement": "settled",
       "rationale": "Encrypted transport requires the room lifecycle and participant authorization material."
@@ -1620,6 +1932,7 @@
       "category": "dependency",
       "source_local_id": 31,
       "target_local_id": 35,
+      "stance": null,
       "basis": "explicit",
       "settlement": "settled",
       "rationale": "The complete UI integrates against the settled realtime delivery seam."
@@ -1628,30 +1941,136 @@
       "category": "dependency",
       "source_local_id": 29,
       "target_local_id": 34,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 27,
       "target_local_id": 34,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 31,
       "target_local_id": 34,
+      "stance": null,
       "basis": "explicit",
-      "settlement": "settled"
+      "settlement": "settled",
+      "rationale": null
     },
     {
       "category": "dependency",
       "source_local_id": 35,
       "target_local_id": 34,
+      "stance": null,
       "basis": "explicit",
       "settlement": "settled",
       "rationale": "The final security witness exercises crypto, lifecycle, transport, and UI through the ciphertext-only boundary."
+    },
+    {
+      "category": "supersession",
+      "source_local_id": 61,
+      "target_local_id": 51,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "VV1's verify line delegated to an unpinned npm test script that proved unrunnable under the execution runtime; the successor invokes the committed runner directly."
+    },
+    {
+      "category": "rationale",
+      "source_local_id": 60,
+      "target_local_id": 61,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The harness verify line invokes exactly the runner fixed by the runner decision."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 61,
+      "target_local_id": 53,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Walking skeleton is verified through the project execution harness."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 61,
+      "target_local_id": 54,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Cryptographic envelope is verified through the project execution harness."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 61,
+      "target_local_id": 55,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Room lifecycle is verified through the project execution harness."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 61,
+      "target_local_id": 56,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Encrypted transport is verified through the project execution harness."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 61,
+      "target_local_id": 57,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Complete secure-terminal UI journeys are verified through the project execution harness."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 61,
+      "target_local_id": 58,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "End-to-end security witness is verified through the project execution harness."
+    },
+    {
+      "category": "rationale",
+      "source_local_id": 7,
+      "target_local_id": 60,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Requiring the runner as a devDependency rather than an ambient or fetched tool is what keeps the no-external-runtime-services constraint intact."
+    },
+    {
+      "category": "rationale",
+      "source_local_id": 18,
+      "target_local_id": 60,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The committed Vite tooling stack is the reason Vitest is the lowest-surface runner choice."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 54,
+      "target_local_id": 55,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Serializes room lifecycle after the cryptographic envelope. Observed in run-ms8o3uf6: SCP2's slice S3 and SCP3's slice S5 executed in parallel, both passed verification independently, and then collided on a content merge conflict in README.md, halting the run at slice_integrate. The two scopes have no domain-level ordering requirement, but sequencing them removes a deterministic integration race and lets room lifecycle build on settled envelope code."
     }
   ]
 }
