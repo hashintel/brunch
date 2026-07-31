@@ -1,7 +1,7 @@
 {
   "spec": {
-    "slug": "wisp",
-    "name": "Wisp — Secure Drop",
+    "slug": "wisp-secure-drop",
+    "name": "Wisp",
     "kind": "product"
   },
   "nodes": [
@@ -886,7 +886,7 @@
       "plane": "intent",
       "kind": "decision",
       "title": "Product name: Wisp",
-      "body": "The application is branded as \"Wisp\" throughout the UI (header, page title, footer) rather than the generic working title \"Secure Drop\". The name evokes something that leaves no trace, fitting the ephemeral, ciphertext-only sharing model.",
+      "body": "The application remains branded as \"Wisp\" throughout the terminal shell and page title. The canonical fixture slug is \"wisp-secure-drop\" so the reusable seed is self-describing without changing the product's established identity.",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
@@ -894,17 +894,18 @@
         "chosen_option": "Wisp",
         "rejected": [
           "Secure Drop (generic working title, not a product name)",
-          "Literal/descriptive names (e.g. CipherDrop, VaultShare) — less distinctive"
+          "Wisp Secure Drop (useful as a fixture description, but unnecessarily expands the product name)",
+          "Literal/descriptive names (e.g. CipherDrop, VaultShare) — less connected to the established Wisp identity"
         ],
-        "rationale": "A short, memorable, on-theme name gives the app a real identity for the UI shell (header, title, footer) rather than a generic placeholder."
+        "rationale": "Wisp stays short, memorable, and on-theme; the separate wisp-secure-drop fixture slug provides repository-level clarity."
       }
     },
     {
       "local_id": 58,
       "plane": "intent",
       "kind": "requirement",
-      "title": "Application presents a consistent branded app shell with header, tagline, and footer across sender and recipient views",
-      "body": "Both the sender and recipient routes share a consistent page shell: a header bar showing the \"Wisp\" name/wordmark and a short tagline (e.g. describing ephemeral encrypted sharing), a main content area for the active view, and a footer with minimal text. The visual treatment favors a clean, developer-tool aesthetic: card-based layout, subtle borders, a monospace accent for technical values (drop id, links), consistent with the existing CSS-module visual system (REQ9). The page <title> also reflects the Wisp name.",
+      "title": "Application uses a shared secure-terminal shell across sender and recipient views",
+      "body": "Both routes render a dark, command-line-inspired shell branded \"Wisp\": a monospace interface, green-on-near-black palette, subtle terminal borders, prompt-style labels, timestamped local-status lines, and a persistent security/status strip. The sender route presents file selection, optional note, expiry, local encryption progress, and drop creation as one terminal session. The recipient route presents capability recovery, ciphertext retrieval, local authentication/decryption status, file metadata, and download as the corresponding receive session. Cryptographic state is legible but not exposed as configurable controls. The shell is keyboard-first, responsive, uses visible focus, announces status changes accessibly, renders user content as text, and sets the page title to the product name.",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
@@ -916,8 +917,8 @@
       "local_id": 59,
       "plane": "intent",
       "kind": "criterion",
-      "title": "App shell renders the Wisp header/tagline/footer consistently on both sender and recipient routes, with the page title set",
-      "body": "Automated test asserts: the header contains the Wisp name and a tagline; a footer element is present; both are rendered identically on the sender route (/) and a recipient route (/d/:id); document.title contains \"Wisp\".",
+      "title": "Secure-terminal shell renders consistently and accessibly across sender and recipient routes",
+      "body": "Automated tests assert that both routes use the Wisp terminal shell, expose route-appropriate local security events and actions, preserve keyboard and screen-reader behavior, and set the product page title.",
       "basis": "explicit",
       "settlement": "settled",
       "source": null,
@@ -927,12 +928,14 @@
           "the application is rendered at the sender route and, separately, at a recipient route"
         ],
         "when": [
-          "the page shell mounts"
+          "the page shell mounts and the active workflow changes state"
         ],
         "then": [
-          "a header element containing the Wisp name and tagline is present on both routes",
-          "a footer element is present on both routes",
-          "document.title contains the Wisp name"
+          "both routes render the same dark monospace terminal frame with a Wisp prompt label and persistent security/status strip",
+          "the sender route exposes local encryption events plus command-styled file, note, expiry, and create-drop controls",
+          "the recipient route exposes capability, retrieval, authentication, and decryption events plus a command-styled download action",
+          "status changes are announced without moving focus, all actions remain keyboard operable with visible focus, and user-controlled filenames and notes render as text",
+          "document.title contains Wisp"
         ]
       }
     }
