@@ -1,0 +1,1657 @@
+{
+  "spec": {
+    "slug": "nullwire",
+    "name": "Nullwire",
+    "kind": "product"
+  },
+  "nodes": [
+    {
+      "local_id": 1,
+      "plane": "intent",
+      "kind": "goal",
+      "title": "Two people can exchange end-to-end encrypted text through an accountless room",
+      "body": "A creator opens a two-person room, shares one single-use invite, and exchanges authenticated encrypted text with the peer in real time or after either browser reconnects.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 2,
+      "plane": "intent",
+      "kind": "goal",
+      "title": "The service cannot derive message keys or read message content",
+      "body": "Browsers exclusively own plaintext, ECDH private keys, derived message keys, encryption, and decryption. The server coordinates lifecycle and delivery using public handshake material, capability hashes, and ciphertext.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 3,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "One npm repository with React and TypeScript, Node.js and TypeScript, and SQLite",
+      "body": "The local demo contains a Vite React client, a Node backend, and SQLite persistence. The built application is complete and runnable without ambient repository files.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 4,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Exactly two accountless participants and one single-use invite",
+      "body": "A room has fixed creator and peer roles. The first valid peer claim atomically consumes the invite; every later claimant fails. Groups, reusable invitations, accounts, and multi-device identity are out of scope.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 5,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Rooms expire after 24 hours and the creator has separate revocation authority",
+      "body": "The server enforces a fixed 24-hour room lifetime. The creator may revoke earlier with a capability that cannot be derived from the invite or participant access capability.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 6,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Browser cryptography uses Web Crypto authenticated primitives and cryptographic randomness",
+      "body": "The implementation uses Web Crypto P-256 ECDH, HKDF-SHA-256, AES-256-GCM, SHA-256, and crypto.getRandomValues. It must not invent cryptographic primitives or use Math.random for security material.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 7,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "The running application and tests use no external runtime services",
+      "body": "Dependency installation may use the package registry, but the local application and its verification run entirely through the authored frontend, backend, browser, and SQLite processes.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 8,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Invalid invites, tampering, replay, expiry, and revocation fail closed",
+      "body": "Wrong or consumed invitations, modified envelope fields, duplicate message ids, invalid sequences, expired rooms, and revoked rooms never expose partial plaintext, advance receive state incorrectly, or corrupt persisted server state.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 9,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "The secure-terminal interface is keyboard-first, accessible, and text-safe",
+      "body": "All actions work by keyboard, focus is visible, connection and delivery changes are announced, color is not the only status signal, revocation is confirmed, and decrypted user content renders as text rather than executable markup.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 10,
+      "plane": "intent",
+      "kind": "context",
+      "title": "In-scope threat model",
+      "body": "Honest-but-curious service or storage operator, accidental server-side disclosure, database or log inspection, guessed opaque room identifiers without a capability, malformed clients, replay, duplicate delivery, and stored content injection.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 11,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Out-of-scope threat model and features",
+      "body": "A malicious handshake server, compromised endpoint, leaked invite before claim, participant disclosure, traffic analysis, metadata hiding, forward secrecy, post-compromise recovery, groups, attachments, reactions, replies, editing, search, read receipts, and cloud deployment are out of scope.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 12,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Product name: Nullwire",
+      "body": "The accountless encrypted messenger is branded Nullwire in the page title, secure-terminal prompt, and room shell.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "chosen_option": "Nullwire",
+        "rejected": [
+          "Generic E2EE Messenger",
+          "Cipher",
+          "Secure Chat"
+        ],
+        "rationale": "Nullwire is short, memorable, and matches the developer-terminal visual direction without making unsupported security claims."
+      }
+    },
+    {
+      "local_id": 13,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Single-use pre-key ECDH handshake",
+      "body": "The creator publishes a P-256 public key and fingerprint. The peer verifies the fingerprint, contributes a peer public key, and atomically redeems the one-time invite. Both browsers derive the shared secret independently.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "chosen_option": "Single-use invite plus P-256 ECDH pre-key handshake",
+        "rejected": [
+          "Shared symmetric room key directly in the URL fragment",
+          "Signal-style ratcheting protocol"
+        ],
+        "rationale": "The pre-key approach avoids placing the final room key in the invite while remaining bounded enough for a deterministic local demo."
+      }
+    },
+    {
+      "local_id": 14,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Cryptographic primitives: P-256 ECDH, HKDF-SHA-256, and AES-256-GCM",
+      "body": "Web Crypto derives a shared ECDH secret, expands it through HKDF-SHA-256, and encrypts each message independently with AES-256-GCM and a random 96-bit nonce.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "chosen_option": "Web Crypto P-256 ECDH + HKDF-SHA-256 + AES-256-GCM",
+        "rejected": [
+          "Custom cryptographic construction",
+          "Transport encryption without browser-to-browser message encryption"
+        ],
+        "rationale": "These platform primitives provide authenticated encryption and interoperable key agreement without introducing custom cryptographic code."
+      }
+    },
+    {
+      "local_id": 15,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "HKDF yields static creator-to-peer and peer-to-creator keys",
+      "body": "HKDF expands the ECDH secret and invite-derived salt into two role-bound 32-byte keys. The room makes no forward-secrecy or post-compromise-recovery claim.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "chosen_option": "Two static directional room keys",
+        "rejected": [
+          "One shared bidirectional key",
+          "Per-message double ratchet"
+        ],
+        "rationale": "Directional keys prevent accidental cross-role nonce/key reuse while preserving the intentionally bounded no-ratchet protocol."
+      }
+    },
+    {
+      "local_id": 16,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "High-entropy capabilities are domain-separated, hashed at rest, and independently authorized",
+      "body": "Invite, creator-access, peer-access, and revocation capabilities are independent 32-byte values. SQLite stores SHA-256 domain-separated hashes only; raw values are presented transiently for authorization and redacted from logs.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "chosen_option": "Separate random capabilities with domain-separated SHA-256 hashes",
+        "rejected": [
+          "One capability reused for invite, access, and revocation",
+          "Plaintext capability storage"
+        ],
+        "rationale": "Independent authorities limit accidental privilege sharing, while high-entropy values make hash-at-rest verification appropriate without password hashing."
+      }
+    },
+    {
+      "local_id": 17,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "WebSocket live delivery plus HTTP cursor catch-up",
+      "body": "A first-frame-authenticated WebSocket carries committed ciphertext and delivery acknowledgements. Reconnecting clients fetch ordered envelopes after a cursor over HTTP before resuming live delivery.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "chosen_option": "WebSocket for live delivery and HTTP cursor endpoint for recovery",
+        "rejected": [
+          "Polling-only delivery",
+          "WebSocket-only delivery without persisted catch-up"
+        ],
+        "rationale": "The split keeps realtime behavior responsive while making offline recovery and deterministic ordering straightforward to verify."
+      }
+    },
+    {
+      "local_id": 18,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Tooling stack: Vite, React Router, Express, ws, and better-sqlite3",
+      "body": "The frontend uses Vite, React, TypeScript, React Router, and ordinary CSS. The backend uses Express and ws. SQLite access uses better-sqlite3.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "chosen_option": "Vite + React Router + Express + ws + better-sqlite3",
+        "rejected": [
+          "Managed realtime and database services",
+          "Separate frontend and backend repositories"
+        ],
+        "rationale": "This stack supports a zero-service local demo, a same-origin production build, deterministic tests, and a small explicit transport surface."
+      }
+    },
+    {
+      "local_id": 19,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Message envelope authenticates version, room, message id, sender role, and sequence",
+      "body": "Each envelope carries a random message id, sender role, monotonically increasing per-sender sequence, random nonce, and ciphertext. AES-GCM additional data is the fixed-order JSON array [version, roomId, messageId, senderRole, sequence].",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "chosen_option": "Fixed-order authenticated metadata array with per-sender sequence",
+        "rejected": [
+          "Unauthenticated routing metadata",
+          "Server timestamps as cryptographic ordering authority"
+        ],
+        "rationale": "Authenticated role and ordering metadata prevents ciphertext substitution across rooms, senders, ids, or sequence positions."
+      }
+    },
+    {
+      "local_id": 20,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Resource limits: 4,000 Unicode scalar values and 16 KiB encrypted envelopes",
+      "body": "Sender and receiver enforce a 1-to-4,000-scalar plaintext rule. The server independently rejects serialized encrypted envelopes larger than 16 KiB.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "chosen_option": "4,000 Unicode scalar values per text message and 16 KiB serialized envelope ceiling",
+        "rejected": [
+          "Unbounded text messages",
+          "Attachment-sized envelopes"
+        ],
+        "rationale": "The limits keep the text-only demo responsive and bound storage abuse without requiring the server to inspect plaintext."
+      }
+    },
+    {
+      "local_id": 21,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "UI direction: dark secure terminal",
+      "body": "Create, invite-claim, and active-room states share a dark monospace shell with command-style actions, local session events, explicit encrypted status, keyboard-first composition, expiry countdown, and revocation control.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "chosen_option": "Secure-terminal conversation shell",
+        "rejected": [
+          "Conventional consumer chat layout",
+          "Split administration console"
+        ],
+        "rationale": "The terminal treatment gives the local security lifecycle a distinctive, developer-oriented presentation while keeping the conversation path focused."
+      }
+    },
+    {
+      "local_id": 22,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "One development command with Vite proxying API and WebSocket traffic",
+      "body": "npm run dev starts Vite and the Node backend together. Vite proxies /api and /ws to the backend; the production build is served by the Node process from one origin.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "chosen_option": "Single npm run dev with same-origin HTTP and WebSocket proxies",
+        "rejected": [
+          "Absolute backend URLs and CORS in development",
+          "A development mode where API traffic reaches Vite and returns 404"
+        ],
+        "rationale": "The authored local entry point must exercise the same origin-relative routes used by the production build."
+      }
+    },
+    {
+      "local_id": 23,
+      "plane": "intent",
+      "kind": "story",
+      "title": "Creator opens a room and shares a one-time invite",
+      "body": "As a creator, I can open an encrypted room, copy one invite, see when it is claimed, and retain separate access and revocation authority in this browser.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 24,
+      "plane": "intent",
+      "kind": "story",
+      "title": "Peer verifies and claims the invite once",
+      "body": "As the invited peer, I can verify the creator fingerprint, claim the single peer slot, and establish matching directional message keys without the server learning those keys.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 25,
+      "plane": "intent",
+      "kind": "story",
+      "title": "Participants exchange and resume encrypted text",
+      "body": "As either participant, I can send text, see envelope delivery state, disconnect, reconnect in the same browser, and recover ordered messages without duplicate rendering.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 26,
+      "plane": "intent",
+      "kind": "story",
+      "title": "Creator revokes or both participants observe room expiry",
+      "body": "As the creator, I can revoke the room irreversibly. As either participant, I see a clear closed state when the room is revoked or reaches its 24-hour expiry.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 27,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Room creation generates and persists creator private material locally and registers only public material plus capability hashes",
+      "body": "The creator browser stores the P-256 private key and raw invite/access/revocation capabilities in IndexedDB. POST /api/rooms receives the canonical public key and domain-separated hashes only.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "form": "plain"
+      }
+    },
+    {
+      "local_id": 28,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Peer verifies the creator fingerprint and atomically claims the only peer slot",
+      "body": "The invite route verifies the fetched creator SPKI fingerprint before enabling claim. The claim transaction validates the raw invite against its hash, stores peer public/access material, and permits exactly one winner.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "form": "plain"
+      }
+    },
+    {
+      "local_id": 29,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Both browsers derive matching role-bound directional message keys",
+      "body": "ECDH output plus SHA-256(inviteCapability) salt and room-bound HKDF info yield 64 bytes split into creator-to-peer and peer-to-creator AES-256 keys.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "form": "plain"
+      }
+    },
+    {
+      "local_id": 30,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Each text message is schema-validated and independently authenticated before transport or render",
+      "body": "The sender validates 1-to-4,000-scalar text, creates unique id/sequence/nonce metadata, encrypts with the directional AES-GCM key, and authenticates the fixed metadata array. The receiver validates authentication, replay state, and decrypted schema before rendering text.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "form": "plain"
+      }
+    },
+    {
+      "local_id": 31,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Authenticated WebSocket delivery commits ciphertext before fan-out and records peer acknowledgements",
+      "body": "The client authenticates in the first WebSocket frame rather than the URL. The server validates and commits each envelope before live fan-out. A peer receipt acknowledgement records deliveredAt and updates the sender without claiming the message was read.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "form": "plain"
+      }
+    },
+    {
+      "local_id": 32,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Reconnect performs ordered HTTP cursor catch-up before resuming live delivery",
+      "body": "An authorized participant fetches envelopes after its persisted cursor, decrypts and deduplicates by message id, advances only after successful validation, and then resumes WebSocket delivery without gaps or duplicates.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "form": "plain"
+      }
+    },
+    {
+      "local_id": 33,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Server consistently enforces room expiry and creator revocation across HTTP and WebSocket paths",
+      "body": "At 24 hours or after valid revocation, the server closes sockets and rejects later claim, history, and send operations with stable safe errors. Ciphertext may be deleted in the same transaction.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "form": "plain"
+      }
+    },
+    {
+      "local_id": 34,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Server persistence, captured transport, logs, and errors contain no message plaintext, private key, derived key, or raw stored capability",
+      "body": "SQLite stores public keys, capability hashes, ciphertext envelopes, operational timestamps, and lifecycle state only. Request logging redacts authorization and capability-bearing bodies. Unique sentinels must be absent from every server-side surface.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "form": "plain"
+      }
+    },
+    {
+      "local_id": 35,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Nullwire provides complete accessible create, claim, active-room, reconnect, expiry, revocation, and unrecoverable-key states",
+      "body": "All journeys use the approved dark secure-terminal shell, local session events, encrypted status, keyboard-first controls, visible focus, live announcements, safe text rendering, and explicit destructive confirmation.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "form": "plain"
+      }
+    },
+    {
+      "local_id": 36,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Authored setup, development, test, and build commands run the complete app with working API and WebSocket proxies",
+      "body": "npm run dev starts frontend and backend; Vite forwards /api and /ws instead of returning frontend-server 404s. npm test and npm run build work from a clean checkout. Generated dependencies, databases, and build output are ignored.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md",
+      "detail": {
+        "form": "plain"
+      }
+    },
+    {
+      "local_id": 37,
+      "plane": "design",
+      "kind": "module",
+      "title": "Application runtime shell",
+      "body": "Owns repository bootstrap, Vite and Express entry points, SQLite initialization, same-origin development proxies, production static serving, and the authored command surface.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 38,
+      "plane": "design",
+      "kind": "module",
+      "title": "Client room vault and handshake",
+      "body": "Owns IndexedDB room-private state, key generation/import, creator fingerprint verification, claim inputs, peer public-key observation, and directional key derivation.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 39,
+      "plane": "design",
+      "kind": "module",
+      "title": "Authenticated message envelope codec",
+      "body": "Owns message schema validation, deterministic AAD encoding, AES-GCM encrypt/decrypt, id/sequence/nonce validation, replay checks, and safe decryption failures.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 40,
+      "plane": "design",
+      "kind": "module",
+      "title": "Room lifecycle service",
+      "body": "Owns room creation, atomic peer claim, capability authorization, public handshake material, controlled-clock expiry, revocation, and safe lifecycle errors.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 41,
+      "plane": "design",
+      "kind": "module",
+      "title": "Ciphertext message store and realtime channel",
+      "body": "Owns ordered ciphertext persistence, uniqueness constraints, cursor reads, first-frame socket authorization, commit-before-fan-out, acknowledgements, and socket closure.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 42,
+      "plane": "design",
+      "kind": "module",
+      "title": "Nullwire secure-terminal React shell",
+      "body": "Owns create, invite, active-room, reconnect, closed-room, and unrecoverable-key route states. It consumes narrow client interfaces and never manipulates raw cryptographic material directly.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 43,
+      "plane": "design",
+      "kind": "interface",
+      "title": "Room HTTP API",
+      "body": "POST /api/rooms; GET /api/rooms/:roomId/handshake; POST /api/rooms/:roomId/claim; GET /api/rooms/:roomId/messages?after=<cursor>; POST /api/rooms/:roomId/revoke. Access and revocation capabilities use authorization headers.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 44,
+      "plane": "design",
+      "kind": "interface",
+      "title": "Room realtime channel",
+      "body": "The /ws connection authenticates with a first client frame, then carries encrypted envelope submissions, committed peer deliveries, receipt acknowledgements, delivery updates, and terminal lifecycle closure events.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 45,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "One command starts a proxied local app and two browser contexts reach the public HTTP and WebSocket entry points",
+      "body": "The walking skeleton proves Vite, Express, SQLite, /api, and /ws work through authored commands rather than direct test-only adapters.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 46,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "Two roles derive matching directional keys and every authenticated field tamper fails closed",
+      "body": "Real Web Crypto vectors prove creator-send equals peer-receive and peer-send equals creator-receive. Changing ciphertext, nonce, room, message id, sender, or sequence produces no plaintext.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 47,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "A peer-claim race has exactly one winner and controlled expiry or revocation closes every lifecycle path",
+      "body": "Concurrent claims produce one accepted peer. A controlled clock and creator revocation capability prove consistent rejection for later claim, history, send, and active socket operations.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 48,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "Online and offline encrypted delivery remains ordered, acknowledged, and duplicate-free",
+      "body": "Committed live envelopes reach the peer, peer receipt updates delivered state, offline envelopes return in cursor order, and reconnect creates no gap or duplicate render.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 49,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "All Nullwire states remain keyboard-operable, visibly focused, announced, and text-safe",
+      "body": "Create, claim, active room, reconnect, expiry, revocation, and unrecoverable-key states pass keyboard and accessibility checks. Connection/delivery changes announce without stealing focus and decrypted text cannot execute markup.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 50,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "Unique plaintext sentinels are absent from captured HTTP, WebSocket, SQLite, logs, errors, and persisted server files",
+      "body": "A two-real-browser exchange succeeds, yet a post-run scan finds no participant plaintext on any server-side surface. Wrong keys, replay, and adversarial envelopes also fail closed.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 51,
+      "plane": "oracle",
+      "kind": "vv_method",
+      "title": "Project execution harness",
+      "body": "execute.setup: npm install\nexecute.build: npm run build\nexecute.verify: npm test",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 52,
+      "plane": "plan",
+      "kind": "frontier",
+      "title": "Nullwire v1",
+      "body": "Deliver the complete local accountless two-person encrypted messenger through six vertical scopes, ending with real-browser security evidence.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 53,
+      "plane": "plan",
+      "kind": "scope",
+      "title": "Scope: Walking skeleton",
+      "body": "Build the Vite secure-terminal shell, Express server, WebSocket endpoint, SQLite bootstrap, dev proxies, production serving, ignored generated artifacts, and two-browser connectivity smoke test.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 54,
+      "plane": "plan",
+      "kind": "scope",
+      "title": "Scope: Cryptographic envelope",
+      "body": "Build client vault/handshake and envelope codec boundaries with real Web Crypto directional vectors, schema validation, authenticated metadata, replay rules, and tamper tests.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 55,
+      "plane": "plan",
+      "kind": "scope",
+      "title": "Scope: Room lifecycle",
+      "body": "Build room persistence and HTTP create, handshake, atomic claim, authorization, expiry, and revocation operations with a controlled clock.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 56,
+      "plane": "plan",
+      "kind": "scope",
+      "title": "Scope: Encrypted transport",
+      "body": "Build first-frame socket authorization, commit-before-fan-out, delivery acknowledgements, ordered HTTP cursor catch-up, reconnect, and deduplication.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 57,
+      "plane": "plan",
+      "kind": "scope",
+      "title": "Scope: Complete secure-terminal UI journeys",
+      "body": "Build create, invite, claim, active-room, reconnect, expiry, revocation, unrecoverable-key, and safe failure states in the approved Nullwire shell.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 58,
+      "plane": "plan",
+      "kind": "scope",
+      "title": "Scope: End-to-end security witness",
+      "body": "Integrate two real browser contexts, controlled clock, unique sentinel scanning, adversarial envelope mutation, clean setup/test/build commands, and final UI verification.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    },
+    {
+      "local_id": 59,
+      "plane": "design",
+      "kind": "module",
+      "title": "End-to-end security witness harness",
+      "body": "Owns two isolated real-browser contexts, controlled time, HTTP and WebSocket capture, SQLite/log/file sentinel scanning, adversarial envelope mutation, and clean-checkout command execution.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": ".fixtures/seeds/nullwire/README.md"
+    }
+  ],
+  "edges": [
+    {
+      "category": "refinement",
+      "source_local_id": 1,
+      "target_local_id": 2,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The ciphertext-only service boundary refines the accountless messaging goal."
+    },
+    {
+      "category": "refinement",
+      "source_local_id": 1,
+      "target_local_id": 23,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "refinement",
+      "source_local_id": 1,
+      "target_local_id": 24,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "refinement",
+      "source_local_id": 1,
+      "target_local_id": 25,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "refinement",
+      "source_local_id": 1,
+      "target_local_id": 26,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 2,
+      "target_local_id": 6,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 2,
+      "target_local_id": 8,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 2,
+      "target_local_id": 10,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 3,
+      "target_local_id": 36,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 4,
+      "target_local_id": 28,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 5,
+      "target_local_id": 33,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 6,
+      "target_local_id": 29,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 6,
+      "target_local_id": 30,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 7,
+      "target_local_id": 36,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 8,
+      "target_local_id": 32,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 8,
+      "target_local_id": 34,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 9,
+      "target_local_id": 35,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 12,
+      "target_local_id": 35,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 13,
+      "target_local_id": 28,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 13,
+      "target_local_id": 29,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 14,
+      "target_local_id": 29,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 14,
+      "target_local_id": 30,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 15,
+      "target_local_id": 29,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 16,
+      "target_local_id": 27,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 16,
+      "target_local_id": 28,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 16,
+      "target_local_id": 33,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 17,
+      "target_local_id": 31,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 17,
+      "target_local_id": 32,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 18,
+      "target_local_id": 36,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 19,
+      "target_local_id": 30,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 20,
+      "target_local_id": 30,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 21,
+      "target_local_id": 35,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 22,
+      "target_local_id": 36,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 23,
+      "target_local_id": 27,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 24,
+      "target_local_id": 28,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 24,
+      "target_local_id": 29,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 25,
+      "target_local_id": 30,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 25,
+      "target_local_id": 31,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 25,
+      "target_local_id": 32,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 26,
+      "target_local_id": 33,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 40,
+      "target_local_id": 43,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 41,
+      "target_local_id": 44,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "refinement",
+      "source_local_id": 36,
+      "target_local_id": 45,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "refinement",
+      "source_local_id": 29,
+      "target_local_id": 46,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "refinement",
+      "source_local_id": 30,
+      "target_local_id": 46,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "refinement",
+      "source_local_id": 28,
+      "target_local_id": 47,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "refinement",
+      "source_local_id": 33,
+      "target_local_id": 47,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "refinement",
+      "source_local_id": 31,
+      "target_local_id": 48,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "refinement",
+      "source_local_id": 32,
+      "target_local_id": 48,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "refinement",
+      "source_local_id": 35,
+      "target_local_id": 49,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "refinement",
+      "source_local_id": 34,
+      "target_local_id": 50,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 52,
+      "target_local_id": 53,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 52,
+      "target_local_id": 54,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 52,
+      "target_local_id": 55,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 52,
+      "target_local_id": 56,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 52,
+      "target_local_id": 57,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 52,
+      "target_local_id": 58,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 53,
+      "target_local_id": 54,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 53,
+      "target_local_id": 55,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 54,
+      "target_local_id": 56,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 55,
+      "target_local_id": 56,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 56,
+      "target_local_id": 57,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 54,
+      "target_local_id": 58,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 55,
+      "target_local_id": 58,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 56,
+      "target_local_id": 58,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 57,
+      "target_local_id": 58,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 36,
+      "target_local_id": 53,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 29,
+      "target_local_id": 54,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 30,
+      "target_local_id": 54,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 27,
+      "target_local_id": 55,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 28,
+      "target_local_id": 55,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 33,
+      "target_local_id": 55,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 31,
+      "target_local_id": 56,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 32,
+      "target_local_id": 56,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 35,
+      "target_local_id": 57,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 34,
+      "target_local_id": 58,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 37,
+      "target_local_id": 53,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 38,
+      "target_local_id": 54,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 39,
+      "target_local_id": 54,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 40,
+      "target_local_id": 55,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 43,
+      "target_local_id": 55,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 41,
+      "target_local_id": 56,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 44,
+      "target_local_id": 56,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 42,
+      "target_local_id": 57,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 37,
+      "target_local_id": 53,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 38,
+      "target_local_id": 54,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 39,
+      "target_local_id": 54,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 40,
+      "target_local_id": 55,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 43,
+      "target_local_id": 55,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 41,
+      "target_local_id": 56,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 44,
+      "target_local_id": 56,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 42,
+      "target_local_id": 57,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 43,
+      "target_local_id": 58,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 44,
+      "target_local_id": 58,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 51,
+      "target_local_id": 53,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 51,
+      "target_local_id": 54,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 51,
+      "target_local_id": 55,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 51,
+      "target_local_id": 56,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 51,
+      "target_local_id": 57,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 51,
+      "target_local_id": 58,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 45,
+      "target_local_id": 53,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 46,
+      "target_local_id": 54,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 47,
+      "target_local_id": 55,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 48,
+      "target_local_id": 56,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 49,
+      "target_local_id": 57,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 50,
+      "target_local_id": 58,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "witness",
+      "source_local_id": 45,
+      "target_local_id": 53,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "witness",
+      "source_local_id": 46,
+      "target_local_id": 54,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "witness",
+      "source_local_id": 47,
+      "target_local_id": 55,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "witness",
+      "source_local_id": 48,
+      "target_local_id": 56,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "witness",
+      "source_local_id": 49,
+      "target_local_id": 57,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "witness",
+      "source_local_id": 50,
+      "target_local_id": 58,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 53,
+      "target_local_id": 37,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 54,
+      "target_local_id": 38,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 54,
+      "target_local_id": 39,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 55,
+      "target_local_id": 40,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 55,
+      "target_local_id": 43,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 56,
+      "target_local_id": 41,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 56,
+      "target_local_id": 44,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 57,
+      "target_local_id": 42,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "composition",
+      "source_local_id": 58,
+      "target_local_id": 59,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 59,
+      "target_local_id": 58,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 59,
+      "target_local_id": 58,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 36,
+      "target_local_id": 29,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The cryptographic scope builds on the authored runtime and repository shell."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 36,
+      "target_local_id": 27,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Room lifecycle builds on the initialized runtime, database, and HTTP shell."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 29,
+      "target_local_id": 31,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Encrypted transport requires stable directional key derivation."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 27,
+      "target_local_id": 31,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Encrypted transport requires the room lifecycle and participant authorization material."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 31,
+      "target_local_id": 35,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The complete UI integrates against the settled realtime delivery seam."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 29,
+      "target_local_id": 34,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 27,
+      "target_local_id": 34,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 31,
+      "target_local_id": 34,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 35,
+      "target_local_id": 34,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The final security witness exercises crypto, lifecycle, transport, and UI through the ciphertext-only boundary."
+    }
+  ]
+}

@@ -10,7 +10,11 @@ items to the explicit basis required by the fixture loader.
 
 `base.json` is the canonical complete snapshot. Loading
 `wisp-secure-drop/base` includes the whole graph; no additions, variants, or
-flags need to be selected separately. Its settled state includes:
+flags need to be selected separately. A sibling execution-ready messenger
+fixture lives at [`../nullwire/README.md`](../nullwire/README.md), built from
+the same spec-to-graph pattern with its own accountless E2EE room contract.
+
+The Wisp snapshot's settled state includes:
 
 - Vite dev-server proxying for origin-relative `/drops` requests
 - browser-generated UUID v4 drop ids available before AAD encryption, with
