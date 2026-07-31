@@ -92,7 +92,7 @@ async function driveWeb(): Promise<string> {
   const coordinator = createWorkspaceSessionCoordinator({ cwd });
   const workspace = await coordinator.createSetupSession({ specTitle: 'Semantic parity' });
   const target = { specId: workspace.spec.id, sessionId: workspace.session.id };
-  const faux = registerKeptFauxProvider('parity-differential', 'Equivalent opening turn.');
+  const faux = await registerKeptFauxProvider('parity-differential', 'Equivalent opening turn.');
   const host = await runBrunchWeb({ cwd, coordinator, agentServices: faux.agentServices });
   const rpc = await RpcSocket.open(`${host.url.replace(/^http/u, 'ws')}/rpc`);
   try {
@@ -135,7 +135,7 @@ async function driveWeb(): Promise<string> {
 async function driveTui(): Promise<string> {
   const cwd = await mkdtemp(join(tmpdir(), 'brunch-parity-tui-'));
   const coordinator = createWorkspaceSessionCoordinator({ cwd });
-  const faux = registerKeptFauxProvider('parity-differential', 'Equivalent opening turn.');
+  const faux = await registerKeptFauxProvider('parity-differential', 'Equivalent opening turn.');
   let sessionFile: string | undefined;
   try {
     await runBrunchTui({

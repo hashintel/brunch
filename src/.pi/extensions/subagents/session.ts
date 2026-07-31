@@ -8,9 +8,8 @@
  *   - sealed in-memory `SettingsManager` (injected from the app layer)
  *   - sealed `DefaultResourceLoader` options (no extensions/skills/prompts/
  *     themes/context files) with an assembled background prompt
- *   - `AuthStorage.inMemory()` so ambient `auth.json` never leaks
- *   - the parent's `ModelRegistry` (carries resolved auth + registered
- *     providers) so the child needs no ambient model bootstrap
+ *   - the parent's `ModelRuntime` (carries resolved auth + registered
+ *     providers) so the child needs no ambient auth or model bootstrap
  *   - an in-memory `SessionManager` so nothing is persisted to disk
  *   - an explicit tool allowlist built from Brunch-owned tool definitions
  *
@@ -24,7 +23,6 @@ import { mkdir, realpath, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, resolve, sep } from 'node:path';
 
 import {
-  AuthStorage,
   createAgentSessionFromServices,
   createAgentSessionServices,
   defineTool,
@@ -36,6 +34,7 @@ import {
   type CreateAgentSessionFromServicesOptions,
   type CreateAgentSessionServicesOptions,
   type ExtensionContext,
+  type ModelRuntime,
   type SettingsManager,
   type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
@@ -73,6 +72,8 @@ export interface SubagentRunContext {
  */
 export interface SubagentSealedDeps {
   readonly agentDir: string;
+  /** Parent-owned canonical auth/model runtime; avoids ambient child bootstrap. */
+  readonly modelRuntime: ModelRuntime;
   /** Builds a fresh sealed in-memory settings manager per child session. */
   readonly createSettingsManager: () => SettingsManager;
   /** Sealed resource-loader options (no ambient discovery), sans system prompt. */
@@ -396,8 +397,7 @@ export async function runSubagent(input: RunSubagentInput): Promise<SubagentResu
     const services = await createServices({
       cwd: ctx.cwd,
       agentDir: deps.agentDir,
-      authStorage: AuthStorage.inMemory(),
-      modelRegistry: ctx.modelRegistry,
+      modelRuntime: deps.modelRuntime,
       settingsManager: deps.createSettingsManager(),
       resourceLoaderOptions: {
         ...deps.resourceLoaderOptions,

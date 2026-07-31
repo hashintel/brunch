@@ -31,7 +31,10 @@ describe('web-driver-streaming command intake', () => {
   });
 
   it('lets a web RPC command drive the live AgentSession turn and fan it out to observers', async () => {
-    const faux = registerKeptFauxProvider('command-intake', 'KICK opening turn before command-intake proof.');
+    const faux = await registerKeptFauxProvider(
+      'command-intake',
+      'KICK opening turn before command-intake proof.',
+    );
     cleanups.push(() => faux.provider.unregister());
 
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-fe873-command-intake-'));

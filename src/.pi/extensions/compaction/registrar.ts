@@ -23,6 +23,8 @@ export function registerBrunchCompaction(pi: ExtensionAPI): void {
 
       const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
       if (!auth.ok) throw new Error(`Compaction auth failed: ${auth.error}`);
+      const provider = ctx.modelRegistry.getProvider(ctx.model.provider);
+      if (!provider) throw new Error(`Compaction provider is unavailable: ${ctx.model.provider}`);
 
       const selected = selectCompactionAnchors(
         event.branchEntries,
@@ -39,7 +41,7 @@ export function registerBrunchCompaction(pi: ExtensionAPI): void {
         event.customInstructions,
         event.signal,
         pi.getThinkingLevel(),
-        undefined,
+        (model, context, options) => provider.streamSimple(model, context, options),
         auth.env,
       );
 

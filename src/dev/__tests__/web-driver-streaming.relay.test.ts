@@ -4,12 +4,7 @@ import { join } from 'node:path';
 
 import { fauxAssistantMessage, type Context, type FauxProviderRegistration } from '@earendil-works/pi-ai';
 import { registerFauxProvider } from '@earendil-works/pi-ai/compat';
-import {
-  AuthStorage,
-  createAgentSessionRuntime,
-  ModelRegistry,
-  type AgentSessionEvent,
-} from '@earendil-works/pi-coding-agent';
+import { createAgentSessionRuntime, type AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import { afterAll, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 
@@ -20,7 +15,7 @@ import {
 } from '../../app/brunch-tui.js';
 import {
   BRUNCH_FAUX_HARNESS_API_KEY,
-  brunchFauxProviderConfig,
+  createBrunchFauxModelRuntime,
   defaultBrunchFauxModel,
 } from '../../probes/faux-provider.js';
 import { BRUNCH_UPDATED_METHOD } from '../../rpc/product-updates.js';
@@ -43,7 +38,7 @@ describe('web-driver-streaming production relay seam', () => {
   });
 
   it('relays the live AgentSession event stream through runBrunchTui sidecar /rpc, multiplexed with product updates', async () => {
-    const faux = registerKeptFauxProvider('KICK opening turn from the product.');
+    const faux = await registerKeptFauxProvider('KICK opening turn from the product.');
     cleanups.push(() => faux.provider.unregister());
 
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-fe873-relay-'));
@@ -138,10 +133,10 @@ describe('web-driver-streaming production relay seam', () => {
   }, 30000);
 });
 
-function registerKeptFauxProvider(kickText: string): {
+async function registerKeptFauxProvider(kickText: string): Promise<{
   readonly provider: FauxProviderRegistration;
   readonly agentServices: BrunchAgentServicesOverride;
-} {
+}> {
   const model = defaultBrunchFauxModel();
   const provider = registerFauxProvider({
     provider: model.provider,
@@ -149,20 +144,12 @@ function registerKeptFauxProvider(kickText: string): {
     models: [{ id: model.modelId, name: model.modelName, input: ['text'] }],
   });
   provider.setResponses([() => fauxAssistantMessage(kickText)]);
-  const authStorage = AuthStorage.inMemory({
-    [model.provider]: { type: 'api_key', key: BRUNCH_FAUX_HARNESS_API_KEY },
-  });
-  const modelRegistry = ModelRegistry.inMemory(authStorage);
-  modelRegistry.registerProvider(
-    model.provider,
-    brunchFauxProviderConfig(model, provider, BRUNCH_FAUX_HARNESS_API_KEY),
+  const { modelRuntime, registeredModel } = await createBrunchFauxModelRuntime(
+    model,
+    provider,
+    BRUNCH_FAUX_HARNESS_API_KEY,
   );
-  const registeredModel = modelRegistry.find(model.provider, model.modelId);
-  if (!registeredModel) {
-    provider.unregister();
-    throw new Error(`relay faux model not registered: ${model.provider}/${model.modelId}`);
-  }
-  return { provider, agentServices: { authStorage, modelRegistry, model: registeredModel } };
+  return { provider, agentServices: { modelRuntime, model: registeredModel } };
 }
 
 function assembleAssistantTextFromStream(events: readonly AgentSessionEvent[]): string {

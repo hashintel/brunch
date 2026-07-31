@@ -73,9 +73,9 @@
     "verify:full": "npm run fix && npm run test:full && npm run build"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "0.80.6",
-    "@earendil-works/pi-coding-agent": "0.80.6",
-    "@earendil-works/pi-tui": "0.80.6",
+    "@earendil-works/pi-ai": "0.83.0",
+    "@earendil-works/pi-coding-agent": "0.83.0",
+    "@earendil-works/pi-tui": "0.83.0",
     "@fontsource-variable/geist-mono": "^5.2.8",
     "@fontsource-variable/inter": "^5.2.8",
     "@mozilla/readability": "^0.6.0",

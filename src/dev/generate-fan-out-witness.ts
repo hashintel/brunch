@@ -141,7 +141,7 @@ export async function runGenerateFanOutWitness(
       {} as never,
     );
 
-    const availableModels = boot.runtime.services.modelRegistry.getAvailable();
+    const availableModels = boot.runtime.services.modelRuntime.getAvailableSnapshot();
     if (availableModels.length === 0) {
       const sessionText = await readFile(boot.sessionFile, 'utf8');
       const finalGraph = graph.forSpec(boot.specId).queryGraph(undefined, { visibility: 'all' });

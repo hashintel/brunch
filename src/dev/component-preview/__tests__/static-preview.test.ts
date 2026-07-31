@@ -53,7 +53,7 @@ describe('captureMessageRenderer', () => {
       ],
     });
 
-    const component = renderer(message, { expanded: false }, theme);
+    const component = renderer(message, { expanded: false, outputPad: 1 }, theme);
     expect(component).toBeDefined();
 
     const terminal = new VirtualTerminal(100, 30);

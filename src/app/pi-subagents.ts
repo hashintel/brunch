@@ -8,6 +8,8 @@
  * injection.
  */
 
+import type { ModelRuntime } from '@earendil-works/pi-coding-agent';
+
 import type { GraphReaders } from '../.pi/extensions/brunch-data/index.js';
 import { loadSubagentDefinitions, subagentAgentsDir } from '../.pi/extensions/subagents/agents.js';
 import { loadSubagentConfig, subagentConfigPath } from '../.pi/extensions/subagents/config.js';
@@ -23,6 +25,7 @@ import { brunchResourceLoaderOptions, createBrunchSettingsManager } from './pi-s
 export interface LoadBrunchSubagentsOptions {
   readonly cwd: string;
   readonly agentDir: string;
+  readonly modelRuntime: ModelRuntime;
   readonly delegatableAgents: readonly string[];
   readonly includedAgents?: readonly string[];
   readonly world?: LoadBrunchSubagentsWorld;
@@ -66,6 +69,7 @@ export async function loadBrunchSubagents(options: LoadBrunchSubagentsOptions): 
     delegatableAgents: options.delegatableAgents,
     maxConcurrency: config.maxConcurrency,
     agentDir: options.agentDir,
+    modelRuntime: options.modelRuntime,
     createSettingsManager: () => createBrunchSettingsManager(options.cwd, options.agentDir),
     resourceLoaderOptions: brunchResourceLoaderOptions([]),
     ...(options.world

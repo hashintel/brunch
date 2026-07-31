@@ -134,6 +134,7 @@ describe('execution comparison Brunch CLI arguments', () => {
     const subagents = await loadBrunchSubagents({
       cwd: root,
       agentDir: join(root, 'agent'),
+      modelRuntime: {} as never,
       delegatableAgents: [],
       includedAgents: ['planner', 'worker'],
     });

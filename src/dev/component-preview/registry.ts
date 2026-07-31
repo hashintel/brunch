@@ -498,7 +498,7 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
         ],
         layout: 'columns' as const,
       });
-      const component = renderer(message, { expanded: false }, theme);
+      const component = renderer(message, { expanded: false, outputPad: 1 }, theme);
       if (!component) throw new Error('alternatives-card-set renderer returned no component');
       return previewStaticComponent(tui, component);
     },
