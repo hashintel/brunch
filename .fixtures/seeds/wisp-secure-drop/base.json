@@ -942,6 +942,375 @@
           "document.title contains Wisp"
         ]
       }
+    },
+    {
+      "local_id": 60,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Server time is injectable: backend takes a now() dependency",
+      "body": "The Express/SQLite backend never calls Date.now() directly. Expiry computation and expiry evaluation both read a clock dependency supplied at construction. Production wires the real clock; tests supply a fake that can be advanced past a drop's expires_at without touching global time or writing rows by hand.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "chosen_option": "Injectable clock: the backend accepts a now() dependency; tests pass a fake.",
+        "rejected": [
+          "Vitest fake timers wrapping the real Date — awkward against better-sqlite3 and any SQL-side time comparison, and leaves no explicit seam in design.",
+          "Tests write a past expires_at directly into SQLite — exercises retrieval but bypasses expiry computation entirely.",
+          "Test-only time offset honoured by the server — puts test-only behaviour into production code paths."
+        ],
+        "rationale": "AC3 requires expiry verified with a controlled clock. An explicit seam makes both the computation path (24-hour default from D5) and the evaluation path testable, and keeps test control out of production branches."
+      }
+    },
+    {
+      "local_id": 61,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Traffic-capture oracle is a server-side request recorder",
+      "body": "Verification of what the service actually received is performed by a test-only recorder mounted ahead of the API routes, capturing method, URL (including query string), headers, and raw body for every request. This recorder is the single subject of any claim about captured HTTP traffic.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "chosen_option": "Server-side test-only recorder capturing method, URL, headers, and raw body for every request.",
+        "rejected": [
+          "Browser-side fetch spy in jsdom — observes attempts rather than what the server received.",
+          "Both recorder and fetch spy cross-checked — rejected for now; adds a second oracle surface.",
+          "Assert only on requests the test itself issues via supertest — cannot observe requests made by application code."
+        ],
+        "rationale": "AC1's claim is about what reached and persisted on the server, which the recorder observes directly. Chosen despite the known weakness that AC7's negative claim about the URL fragment is only partially probed by a server-side view."
+      }
+    },
+    {
+      "local_id": 62,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Real AES-GCM is exercised in a node-environment Vitest suite",
+      "body": "Crypto-envelope verification runs in a Vitest suite configured with the node environment, using Node's built-in webcrypto as the SubtleCrypto provider. Component suites remain in jsdom with the crypto adapter mocked, per SCP6. No browser engine is required by npm test.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "chosen_option": "Node-environment Vitest suite using Node's webcrypto.",
+        "rejected": [
+          "jsdom suite with Node webcrypto injected as globalThis.crypto — global patching obscures which implementation is under test.",
+          "Vitest browser mode against a real browser engine — introduces an ambient dependency, conflicting with CON8 and CON9."
+        ],
+        "rationale": "AC2 and AC5 need genuine authenticated encryption semantics. Node's webcrypto is the same Web Crypto API surface CON2 mandates, available with no external service or downloaded browser."
+      }
+    },
+    {
+      "local_id": 63,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Automated axe-core scan is the UI acceptance standard",
+      "body": "UI acceptance evidence is an axe-core scan of the rendered sender and recipient views reporting zero serious or critical violations. Role/label queries, per-state CSS-module class assertions, clipboard stubs, and DOM snapshots are not adopted as acceptance standards.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "chosen_option": "Automated axe-core scan with zero serious violations as the sole automated UI acceptance standard.",
+        "rejected": [
+          "Role/label/ARIA assertions via testing-library queries.",
+          "Per-state distinct CSS-module class assertions.",
+          "Clipboard stub asserting copy writes the correct link.",
+          "DOM snapshots of the shell across both routes.",
+          "Documented manual checklist."
+        ],
+        "rationale": "Chosen for a single objective, low-maintenance machine standard. Accepted cost: the clipboard behaviour and per-state visual distinctness named in AC8 are left without automated witness."
+      }
+    },
+    {
+      "local_id": 64,
+      "plane": "oracle",
+      "kind": "vv_method",
+      "title": "Fake-clock expiry harness",
+      "body": "Constructs the backend with a controllable fake clock. The harness can set an absolute instant, advance beyond a drop's 24-hour default expiry, and assert behaviour on both sides of the boundary. Runs inside npm test with no timers patched globally.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 65,
+      "plane": "oracle",
+      "kind": "vv_method",
+      "title": "Request recorder harness",
+      "body": "Test-only middleware mounted ahead of the API routes. Records, per request: method, path, query string, headers, and raw body bytes before any parsing. Exposes the recorded log to assertions and is never mounted in production startup.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 66,
+      "plane": "oracle",
+      "kind": "vv_method",
+      "title": "Plaintext sentinel sweep",
+      "body": "Defines a high-entropy sentinel string used as file content and note text, then searches for it across three surfaces after an upload: the SQLite database file and all table values as raw bytes, captured server log output, and every request recorded by the request recorder harness. The sweep searches for the sentinel in plain, base64, and hex encodings so an incidental encoding does not hide a leak. The sentinel value itself is defined by the check.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 67,
+      "plane": "oracle",
+      "kind": "vv_method",
+      "title": "Real Web Crypto envelope suite",
+      "body": "Node-environment Vitest suite exercising the crypto envelope module against Node's webcrypto: key generation, AES-GCM-256 seal with the five AAD fields bound per D3, open, and deliberate corruption of ciphertext, nonce, and individual AAD fields. No mocking of SubtleCrypto.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 68,
+      "plane": "oracle",
+      "kind": "vv_method",
+      "title": "Drop API integration suite",
+      "body": "Drives the Drop API in-process against a temporary SQLite database: upload, retrieve, revoke, and rejection paths. Asserts status codes, response bodies, and resulting database state, including that no row is created on rejected uploads. Composes with the fake-clock and request-recorder harnesses.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 69,
+      "plane": "oracle",
+      "kind": "vv_method",
+      "title": "Automated accessibility scan",
+      "body": "Renders a view in jsdom, runs axe-core against the resulting DOM, and fails on any violation of serious or critical impact. Applied to the sender view, the recipient view, and the shared shell in both routes.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 70,
+      "plane": "oracle",
+      "kind": "check",
+      "title": "Check: sentinel absent from database, logs, and recorded requests",
+      "body": "Upload a drop whose file content and note are the sentinel. Then assert the sentinel appears nowhere in the SQLite file bytes, nowhere in captured log output, and nowhere in any recorded request body, header, or query string, in plain, base64, or hex encoding. Passing evidence: three empty match sets.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 71,
+      "plane": "oracle",
+      "kind": "check",
+      "title": "Check: byte-identical round trip through the real envelope",
+      "body": "Seal a binary fixture and a note with real AES-GCM-256, transport the envelope through the Drop API, then open it with the recipient-side key. Assert the recovered bytes equal the original byte-for-byte and the note string is exactly equal. Passing evidence: byte-array equality and string equality.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 72,
+      "plane": "oracle",
+      "kind": "check",
+      "title": "Check: retrieval after expiry returns 404 or 410 with no ciphertext",
+      "body": "Create a drop at a fixed fake instant, confirm retrieval succeeds before expiry, advance the fake clock past 24 hours, then retrieve again. Assert status is 404 or 410 and the response body contains no ciphertext, nonce, or metadata field. Passing evidence: status assertion plus absence of envelope fields in the response.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 73,
+      "plane": "oracle",
+      "kind": "check",
+      "title": "Check: revocation deletes the drop and the recipient link cannot revoke",
+      "body": "Revoke using the raw revocation token, asserting the server matched it against the stored SHA-256 hash. Assert subsequent retrieval returns 404 or 410. Separately attempt revocation using only values derivable from the recipient link and assert it is rejected while the drop remains retrievable. Passing evidence: both status assertions and unchanged drop state after the failed attempt.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 74,
+      "plane": "oracle",
+      "kind": "check",
+      "title": "Check: tampered ciphertext, nonce, or AAD field causes open to throw",
+      "body": "For each of ciphertext, nonce, and each of the five AAD fields independently, mutate one byte or value and attempt to open the envelope. Assert every attempt throws and returns no partial plaintext. Passing evidence: a thrown error per mutation case and no plaintext bytes produced.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 75,
+      "plane": "oracle",
+      "kind": "check",
+      "title": "Check: upload of 10 MB + 1 byte returns 413 and creates no row",
+      "body": "POST a payload one byte over the 10 MB ceiling. Assert the response status is 413 and that the drops table row count is unchanged. Passing evidence: status assertion plus before/after row count equality.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 76,
+      "plane": "oracle",
+      "kind": "check",
+      "title": "Check: key material absent from every recorded request",
+      "body": "Complete a full sender-then-recipient cycle. For every request captured by the recorder, assert the decryption key material appears in no path, query string, header, or body. Passing evidence: an empty match set across the whole recorded log. Known limitation: a server-side view cannot distinguish deliberate fragment discipline from browser behaviour.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 77,
+      "plane": "oracle",
+      "kind": "check",
+      "title": "Check: sender and recipient views pass an axe-core scan",
+      "body": "Render the sender view (including result state with recipient and revocation links) and the recipient view, then run axe-core against each. Assert zero violations of serious or critical impact. Passing evidence: empty serious/critical violation lists. Does not witness AC8's clipboard behaviour or per-state visual distinctness.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 78,
+      "plane": "oracle",
+      "kind": "check",
+      "title": "Check: secure-terminal shell passes an axe-core scan on both routes",
+      "body": "Render the shared shell as mounted on the sender route and on the recipient route, run axe-core against each, and assert zero violations of serious or critical impact. Passing evidence: empty serious/critical violation lists for both routes.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 79,
+      "plane": "oracle",
+      "kind": "vv_method",
+      "title": "Clipboard stub harness",
+      "body": "Replaces navigator.clipboard with a recording stub in the jsdom test environment. Captures every writeText call in order and exposes the captured values to assertions. No real clipboard access, no permissions prompt, no external dependency.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "derived",
+      "detail": null
+    },
+    {
+      "local_id": 80,
+      "plane": "oracle",
+      "kind": "check",
+      "title": "Check: copy controls write the exact recipient and revocation links",
+      "body": "Render the sender result state for a completed drop. Activate the recipient-link copy control and assert the clipboard stub captured the recipient share link exactly, including its URL fragment. Activate the revocation-link copy control and assert the stub captured the revocation link exactly. Assert the two captured values differ and that the recipient value is never written by the revocation control. Passing evidence: two exact string matches in the expected order, and inequality between them.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "derived",
+      "detail": null
+    },
+    {
+      "local_id": 81,
+      "plane": "design",
+      "kind": "module",
+      "title": "Secure terminal shell (shared UI)",
+      "body": "The chrome that both sender and recipient views mount inside, giving the application one visual identity.\n\nResponsibilities:\n- Page frame: single centred column, monospace type scale, fixed dark terminal palette, visible application name (Wisp per D9).\n- Landmark structure: one banner, one main, one status region for transient messages, so axe-core has a well-formed document on every route (AC9).\n- Focus management: predictable tab order, always-visible focus indicator, focus moved to the status region when an operation completes or fails.\n- Text rendering boundary: exposes a text-only rendering primitive for untrusted strings (filenames, notes) that never interprets markup, keeping CON7 enforceable in one place instead of at every call site.\n- Styling boundary: owns the shared CSS module and the design tokens; MOD3 and MOD4 compose its classes rather than redefining colour, spacing, or type (D7).\n\nExplicit non-responsibilities: no crypto, no network, no routing decisions, no knowledge of drop semantics.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 82,
+      "plane": "design",
+      "kind": "interface",
+      "title": "Interaction state contract",
+      "body": "The finite set of states every interactive control in the shell must be able to express, each carrying a distinct CSS-module class so state is observable in the DOM rather than only visually.\n\nStates:\n- idle — default, actionable\n- hover / focus-visible — pointer and keyboard affordance, never collapsed into one another\n- busy — operation in flight; control is non-actionable and announces progress\n- success — operation completed; used for a completed copy action\n- error — operation failed; paired with a message in the status region\n- disabled — not actionable and not focusable, with a stated reason\n\nRules:\n- No two states share a class name.\n- Recipient-share and revocation link controls are visually distinguished from each other in every state, since confusing them is the destructive mistake (AC8).\n- Colour is never the only channel distinguishing a state.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 83,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Traffic-capture oracle spans two surfaces with distinct claims",
+      "body": "Verification of traffic uses two recorders, each authoritative for different claims.\n\n- Server-side request recorder (per D11): authoritative for what the service received and could have persisted. Subject of AC1.\n- Client-side outbound-request spy: authoritative for what application code attempted to send. Subject of AC7.\n\nNo claim about key-material discipline may rest on the server-side surface alone, because the platform strips the fragment before transmission and would make such a claim pass unconditionally.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "chosen_option": "Both surfaces, with each acceptance criterion assigned to the surface that can actually falsify it.",
+        "rejected": [
+          "Server-side recorder alone (D11) — makes AC7 pass by platform behaviour rather than application correctness.",
+          "Client-side spy alone — cannot substantiate AC1's persistence claim about what reached the server.",
+          "Leaving CH7's limitation documented and unaddressed — acceptable but leaves the goal G2 defended by a check that cannot fail for the right reason."
+        ],
+        "rationale": "AC1 and AC7 make claims about different subjects: one about what arrived and persisted, one about what was attempted. A single oracle surface cannot falsify both."
+      }
+    },
+    {
+      "local_id": 84,
+      "plane": "oracle",
+      "kind": "vv_method",
+      "title": "Client outbound-request spy",
+      "body": "Wraps the outbound request function used by the frontend in the jsdom test environment and records every attempted request in order: method, full URL including query string, all headers, and the body serialized to a searchable form (string, or bytes decoded for scanning).\n\nProperties:\n- Records attempts, including any request a server would reject or never see.\n- Scans recorded material for a given secret in plain, base64url, base64, and hex encodings, and in percent-encoded form, so a re-encoded leak is still caught.\n- Requires the frontend to obtain its request function through a single injectable seam so the spy has one place to attach.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 85,
+      "plane": "oracle",
+      "kind": "check",
+      "title": "Check: no request initiated by the application carries key material",
+      "body": "Drive a complete cycle through the frontend: sender generates a key, encrypts, uploads, and produces links; recipient consumes a link, fetches, and decrypts.\n\nAssertions:\n- For every request recorded by the outbound-request spy, the key material appears in no URL path, no query string, no header value, and no body — in any of the scanned encodings.\n- The recipient flow issues at least one request, so the empty-log case cannot pass vacuously.\n- Positive control: with a deliberately leaky stub that appends the key to the request URL, the same assertion fails. This proves the oracle has teeth.\n\nPassing evidence: empty match set across a non-empty recorded log, plus a demonstrated failure under the leaky stub.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 86,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "UI acceptance uses two standards: accessibility scan plus state-contract assertion",
+      "body": "Automated UI acceptance rests on two standards, neither sufficient alone:\n\n- Accessibility: axe-core scan with zero serious or critical violations (retained from D13).\n- State structure: assertions that the rendered DOM honours the interaction state contract (API2).\n\nStill not adopted: DOM snapshots, and any standard that judges visual appearance rather than structure. Nothing here claims the interface looks good — only that its states are structurally distinguishable.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "chosen_option": "Accessibility scan plus structural assertion against the enumerated state contract.",
+        "rejected": [
+          "axe-core alone (D13) — leaves AC8's distinctness clause with no witness.",
+          "DOM snapshots — brittle and assert incidental markup rather than the contract.",
+          "Visual regression imaging — requires a browser engine, conflicting with CON8 and CON9.",
+          "Manual checklist — not machine-verified."
+        ],
+        "rationale": "API2 made distinctness a stated, finite contract; a structural assertion against it can now fail for the right reason. Appearance remains deliberately unjudged."
+      }
+    },
+    {
+      "local_id": 87,
+      "plane": "oracle",
+      "kind": "vv_method",
+      "title": "State-contract assertion harness",
+      "body": "Renders a shell control in jsdom, drives it into each state enumerated by API2 through the same inputs a user or operation would supply, and reads back the class list applied at each state.\n\nProperties:\n- Reads applied classes from the rendered DOM, not from the CSS-module import, so a class defined but never applied fails.\n- Compares class sets across states and across control variants.\n- Asserts nothing about colour, spacing, or rendered pixels.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 88,
+      "plane": "oracle",
+      "kind": "check",
+      "title": "Check: rendered controls honour the interaction state contract",
+      "body": "For each interactive control in the shell:\n\n- Every state enumerated by API2 that the control supports applies at least one class distinct from its idle state.\n- No two states of the same control apply identical class sets; hover and focus-visible in particular are not collapsed.\n- Disabled controls are non-focusable in the rendered DOM, not merely styled as disabled.\n\nFor the sender result view specifically:\n- The recipient-share control and the revocation control never share an identical class set in any state.\n\nPassing evidence: a per-state class map with no duplicate entries, distinct maps for the two link controls, and a disabled control absent from the focus order.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
     }
   ],
   "edges": [
@@ -2141,6 +2510,699 @@
       "basis": "explicit",
       "settlement": "settled",
       "rationale": "Criterion anchor for the app-shell requirement."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 60,
+      "target_local_id": 31,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The injectable clock is a seam in the backend API module, not test-only scaffolding."
+    },
+    {
+      "category": "rationale",
+      "source_local_id": 60,
+      "target_local_id": 37,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "AC3 explicitly requires a controlled clock; the injectable seam is what makes that possible."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 60,
+      "target_local_id": 64,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The fake-clock harness exists only because the backend accepts a clock dependency."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 61,
+      "target_local_id": 65,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The recorder harness realizes the chosen traffic-capture oracle."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 62,
+      "target_local_id": 67,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The node-environment suite is the chosen venue for real AES-GCM."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 63,
+      "target_local_id": 69,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The axe-core scan method implements the chosen UI acceptance standard."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 65,
+      "target_local_id": 66,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The sentinel sweep searches the recorder's captured requests as one of its three surfaces."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 64,
+      "target_local_id": 68,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The API integration suite composes the fake clock for expiry cases."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 66,
+      "target_local_id": 70,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "CHK1 is the sentinel sweep applied to one upload."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 67,
+      "target_local_id": 71,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Round-trip fidelity is exercised by the real Web Crypto suite."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 64,
+      "target_local_id": 72,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Expiry boundary is driven by the fake clock."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 68,
+      "target_local_id": 72,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Retrieval status and body assertions run through the API suite."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 68,
+      "target_local_id": 73,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Revocation paths are API-level behaviour."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 67,
+      "target_local_id": 74,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Tamper cases require genuine authenticated decryption."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 68,
+      "target_local_id": 75,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Size rejection and row-count assertions are API-level behaviour."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 65,
+      "target_local_id": 76,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "CHK7 asserts over the recorder's captured log."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 69,
+      "target_local_id": 77,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "CHK8 is the accessibility scan applied to sender and recipient views."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 69,
+      "target_local_id": 78,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "CHK9 is the accessibility scan applied to the shared shell on both routes."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 70,
+      "target_local_id": 35,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": null
+    },
+    {
+      "category": "witness",
+      "source_local_id": 71,
+      "target_local_id": 36,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": null
+    },
+    {
+      "category": "witness",
+      "source_local_id": 72,
+      "target_local_id": 37,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": null
+    },
+    {
+      "category": "witness",
+      "source_local_id": 73,
+      "target_local_id": 38,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": null
+    },
+    {
+      "category": "witness",
+      "source_local_id": 74,
+      "target_local_id": 39,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": null
+    },
+    {
+      "category": "witness",
+      "source_local_id": 75,
+      "target_local_id": 40,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": null
+    },
+    {
+      "category": "witness",
+      "source_local_id": 76,
+      "target_local_id": 41,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": null
+    },
+    {
+      "category": "witness",
+      "source_local_id": 77,
+      "target_local_id": 54,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": null
+    },
+    {
+      "category": "witness",
+      "source_local_id": 78,
+      "target_local_id": 59,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 70,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Mirrors the existing AC1 to SCP2 wiring."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 71,
+      "target_local_id": 43,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Round trip is owned by the crypto envelope scope."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 72,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Expiry enforcement is backend core."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 73,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Revocation is backend core."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 74,
+      "target_local_id": 43,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Tamper-fails-closed is envelope behaviour."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 75,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Size ceiling is enforced server-side."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 76,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Fragment discipline is a frontend obligation."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 77,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Sender and recipient views are frontend scope."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 78,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The shared shell is frontend scope."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 50,
+      "target_local_id": 68,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "All suites run under the npm test harness contract."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 50,
+      "target_local_id": 67,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The node-environment suite must be reachable from vitest --run."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 50,
+      "target_local_id": 69,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The axe scan runs inside the same npm test invocation."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 50,
+      "target_local_id": 79,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Runs inside the same npm test invocation."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 79,
+      "target_local_id": 80,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The check is the clipboard harness applied to the sender result state."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 80,
+      "target_local_id": 54,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Witnesses AC8's copy-to-clipboard clause, which the axe scan cannot observe."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 80,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Copy controls live in the sender frontend flow."
+    },
+    {
+      "category": "cross_reference",
+      "source_local_id": 80,
+      "target_local_id": 77,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Together CH8 and this check cover two of AC8's three clauses; visual-state distinctness remains unwitnessed."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 58,
+      "target_local_id": 81,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The shell module is what REQ11's shared shell means in design terms."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 53,
+      "target_local_id": 81,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Coherent visual design across both views is the shell's job."
+    },
+    {
+      "category": "composition",
+      "source_local_id": 81,
+      "target_local_id": 82,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The state contract is part of the shell's surface, not a separate subsystem."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 53,
+      "target_local_id": 82,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "REQ9's 'distinct interaction states' is exactly what the contract enumerates."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 52,
+      "target_local_id": 81,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The shell owns the shared CSS module that D7's approach implies."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 57,
+      "target_local_id": 81,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The shell displays the product name."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 81,
+      "target_local_id": 32,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The sender view mounts inside the shell and composes its classes."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 81,
+      "target_local_id": 33,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The recipient view mounts inside the shell and composes its classes."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 82,
+      "target_local_id": 54,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "AC8's distinctness clause is only assessable against the enumerated contract."
+    },
+    {
+      "category": "composition",
+      "source_local_id": 49,
+      "target_local_id": 81,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The shell is built as part of the frontend handoff package."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 81,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The frontend scope cannot be built without the shell it mounts inside."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 81,
+      "target_local_id": 78,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "CH9's accessibility scan needs a defined shell as its subject."
+    },
+    {
+      "category": "rationale",
+      "source_local_id": 81,
+      "target_local_id": 9,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Centralizing the text-only rendering primitive in the shell makes the no-HTML-execution constraint enforceable at one boundary."
+    },
+    {
+      "category": "supersession",
+      "source_local_id": 83,
+      "target_local_id": 61,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Widens the earlier server-only choice rather than contradicting its server-side half."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 83,
+      "target_local_id": 84,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The spy is the client-side surface the decision introduces."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 50,
+      "target_local_id": 84,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Runs inside the same npm test invocation."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 84,
+      "target_local_id": 85,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The check is the spy applied to a full sender-recipient cycle."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 85,
+      "target_local_id": 41,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Falsifiable evidence that application code never transmits the key."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 85,
+      "target_local_id": 5,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "CON3's fragment-only rule is an application-behaviour constraint, which only the client surface can test."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 85,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The injectable request seam and fragment discipline are frontend obligations."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 84,
+      "target_local_id": 32,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The sender module must obtain its request function through the injectable seam the spy attaches to."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 84,
+      "target_local_id": 33,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The recipient module must obtain its request function through the same seam."
+    },
+    {
+      "category": "cross_reference",
+      "source_local_id": 85,
+      "target_local_id": 76,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Complementary surfaces: CH7 proves the server never received the key; this check proves the client never tried to send it."
+    },
+    {
+      "category": "rationale",
+      "source_local_id": 85,
+      "target_local_id": 2,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Directly defends the goal that the service never receives key material."
+    },
+    {
+      "category": "supersession",
+      "source_local_id": 86,
+      "target_local_id": 63,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Retains the axe standard and adds a second one; D13's sole-standard framing no longer holds."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 86,
+      "target_local_id": 87,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The harness implements the added structural standard."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 82,
+      "target_local_id": 87,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The harness has nothing to assert without the enumerated contract."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 50,
+      "target_local_id": 87,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Runs inside the same npm test invocation."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 87,
+      "target_local_id": 88,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The check is the harness applied to the shell's controls."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 88,
+      "target_local_id": 54,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Witnesses AC8's distinct-states clause and the recipient/revocation distinction."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 88,
+      "target_local_id": 53,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "REQ9 requires distinct interaction states; this is the structural evidence."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 88,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Shell controls are built in the frontend handoff package."
+    },
+    {
+      "category": "cross_reference",
+      "source_local_id": 88,
+      "target_local_id": 77,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Structural and accessibility standards together cover the rendering half of AC8; CH10 covers clipboard."
     }
   ]
 }
