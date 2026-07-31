@@ -1,0 +1,2146 @@
+{
+  "spec": {
+    "slug": "wisp-secure-drop",
+    "name": "Wisp",
+    "kind": "product"
+  },
+  "nodes": [
+    {
+      "local_id": 1,
+      "plane": "intent",
+      "kind": "goal",
+      "title": "Sender can share an encrypted file and optional note via a capability link",
+      "body": "A sender chooses one file, optionally adds a short note, and receives a link they can give to a recipient. The recipient uses the link to recover the original file and note in the browser.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 2,
+      "plane": "intent",
+      "kind": "goal",
+      "title": "Service never receives or persists plaintext content or key material",
+      "body": "The server receives only an opaque drop identifier and ciphertext. It must not receive or store plaintext file content, plaintext notes, decryption keys, or recoverable equivalents. This is the first priority.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 3,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Fixed stack: React/TS frontend, Node.js/TS backend, SQLite, one npm repository",
+      "body": "All code lives in one npm repository. Dependency installation may use the package registry; the running application and its tests use no external services or runtime network beyond local frontend/backend.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 4,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Browser-side encryption using Web Crypto API with authenticated encryption; no custom primitives; no Math.random for security material",
+      "body": "All encryption and decryption happen in the browser. The implementation must use the platform Web Crypto API. Authenticated encryption is required. Custom cryptographic primitives and Math.random for security material are prohibited.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 5,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Decryption key in URL fragment only; server never receives it in HTTP requests",
+      "body": "The decryption capability lives in the URL fragment (#). Browsers do not include fragments in HTTP requests, so the server receives only the opaque drop identifier and encrypted material.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 6,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Sender receives a recipient share link and a separate revocation token; revocation authority must not be derivable from the recipient link",
+      "body": "Two distinct capabilities are issued at upload time. Possession of the recipient link must not allow an adversary to derive or forge the revocation token.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 7,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Every drop has a server-enforced expiry; expired or revoked drops fail retrieval consistently",
+      "body": "Expiry is set at upload time and enforced by the server. Once a drop is expired or revoked, all subsequent retrieval attempts fail in the same way regardless of which client issues them.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 8,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Wrong/missing capability, tampered ciphertext, nonce, or authenticated metadata must fail closed without exposing partial plaintext or corrupting server state",
+      "body": "Any integrity failure at the decryption boundary — bad key, truncated ciphertext, flipped byte, altered AAD — must produce a clean failure, never partial content. Server state must not be corrupted by malformed requests.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 9,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Output safety: filenames and notes render as text; no HTML execution in the application origin; path-like filenames must not control server filesystem paths",
+      "body": "Filenames and note text are rendered as plain text. Downloads must not execute uploaded HTML in the application origin (content-disposition and content-type controls required). Filename values must be sanitized before use in any server filesystem operation.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 10,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Local demo only; running application and tests use no external services or runtime network",
+      "body": "The demo runs locally. The running application and its test suite must operate without any external service calls at runtime.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 11,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Repository must provide npm test and npm run build; build produces a complete runnable application without ambient dependencies",
+      "body": "Both commands are required. npm run build must produce the complete runnable application. No controller-repository files or ambient dependencies may be required.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 12,
+      "plane": "intent",
+      "kind": "context",
+      "title": "In-scope threat model",
+      "body": "Honest-but-curious service/storage operator; accidental server-side disclosure; guessed drop identifiers; malformed or adversarial clients; stored content injection (XSS via filename or note).",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "given",
+        "statement": "The threat model covers: honest-but-curious service/storage operator, accidental server-side disclosure, guessed identifiers, malformed clients, and stored content injection."
+      }
+    },
+    {
+      "local_id": 13,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Out-of-scope threat model",
+      "body": "Compromised sender or recipient devices; traffic-analysis resistance; denial-of-service resistance beyond simple size limits; formal cryptographic certification.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "given",
+        "statement": "Out of scope: compromised sender/recipient devices, traffic-analysis resistance, DoS resistance beyond simple size limits, formal cryptographic certification."
+      }
+    },
+    {
+      "local_id": 14,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Ciphertext envelope schema: single encrypted envelope",
+      "body": "The browser serialises file bytes and note text (if present) into one plaintext bundle and encrypts the bundle with one AES-GCM operation. The server stores one ciphertext blob and one nonce. The bundle format must be documented so the recipient client can deserialise correctly.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "chosen_option": "Single encrypted envelope: one bundle, one AEAD operation, one ciphertext column",
+        "rejected": [
+          "Separate encrypted file and note fields (two ciphertexts, nullable note columns, sub-key derivation required)"
+        ],
+        "rationale": "The honest-but-curious threat model warrants hiding even note presence/absence from the server. One AEAD operation with a defined bundle format is simpler to reason about and verify than two operations with domain-separation requirements. Bundle format cost is low for v1 with no backwards-compatibility pressure."
+      }
+    },
+    {
+      "local_id": 15,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Revocation capability storage: SHA-256 hash of token",
+      "body": "The server stores SHA-256(revocation_token) per drop. At revocation time the client presents the raw token; the server hashes and compares. The recipient share link contains only the drop id and decryption key — never the raw token or its hash. No server secret is required.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "chosen_option": "Store SHA-256(revocation_token) per drop; verify by hashing the presented token at revocation time",
+        "rejected": [
+          "HMAC over drop id with a server secret (requires secret management, breaks zero-config demo, catastrophic on secret leakage)"
+        ],
+        "rationale": "High-entropy random tokens make hash storage safe without a salt. No server secret needed, compatible with zero-config local demo, and simple to implement and verify."
+      }
+    },
+    {
+      "local_id": 16,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Drop identifier and AAD: browser generates UUID v4 before encryption; all five operational fields are bound",
+      "body": "Before encryption, the browser generates the drop id with crypto.randomUUID() and selects the expiry timestamp. The AES-GCM encrypt and decrypt operations include all five operational fields as additional authenticated data: drop id, filename, MIME type, file size (bytes), and expiry timestamp. POST /drops carries that same drop id. The server validates canonical UUID v4 syntax, stores the client-supplied id unchanged as the primary key, and returns 409 on collision; it never substitutes an id after encryption. Any server-side modification to an AAD field causes decryption to fail.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "chosen_option": "Browser-generated UUID v4 before encryption; all five fields bound as AAD; server validates and rejects collisions",
+        "rejected": [
+          "Server-generated id after upload (the browser cannot bind an unknown id into AAD)",
+          "Two-step server reservation endpoint (adds a round-trip and lifecycle state without a security benefit)",
+          "Drop id + expiry only",
+          "Drop id only"
+        ],
+        "rationale": "Client generation preserves the single-POST flow and makes the id available before encryption. UUID v4 collision risk is negligible, while server-side validation and primary-key uniqueness preserve the trust boundary. Binding all five fields prevents expiry, filename, MIME-type, size, or cross-drop substitution."
+      }
+    },
+    {
+      "local_id": 17,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Tooling and test stack: Vite + Vitest + Express + better-sqlite3",
+      "body": "React/TS frontend uses Vite as build tool. Vitest is the single test runner and package.json maps npm test to vitest --run. Crypto-envelope tests use real Web Crypto in the Node test environment; React component tests use jsdom and mock the narrow crypto adapter rather than passing cross-realm ArrayBuffer values into real SubtleCrypto. Express integration tests run under Vitest with Supertest. Node.js/TS backend uses Express, and SQLite is accessed via better-sqlite3.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "chosen_option": "Vite (frontend build) + Vitest (test runner) + Express/Supertest (backend and integration tests) + better-sqlite3 (SQLite driver)",
+        "rejected": [
+          "Create React App (deprecated, slower)",
+          "Jest (duplicates Vite transforms and configuration)",
+          "Fastify (more setup for minimal gain in demo context)",
+          "Hono (less familiar, edge-first)",
+          "Drizzle ORM (over-engineering for a small schema)",
+          "node:sqlite Node 22 built-in (newer, less documented API)"
+        ],
+        "rationale": "Vitest shares Vite's TypeScript transform path and makes npm test actionable from a greenfield repository. Separating real crypto tests from jsdom component tests avoids cross-realm WebCrypto failures. Express is minimal and widely understood; better-sqlite3 suits a single-process demo with deterministic tests."
+      }
+    },
+    {
+      "local_id": 18,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Resource limits: 10 MB upload ceiling, 24-hour default expiry",
+      "body": "The server rejects uploads exceeding 10 MB. The default expiry duration is 24 hours from upload time. Both values are enforced server-side.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "chosen_option": "10 MB upload ceiling; 24-hour default expiry",
+        "rejected": [
+          "50 MB / 100 MB ceiling (browser-memory encryption cost, slower tests)",
+          "7-day expiry (too relaxed for demo)",
+          "1-hour expiry (awkward for real use, though better for testing)"
+        ],
+        "rationale": "10 MB keeps browser memory pressure low and tests fast. 24 hours is long enough for real use in a demo and short enough to demonstrate expiry meaningfully."
+      }
+    },
+    {
+      "local_id": 19,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Local demo startup: single npm run dev via concurrently",
+      "body": "A single npm run dev command starts both the Vite frontend dev server and the Express backend in parallel using the concurrently package. Production mode: npm run build produces a dist/ that the Express server serves as static files; npm start runs the backend only.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "chosen_option": "Single npm run dev via the concurrently package, starting both Vite and Express in parallel",
+        "rejected": [
+          "Two separate terminal commands (dev:frontend + dev:server)",
+          "Build-only spec with no dev mode"
+        ],
+        "rationale": "Single-command startup reduces friction for a demo. concurrently is a well-known dev dependency for this pattern."
+      }
+    },
+    {
+      "local_id": 20,
+      "plane": "oracle",
+      "kind": "vv_method",
+      "title": "Project execution harness",
+      "body": "execute.verify: npm test\nTest runner contract: package.json script \"test\": \"vitest --run\".",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 21,
+      "plane": "intent",
+      "kind": "story",
+      "title": "Sender shares an encrypted file and optional note via a capability link",
+      "body": "1. Sender opens the application in a browser.\n2. Sender selects one file (≤ 10 MB) and optionally types a short note.\n3. Before encryption, the browser generates the drop id with crypto.randomUUID(), selects the expiry timestamp, and generates a random AES-GCM key (256-bit) plus 12-byte nonce via Web Crypto API.\n4. The browser serialises the file bytes and note text into a bundle and encrypts it; AAD = drop id + filename + MIME type + file size + expiry.\n5. The browser uploads the client-generated drop id, ciphertext, nonce, and plaintext AAD fields to the server in one POST.\n6. The server validates and stores the drop, returning the same drop id and a raw revocation token; malformed ids fail with 400 and collisions fail with 409.\n7. The browser presents the sender with a recipient share link and a separate revocation link.\n8. Sender can use the revocation link to delete the drop before expiry.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 22,
+      "plane": "intent",
+      "kind": "story",
+      "title": "Recipient recovers the original file and note from a valid capability link",
+      "body": "1. Recipient opens the recipient share link in a browser.\n2. The browser extracts the drop id from the path and the decryption key from the URL fragment (never sent to server).\n3. The browser fetches ciphertext, nonce, and AAD metadata from the server using the drop id.\n4. The browser decrypts using the extracted key, nonce, and server-returned AAD fields.\n5. On success: the browser presents the plaintext note as text and offers the file for download with content-disposition: attachment.\n6. On failure (wrong key, tampered ciphertext/AAD, expired, revoked): the browser shows an error with no partial content.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 23,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Browser generates the drop id before AES-GCM-256 encryption and binds all five operational fields into AAD",
+      "body": "The browser generates a UUID v4 drop id with crypto.randomUUID() before encryption. SubtleCrypto.encrypt uses AES-GCM, a 256-bit key, a 12-byte random nonce from crypto.getRandomValues, and AAD composed of the drop id, filename, MIME type, file size, and expiry timestamp serialised deterministically. POST /drops transmits the same drop id, and decryption reconstructs the same AAD from server-returned fields.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "gherkin",
+        "given": [
+          "a file and optional note are ready for upload",
+          "a UUID v4 drop id has been generated with crypto.randomUUID()",
+          "a 256-bit key and 12-byte nonce have been generated via Web Crypto API"
+        ],
+        "when": [
+          "the browser calls SubtleCrypto.encrypt with the bundle plaintext and the five-field AAD"
+        ],
+        "then": [
+          "the client-generated drop id, ciphertext, nonce, and plaintext AAD fields are uploaded in one POST",
+          "the plaintext bundle is not transmitted",
+          "the key is not transmitted"
+        ]
+      }
+    },
+    {
+      "local_id": 24,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Decryption key lives in the URL fragment only; no HTTP request transmits it",
+      "body": "The recipient link encodes the raw key as base64url in the URL fragment. The server never receives, logs, or stores key material.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "gherkin",
+        "given": [
+          "a recipient share link has been generated"
+        ],
+        "when": [
+          "the recipient browser opens the link and fetches drop metadata"
+        ],
+        "then": [
+          "the HTTP request contains the drop id path segment only",
+          "the URL fragment is not sent to the server",
+          "the server response contains ciphertext and AAD fields only"
+        ]
+      }
+    },
+    {
+      "local_id": 25,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Server rejects uploads exceeding 10 MB with a 413 response",
+      "body": "The server enforces a 10 MB limit on the total upload payload. Requests exceeding this limit receive a 413 before the body is processed. No drop is created.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "gherkin",
+        "given": [
+          "a client attempts to upload a drop"
+        ],
+        "when": [
+          "the total request body exceeds 10 MB"
+        ],
+        "then": [
+          "the server responds 413",
+          "no drop is created",
+          "no data is persisted"
+        ]
+      }
+    },
+    {
+      "local_id": 26,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Server enforces 24-hour expiry; retrieval of an expired drop returns 404 or 410",
+      "body": "Every drop has an expiry timestamp set to 24 hours after upload. The server checks expiry on every retrieval. Expired drops return 404 or 410.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "gherkin",
+        "given": [
+          "a drop whose expiry timestamp is in the past"
+        ],
+        "when": [
+          "any client requests the drop"
+        ],
+        "then": [
+          "the server responds 404 or 410",
+          "no ciphertext is returned"
+        ]
+      }
+    },
+    {
+      "local_id": 27,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Revocation marks the drop deleted; token verified via SHA-256 hash; subsequent retrieval fails",
+      "body": "A DELETE to the revocation endpoint with the raw token causes the server to hash it, compare against the stored hash, and on match mark the drop revoked. Subsequent retrieval returns 404 or 410. The raw token is never stored.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "gherkin",
+        "given": [
+          "a valid drop exists",
+          "the sender possesses the revocation token"
+        ],
+        "when": [
+          "the sender sends a DELETE request with the raw revocation token"
+        ],
+        "then": [
+          "the server verifies SHA-256(token) against the stored hash",
+          "the drop is marked revoked",
+          "subsequent retrieval returns 404 or 410"
+        ]
+      }
+    },
+    {
+      "local_id": 28,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Decryption fails closed on wrong key, tampered ciphertext, nonce, or AAD; no partial plaintext is exposed",
+      "body": "SubtleCrypto.decrypt throws on any integrity failure. The application clears intermediate state and shows only a generic failure message.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "gherkin",
+        "given": [
+          "the recipient browser has fetched ciphertext and AAD from the server"
+        ],
+        "when": [
+          "decryption is attempted with a wrong key, truncated ciphertext, flipped byte, or altered AAD"
+        ],
+        "then": [
+          "SubtleCrypto.decrypt throws",
+          "no plaintext content is rendered",
+          "no partial file bytes are exposed"
+        ]
+      }
+    },
+    {
+      "local_id": 29,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Filenames and notes render as text; downloads force attachment; filenames sanitized server-side",
+      "body": "Notes are displayed in a plain-text element. Filenames are displayed as text. The server sets Content-Disposition: attachment on download responses. Filename values are sanitized (path separators removed, length bounded) before any server-side use.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "plain"
+      }
+    },
+    {
+      "local_id": 30,
+      "plane": "design",
+      "kind": "module",
+      "title": "Crypto envelope module (browser)",
+      "body": "Browser-only TypeScript module responsible for:\n- Key generation: SubtleCrypto.generateKey (AES-GCM, 256-bit).\n- Nonce generation: crypto.getRandomValues, 12 bytes.\n- Bundle serialisation: 4-byte big-endian note-length prefix, UTF-8 note bytes, then file bytes.\n- Encrypt: SubtleCrypto.encrypt(AES-GCM, key, bundle, { iv: nonce, additionalData: aad }).\n- Decrypt: SubtleCrypto.decrypt; deserialise bundle.\n- AAD encoding: deterministic serialisation of drop id + filename + MIME type + file size + expiry.\n- Key transport: base64url encode/decode for URL fragment.\n- No Node.js APIs; no server imports.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 31,
+      "plane": "design",
+      "kind": "module",
+      "title": "Backend API module (Express + SQLite)",
+      "body": "Node.js/TypeScript Express server responsible for:\n- 10 MB upload ceiling enforced before body processing.\n- Validating the client-supplied drop id as canonical UUID v4, storing it unchanged, returning 400 for malformed ids and 409 for primary-key collisions.\n- Generating only the raw revocation token via crypto.randomBytes.\n- Storing SHA-256(revocation_token) per drop; never storing the raw token.\n- SQLite schema (better-sqlite3): drops table — id TEXT PK, ciphertext BLOB, nonce BLOB, filename TEXT, mime_type TEXT, file_size INTEGER, expires_at INTEGER (Unix ms), revocation_hash TEXT, revoked INTEGER DEFAULT 0, created_at INTEGER.\n- GET /drops/:id: check expires_at and revoked before returning ciphertext + nonce + AAD fields.\n- DELETE /drops/:id: verify SHA-256(presented_token) = stored hash; set revoked = 1.\n- Content-Disposition: attachment on download responses.\n- Filename sanitisation: strip path separators, bound length to 255 bytes.\n- Serve Vite dist/ as static files in production.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 32,
+      "plane": "design",
+      "kind": "module",
+      "title": "Frontend sender module (React)",
+      "body": "React/TypeScript sender-flow components:\n- File picker (single file, client-side 10 MB pre-check).\n- Note textarea (plain text).\n- Upload button: generates drop id with crypto.randomUUID() and selects expiry before calling the crypto envelope module, then POSTs the id and encrypted envelope to /drops.\n- Result view: copiable recipient link and revocation link.\n- Revocation action: DELETE /drops/:id; confirmation message.\n- Error states for malformed request, id collision, upload failure, and revocation failure.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 33,
+      "plane": "design",
+      "kind": "module",
+      "title": "Frontend recipient module (React)",
+      "body": "React/TypeScript recipient-flow components:\n- On mount: extract drop id from URL path, key from URL fragment.\n- Fetch GET /drops/:id.\n- Call crypto envelope module to decrypt.\n- Success: render note as plain text; Download button (Blob URL, content-disposition attachment, original filename).\n- Failure: generic error message; clear all in-memory material.\n- Fragment must not be forwarded in any request or logged.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 34,
+      "plane": "design",
+      "kind": "interface",
+      "title": "Drop API",
+      "body": "POST /drops\n  Body: { dropId: UUIDv4, ciphertext: base64, nonce: base64, filename: string, mimeType: string, fileSize: number, expiresAt: ISO8601 }\n  Response 201: { dropId: string, revocationToken: string }\n  Response 400: malformed request or non-canonical/non-v4 drop id\n  Response 409: drop id already exists\n  Response 413: payload exceeds 10 MB\n\nGET /drops/:id\n  Response 200: { ciphertext: base64, nonce: base64, filename: string, mimeType: string, fileSize: number, expiresAt: ISO8601 }\n  Response 404/410: not found, expired, or revoked\n\nDELETE /drops/:id\n  Body: { revocationToken: string }\n  Response 204: revoked\n  Response 401: token mismatch\n  Response 404: drop not found",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 35,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "Plaintext sentinel absent from SQLite, server logs, and captured HTTP traffic after upload",
+      "body": "A deterministic fixture file contains a unique plaintext sentinel string. After upload, the sentinel must not appear in any SQLite column, server log, or captured request/response body.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "gherkin",
+        "given": [
+          "a fixture file containing a unique plaintext sentinel string"
+        ],
+        "when": [
+          "the file is encrypted and uploaded via the sender flow"
+        ],
+        "then": [
+          "the sentinel does not appear in any SQLite column",
+          "the sentinel does not appear in server log output",
+          "the sentinel does not appear in any captured HTTP request or response body"
+        ]
+      }
+    },
+    {
+      "local_id": 36,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "Recipient recovers byte-identical file and exact note after a valid upload-download cycle",
+      "body": "Decrypted file bytes must be identical to the original fixture file bytes; decrypted note must equal the original note string.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "gherkin",
+        "given": [
+          "a fixture file with known content and a known note string"
+        ],
+        "when": [
+          "the file and note are encrypted, uploaded, then decrypted by the recipient flow"
+        ],
+        "then": [
+          "decrypted file bytes are identical to the fixture bytes",
+          "decrypted note equals the known note string"
+        ]
+      }
+    },
+    {
+      "local_id": 37,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "GET after expiry returns 404 or 410 with no ciphertext; verified with controlled clock",
+      "body": "The test suite injects a controlled clock. Advancing past the expiry timestamp causes GET /drops/:id to return 404 or 410 with no ciphertext field.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "gherkin",
+        "given": [
+          "a drop with expiry T has been uploaded",
+          "the server clock is advanced past T"
+        ],
+        "when": [
+          "GET /drops/:id is issued"
+        ],
+        "then": [
+          "the server responds 404 or 410",
+          "no ciphertext field is present in the response"
+        ]
+      }
+    },
+    {
+      "local_id": 38,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "GET after valid DELETE returns 404 or 410; recipient link alone cannot revoke",
+      "body": "DELETE with correct token returns 204; subsequent GET returns 404/410. DELETE with only the recipient link data (no revocation token) returns 401.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "gherkin",
+        "given": [
+          "a valid drop exists"
+        ],
+        "when": [
+          "DELETE /drops/:id with the correct revocation token is sent, then GET /drops/:id is sent"
+        ],
+        "then": [
+          "DELETE returns 204",
+          "subsequent GET returns 404 or 410"
+        ]
+      }
+    },
+    {
+      "local_id": 39,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "Tampered ciphertext, nonce, or AAD field causes decrypt to throw; no partial content rendered",
+      "body": "Each tamper case (one flipped byte in ciphertext; altered nonce; changed AAD field) must cause SubtleCrypto.decrypt to throw and the UI to show only a generic error.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "gherkin",
+        "given": [
+          "a valid drop has been uploaded"
+        ],
+        "when": [
+          "one byte of ciphertext, the nonce, or an AAD field is altered before decrypt"
+        ],
+        "then": [
+          "SubtleCrypto.decrypt throws",
+          "no plaintext content is rendered",
+          "the UI shows a generic failure message"
+        ]
+      }
+    },
+    {
+      "local_id": 40,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "Upload of 10 MB + 1 byte returns 413; no drop row created",
+      "body": "POST /drops with a 10 MB + 1 byte body must return 413. The drops table must contain no new row.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "gherkin",
+        "given": [
+          "the server is running"
+        ],
+        "when": [
+          "POST /drops is sent with a body of 10 MB + 1 byte"
+        ],
+        "then": [
+          "the server responds 413",
+          "the drops table contains no new row"
+        ]
+      }
+    },
+    {
+      "local_id": 41,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "URL fragment (decryption key) does not appear in any captured HTTP request to the server",
+      "body": "All HTTP requests made during a full recipient flow are captured. No request URL, header, or body contains the base64url key string from the fragment.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "gherkin",
+        "given": [
+          "a valid share link with the key in the URL fragment"
+        ],
+        "when": [
+          "the recipient flow fetches and decrypts the drop"
+        ],
+        "then": [
+          "no captured HTTP request to the server contains the key string in URL, headers, or body"
+        ]
+      }
+    },
+    {
+      "local_id": 42,
+      "plane": "plan",
+      "kind": "frontier",
+      "title": "Secure Drop v1",
+      "body": "Entry: all REQ1–REQ7 settled, VV1 execution harness confirmed.\nExit: npm test passes, npm run build produces a runnable application.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 43,
+      "plane": "plan",
+      "kind": "scope",
+      "title": "Scope: Crypto envelope",
+      "body": "Implements the browser-side crypto envelope module (d-mod-crypto):\n- Bundle serialisation / deserialisation.\n- AES-GCM-256 key + nonce generation.\n- SubtleCrypto.encrypt / SubtleCrypto.decrypt with five-field AAD supplied by the caller, including the already-generated drop id.\n- Base64url key transport.\n- Vitest unit tests with real Node Web Crypto: round-trip byte-identity, tamper detection per AAD field, wrong-key rejection.\n\nNo server dependency. Can be built and tested independently.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 44,
+      "plane": "plan",
+      "kind": "scope",
+      "title": "Scope: Backend core",
+      "body": "Implements the Express server and SQLite persistence (d-mod-backend):\n- Schema, migrations (better-sqlite3 synchronous DDL).\n- POST /drops validates and stores the client-generated UUID v4; malformed ids return 400 and collisions return 409.\n- GET /drops/:id and DELETE /drops/:id.\n- Expiry and revocation enforcement.\n- 10 MB ceiling, filename sanitisation, Content-Disposition.\n- Controlled clock injection for expiry tests.\n- Vitest + Supertest integration tests for server-level acceptance criteria, including UUID validation and collision handling.\n\nRequires stable AAD field contract from Scope: Crypto envelope.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 45,
+      "plane": "plan",
+      "kind": "scope",
+      "title": "Scope: Frontend sender flow",
+      "body": "Implements d-mod-sender:\n- File picker, note textarea, Upload button.\n- Client-side 10 MB pre-check.\n- Generate UUID v4 drop id and select expiry before encryption.\n- Encrypt via Scope: Crypto envelope module API; POST the same id and envelope to Scope: Backend core.\n- Display recipient link and revocation link.\n- Revocation action.\n- Vitest/jsdom component tests mock the narrow crypto adapter; real Web Crypto remains covered by the crypto-envelope scope.\n\nDepends on: Scope: Crypto envelope (module API stable), Scope: Backend core (API contract stable).",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 46,
+      "plane": "plan",
+      "kind": "scope",
+      "title": "Scope: Frontend recipient flow",
+      "body": "Implements d-mod-recipient:\n- Extract drop id from path, key from fragment.\n- Fetch from Scope: Backend core; decrypt via Scope: Crypto envelope.\n- Note as plain text; Download via Blob URL.\n- Generic error view.\n\nDepends on: Scope: Crypto envelope (module API stable), Scope: Backend core (API contract stable).",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 47,
+      "plane": "plan",
+      "kind": "scope",
+      "title": "Scope: End-to-end verification",
+      "body": "Implements the full Vitest suite targeting npm test (vitest --run):\n- Deterministic fixture files with unique plaintext sentinels.\n- Full upload-download round-trip (byte-identical + exact note).\n- Client-generated drop id is identical in POST body, stored row, response, share link, and decrypted AAD.\n- Malformed/non-v4 ids return 400; duplicate ids return 409 without replacing the stored row.\n- Sentinel absence check (SQLite, logs, requests).\n- Expiry enforcement (controlled clock).\n- Revocation enforcement.\n- Tamper tests (ciphertext, nonce, each of five AAD fields).\n- 413 on oversized upload.\n- Fragment not-sent verification (request capture).\n- Build verification: npm run build produces a servable dist/.\n\nDepends on: all prior scopes.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 48,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Sender and recipient UI present capability links, decrypted note, and file download as accessible plain-text controls",
+      "body": "The sender flow displays the recipient share link and revocation link as copiable plain text. The recipient flow renders the decrypted note as plain text and offers the decrypted file via a Download control. Both flows expose accessible labels on all interactive controls and show only generic error text on failure.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "plain"
+      }
+    },
+    {
+      "local_id": 49,
+      "plane": "plan",
+      "kind": "scope",
+      "title": "Scope: Frontend (sender + recipient)",
+      "body": "Merged scope implementing both the sender flow (MOD3) and recipient flow (MOD4):\n- Sender: file picker, note textarea, client-side 10 MB pre-check, UUID v4 generation before encryption, upload orchestration via the crypto envelope module, result view with copiable recipient and revocation links, revocation action.\n- Recipient: fragment/drop-id extraction, fetch via the Drop API, decryption via the crypto envelope module, plain-text note render, Blob-URL download, generic failure display.\n- Fragment (decryption key) is never forwarded in any request from either flow.\n- Vitest/jsdom component tests mock the crypto adapter; crypto-envelope tests exercise real Web Crypto separately.\n\nDepends on: Scope: Crypto envelope (module API stable), Scope: Backend core (API contract stable).",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 50,
+      "plane": "oracle",
+      "kind": "vv_method",
+      "title": "Project execution harness",
+      "body": "execute.setup: npm install\nexecute.build: npm run build\nexecute.verify: npm test\nTest runner contract: package.json script \"test\": \"vitest --run\".",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 51,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Repository must include a .gitignore excluding node_modules, dist, and other generated build artifacts from version control",
+      "body": "The first slice to initialize the repository must create a .gitignore covering node_modules/, dist/, build/, and any generated test-runner cache directories (e.g. .vite/). This prevents regenerated, non-deterministic package and cache content from being tracked in git and causing merge conflicts during slice integration across independently-run npm install invocations.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": null
+    },
+    {
+      "local_id": 52,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "CSS approach: plain CSS modules",
+      "body": "Visual styling uses plain CSS modules (per-component scoped .module.css files), added via Vite's built-in CSS Modules support. No additional runtime or build-time styling dependency.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "chosen_option": "Plain CSS modules (Vite built-in support, no extra dependency)",
+        "rejected": [
+          "Tailwind CSS (adds a build-time dependency)",
+          "CSS-in-JS / styled-components (adds a runtime dependency)"
+        ],
+        "rationale": "Keeps the dependency surface minimal for a bounded demo. Vite supports CSS Modules natively with zero configuration."
+      }
+    },
+    {
+      "local_id": 53,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Sender and recipient UI present a coherent visual design with distinct interaction states",
+      "body": "The sender and recipient views share a consistent visual system (spacing, typography, color) via plain CSS modules. Upload and decrypt operations show a visible loading/in-progress state. Success and failure states are visually distinct (background/icon/border treatment) while error copy remains generic per REQ6. The recipient link and revocation link are visually distinguished from each other so the sender cannot confuse which to share. Recipient/revocation links include a copy-to-clipboard button with visible confirmation feedback. The layout is responsive across desktop and mobile viewport widths.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "plain"
+      }
+    },
+    {
+      "local_id": 54,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "Visual states are distinct and interactive; recipient/revocation links are visually distinguished with working copy-to-clipboard",
+      "body": "Automated test asserts: a loading indicator is present during upload/decrypt async operations; success and failure states apply visually distinct CSS classes; the recipient link container and revocation link container have distinguishing visual treatment (e.g. different container class/label); clicking each link's copy button copies the correct string and shows a confirmation.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "gherkin",
+        "given": [
+          "a completed upload producing a recipient link and a revocation link"
+        ],
+        "when": [
+          "the sender views the result screen and clicks each copy button"
+        ],
+        "then": [
+          "the recipient link and revocation link containers carry visually distinguishing classes",
+          "each copy button copies its own correct link string",
+          "a visible confirmation appears after each copy action"
+        ]
+      }
+    },
+    {
+      "local_id": 55,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Vite dev server proxies API requests to the Express backend during npm run dev",
+      "body": "vite.config.ts must configure server.proxy so that /drops (and any other backend API path prefix) is forwarded from the Vite dev server (port 5173) to the Express backend (port 3001, or process.env.PORT if set). Without this, npm run dev serves the frontend and backend on separate origins with no routing between them, causing all API calls from the browser to 404 against Vite's dev server instead of reaching Express. Production mode (npm run build && npm start) is unaffected since Express serves both the built frontend and the API from one origin.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "chosen_option": "Configure vite.config.ts server.proxy to forward API path prefixes (e.g. /drops) to http://localhost:3001 (or process.env.PORT) during npm run dev",
+        "rejected": [
+          "Requiring the frontend to call an absolute backend URL directly (breaks the same-origin assumption used in production and complicates CORS)",
+          "Leaving dev-mode API calls broken and only supporting the built/production path"
+        ],
+        "rationale": "npm run dev is the documented local demo entry point (D6, CON9) and must actually work end-to-end; a missing dev proxy silently breaks every API call from the browser while unit/integration tests (which call the Express app directly via supertest, bypassing Vite entirely) never exercise this path."
+      }
+    },
+    {
+      "local_id": 56,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "npm run dev serves a working end-to-end application: browser requests to /drops reach the Express backend through the Vite dev server",
+      "body": "vite.config.ts configures server.proxy to forward /drops (and any other backend route prefix) from the Vite dev server to the Express backend's port. A POST to /drops issued by the browser while npm run dev is running must reach the Express handler and receive the same response it would in production, not a 404 from the Vite dev server.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "gherkin",
+        "given": [
+          "npm run dev is running (Vite dev server and Express backend both started via concurrently)"
+        ],
+        "when": [
+          "the browser issues a fetch to /drops or /drops/:id from a page served by the Vite dev server"
+        ],
+        "then": [
+          "the request is proxied to the Express backend and returns the same response the backend would give directly",
+          "the response is not a 404 from the Vite dev server itself"
+        ]
+      }
+    },
+    {
+      "local_id": 57,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Product name: Wisp",
+      "body": "The application remains branded as \"Wisp\" throughout the terminal shell and page title. The canonical fixture slug is \"wisp-secure-drop\" so the reusable seed is self-describing without changing the product's established identity.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "chosen_option": "Wisp",
+        "rejected": [
+          "Secure Drop (generic working title, not a product name)",
+          "Wisp Secure Drop (useful as a fixture description, but unnecessarily expands the product name)",
+          "Literal/descriptive names (e.g. CipherDrop, VaultShare) — less connected to the established Wisp identity"
+        ],
+        "rationale": "Wisp stays short, memorable, and on-theme; the separate wisp-secure-drop fixture slug provides repository-level clarity."
+      }
+    },
+    {
+      "local_id": 58,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Application uses a shared secure-terminal shell across sender and recipient views",
+      "body": "Both routes render a dark, command-line-inspired shell branded \"Wisp\": a monospace interface, green-on-near-black palette, subtle terminal borders, prompt-style labels, timestamped local-status lines, and a persistent security/status strip. The sender route presents file selection, optional note, expiry, local encryption progress, and drop creation as one terminal session. The recipient route presents capability recovery, ciphertext retrieval, local authentication/decryption status, file metadata, and download as the corresponding receive session. Cryptographic state is legible but not exposed as configurable controls. The shell is keyboard-first, responsive, uses visible focus, announces status changes accessibly, renders user content as text, and sets the page title to the product name.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "plain"
+      }
+    },
+    {
+      "local_id": 59,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "Secure-terminal shell renders consistently and accessibly across sender and recipient routes",
+      "body": "Automated tests assert that both routes use the Wisp terminal shell, expose route-appropriate local security events and actions, preserve keyboard and screen-reader behavior, and set the product page title.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": null,
+      "detail": {
+        "form": "gherkin",
+        "given": [
+          "the application is rendered at the sender route and, separately, at a recipient route"
+        ],
+        "when": [
+          "the page shell mounts and the active workflow changes state"
+        ],
+        "then": [
+          "both routes render the same dark monospace terminal frame with a Wisp prompt label and persistent security/status strip",
+          "the sender route exposes local encryption events plus command-styled file, note, expiry, and create-drop controls",
+          "the recipient route exposes capability, retrieval, authentication, and decryption events plus a command-styled download action",
+          "status changes are announced without moving focus, all actions remain keyboard operable with visible focus, and user-controlled filenames and notes render as text",
+          "document.title contains Wisp"
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "category": "refinement",
+      "source_local_id": 1,
+      "target_local_id": 2,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The security boundary goal is the security-specific refinement of the sharing goal — it states the constraint under which sharing must operate."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 2,
+      "target_local_id": 4,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The Web Crypto + AE constraint is the mechanism that enforces the ciphertext-only boundary."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 2,
+      "target_local_id": 5,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Fragment-based key delivery is how the server is prevented from ever receiving key material."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 2,
+      "target_local_id": 6,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Separate revocation authority enforces that the recipient link cannot be used to revoke or tamper."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 2,
+      "target_local_id": 7,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Server-enforced expiry is a security lifecycle property — it limits the window a capability remains valid."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 2,
+      "target_local_id": 8,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Fail-closed behaviour on integrity failures is a direct requirement of the security boundary."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 2,
+      "target_local_id": 9,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Output safety prevents stored content injection, which is an in-scope threat."
+    },
+    {
+      "category": "refinement",
+      "source_local_id": 1,
+      "target_local_id": 21,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Sender story is the upload-path realisation of the sharing goal."
+    },
+    {
+      "category": "refinement",
+      "source_local_id": 1,
+      "target_local_id": 22,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Recipient story is the retrieval-path realisation of the sharing goal."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 4,
+      "target_local_id": 23,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Envelope requirement realises the Web Crypto/AE constraint and D3 (AAD decision)."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 5,
+      "target_local_id": 24,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Fragment requirement realises the fragment-key constraint."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 7,
+      "target_local_id": 26,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Expiry requirement realises the server-enforced expiry constraint."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 6,
+      "target_local_id": 27,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Revocation requirement realises CON4 and D2 (SHA-256 hash storage)."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 8,
+      "target_local_id": 28,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Fail-closed requirement realises the tamper-detection constraint."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 9,
+      "target_local_id": 29,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Output-safety requirement realises CON7."
+    },
+    {
+      "category": "composition",
+      "source_local_id": 42,
+      "target_local_id": 43,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Crypto envelope scope is owned by the v1 frontier."
+    },
+    {
+      "category": "composition",
+      "source_local_id": 42,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Backend core scope is owned by the v1 frontier."
+    },
+    {
+      "category": "composition",
+      "source_local_id": 42,
+      "target_local_id": 45,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Sender flow scope is owned by the v1 frontier."
+    },
+    {
+      "category": "composition",
+      "source_local_id": 42,
+      "target_local_id": 46,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Recipient flow scope is owned by the v1 frontier."
+    },
+    {
+      "category": "composition",
+      "source_local_id": 42,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E verification scope is owned by the v1 frontier."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 43,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Backend schema must be stable against the envelope module's AAD field contract."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 43,
+      "target_local_id": 45,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Sender flow calls the crypto envelope encrypt API."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 44,
+      "target_local_id": 45,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Sender flow POSTs to the backend API."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 43,
+      "target_local_id": 46,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Recipient flow calls the crypto envelope decrypt API."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 44,
+      "target_local_id": 46,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Recipient flow fetches from the backend API."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 43,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E tests exercise the crypto envelope directly."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 44,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E tests drive the backend server."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 45,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E tests exercise the full sender flow."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 46,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E tests exercise the full recipient flow."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 20,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E scope is the primary execution target of the npm test harness."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 23,
+      "target_local_id": 43,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Crypto envelope scope realises REQ1."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 24,
+      "target_local_id": 43,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Crypto envelope scope realises REQ2 (fragment key encoding)."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 25,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Backend scope realises REQ3 (10 MB ceiling)."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 26,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Backend scope realises REQ4 (expiry enforcement)."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 27,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Backend scope realises REQ5 (revocation + SHA-256 hash)."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 28,
+      "target_local_id": 43,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Crypto envelope scope realises REQ6 (fail-closed decryption)."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 29,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Backend scope realises REQ7 (filename sanitisation, content-disposition)."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 30,
+      "target_local_id": 43,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Crypto envelope module is realized within this scope."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 31,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Backend API module is realized within this scope."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 34,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Drop API interface is realized within this scope."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 32,
+      "target_local_id": 45,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Frontend sender module is realized within this scope."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 33,
+      "target_local_id": 46,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Frontend recipient module is realized within this scope."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 34,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E verification exercises the Drop API contract directly."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 24,
+      "target_local_id": 45,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Sender flow constructs the fragment-bearing share link, realizing the fragment-key requirement."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 28,
+      "target_local_id": 46,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Recipient flow implements the fail-closed UI behavior on decrypt failure."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 23,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E suite verifies the full encrypt/decrypt requirement end-to-end."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 26,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E suite verifies expiry enforcement end-to-end."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 27,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E suite verifies revocation end-to-end."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 36,
+      "target_local_id": 43,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Byte-identical round-trip criterion is exercised by the crypto envelope's unit tests."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 39,
+      "target_local_id": 43,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Tamper-detection criterion is exercised by the crypto envelope's unit tests."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 35,
+      "target_local_id": 44,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Sentinel-absence criterion is exercised by backend integration tests."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 37,
+      "target_local_id": 44,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Expiry criterion is exercised by backend integration tests with injectable clock."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 38,
+      "target_local_id": 44,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Revocation criterion is exercised by backend integration tests."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 40,
+      "target_local_id": 44,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Size-ceiling criterion is exercised by backend integration tests."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 40,
+      "target_local_id": 45,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Client-side size pre-check is exercised by sender-flow tests."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 41,
+      "target_local_id": 45,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Fragment-not-sent criterion is partially exercised by sender-flow tests (link construction)."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 36,
+      "target_local_id": 46,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Byte-identical round-trip criterion is exercised by recipient-flow tests."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 39,
+      "target_local_id": 46,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Tamper-detection criterion is exercised at the recipient UI layer."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 41,
+      "target_local_id": 46,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Fragment-not-sent criterion is exercised by recipient-flow tests (fetch behavior)."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 35,
+      "target_local_id": 47,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Sentinel-absence criterion is exercised by the full E2E suite."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 36,
+      "target_local_id": 47,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Byte-identical round-trip criterion is exercised by the full E2E suite."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 37,
+      "target_local_id": 47,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Expiry criterion is exercised by the full E2E suite."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 38,
+      "target_local_id": 47,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Revocation criterion is exercised by the full E2E suite."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 39,
+      "target_local_id": 47,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Tamper-detection criterion is exercised by the full E2E suite."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 40,
+      "target_local_id": 47,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Size-ceiling criterion is exercised by the full E2E suite."
+    },
+    {
+      "category": "witness",
+      "source_local_id": 41,
+      "target_local_id": 47,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Fragment-not-sent criterion is exercised by the full E2E suite via request capture."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 20,
+      "target_local_id": 43,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Crypto envelope scope's tests run under the npm test execution harness."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 20,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Backend core scope's tests run under the npm test execution harness."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 20,
+      "target_local_id": 45,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Sender flow scope's tests run under the npm test execution harness."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 20,
+      "target_local_id": 46,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Recipient flow scope's tests run under the npm test execution harness."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 30,
+      "target_local_id": 43,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Crypto envelope scope's design anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 31,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Backend core scope's design anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 34,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Backend core scope's design anchor (API contract)."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 32,
+      "target_local_id": 45,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Sender flow scope's design anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 33,
+      "target_local_id": 46,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Recipient flow scope's design anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 34,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E scope's design anchor (API contract)."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 36,
+      "target_local_id": 43,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Crypto envelope scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 39,
+      "target_local_id": 43,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Crypto envelope scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 35,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Backend core scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 37,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Backend core scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 38,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Backend core scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 40,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Backend core scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 40,
+      "target_local_id": 45,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Sender flow scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 41,
+      "target_local_id": 45,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Sender flow scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 36,
+      "target_local_id": 46,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Recipient flow scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 39,
+      "target_local_id": 46,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Recipient flow scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 41,
+      "target_local_id": 46,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Recipient flow scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 35,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 36,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 37,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 38,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 39,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 40,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E scope's criterion anchor."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 41,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E scope's criterion anchor."
+    },
+    {
+      "category": "composition",
+      "source_local_id": 43,
+      "target_local_id": 30,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Crypto envelope module is composed into this scope's implementation."
+    },
+    {
+      "category": "composition",
+      "source_local_id": 44,
+      "target_local_id": 31,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Backend API module is composed into this scope's implementation."
+    },
+    {
+      "category": "composition",
+      "source_local_id": 44,
+      "target_local_id": 34,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Drop API interface is composed into this scope's implementation."
+    },
+    {
+      "category": "composition",
+      "source_local_id": 45,
+      "target_local_id": 32,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Frontend sender module is composed into this scope's implementation."
+    },
+    {
+      "category": "composition",
+      "source_local_id": 46,
+      "target_local_id": 33,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Frontend recipient module is composed into this scope's implementation."
+    },
+    {
+      "category": "composition",
+      "source_local_id": 47,
+      "target_local_id": 34,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Drop API interface is exercised as part of this scope's E2E implementation."
+    },
+    {
+      "category": "composition",
+      "source_local_id": 49,
+      "target_local_id": 32,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Frontend sender module is composed into the merged scope."
+    },
+    {
+      "category": "composition",
+      "source_local_id": 49,
+      "target_local_id": 33,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Frontend recipient module is composed into the merged scope."
+    },
+    {
+      "category": "composition",
+      "source_local_id": 42,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Merged Frontend scope is owned by the v1 frontier."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 48,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Merged Frontend scope realizes its own dedicated UX requirement, avoiding conflict with REQ1/REQ2/REQ6 already exclusively packaged by SCP1."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 43,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Frontend scope calls the crypto envelope module's encrypt/decrypt API."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 44,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Frontend scope calls the backend API."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 32,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Design anchor: frontend sender module."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 33,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Design anchor: frontend recipient module."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 36,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Criterion anchor: byte-identical round-trip, exercised end-to-end through this scope."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 39,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Criterion anchor: tamper detection at the UI layer."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 40,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Criterion anchor: client-side size pre-check."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 41,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Criterion anchor: fragment never transmitted, exercised across both sender and recipient flows."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 20,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Verification-machinery anchor: this scope's tests run under the npm test execution harness."
+    },
+    {
+      "category": "supersession",
+      "source_local_id": 49,
+      "target_local_id": 45,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Frontend sender flow is absorbed into the merged Frontend scope; retires the erroneous REQ2 duplicate-packaging edge with it."
+    },
+    {
+      "category": "supersession",
+      "source_local_id": 49,
+      "target_local_id": 46,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Frontend recipient flow is absorbed into the merged Frontend scope; retires the erroneous REQ6 duplicate-packaging edge with it."
+    },
+    {
+      "category": "supersession",
+      "source_local_id": 42,
+      "target_local_id": 47,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "E2E verification is retired as a separate packaging scope; its acceptance-criteria coverage is already fully absorbed by SCP1, SCP2, and the merged Frontend scope. Retires the erroneous REQ1/REQ4/REQ5 duplicate-packaging edges with it."
+    },
+    {
+      "category": "supersession",
+      "source_local_id": 50,
+      "target_local_id": 20,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Original harness declared only execute.verify, causing three failed cook cycles: devDependencies (typescript, @types/node) were never installed before npm test ran, since no setup step existed. Adds explicit execute.setup (npm install) and execute.build (npm run build, per CON9) so the full lifecycle installs, builds, and verifies."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 50,
+      "target_local_id": 43,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Crypto envelope scope's tests run under the updated execution harness (setup + build + verify)."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 50,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Backend core scope's tests run under the updated execution harness (setup + build + verify)."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 50,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Frontend scope's tests run under the updated execution harness (setup + build + verify)."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 11,
+      "target_local_id": 51,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The .gitignore constraint supports the npm test/npm run build repository contract by keeping generated artifacts out of version-controlled diffs."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 51,
+      "target_local_id": 43,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The crypto envelope scope is built first in dependency order, so its slices are responsible for establishing the repository-wide .gitignore before other scopes add their own node_modules content."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 53,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The merged Frontend scope owns both sender and recipient UI, so it realizes the visual-design requirement without conflicting with REQ8's existing packaging (REQ8 covers accessible plain-text content; REQ9 covers visual styling/states — distinct requirements, same scope, both legitimately packaged by SCP6)."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 54,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Criterion anchor for the visual-design requirement."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 28,
+      "target_local_id": 53,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Visual failure-state styling must not weaken the fail-closed generic-error-copy requirement; styling is additive, not a substitute for REQ6's error semantics."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 32,
+      "target_local_id": 33,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Both the sender and recipient React modules wire routing into the same shared App.tsx entry point. Sequencing the recipient module's slice after the sender module's slice avoids two parallel slices independently modifying the same shared file and colliding on integration."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 19,
+      "target_local_id": 55,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "This decision closes a gap in the local demo startup decision (D6): concurrently starting both servers is necessary but not sufficient without routing between them."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 11,
+      "target_local_id": 56,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "This requirement realizes the repository-must-be-runnable constraint by ensuring the documented npm run dev entry point actually works end-to-end, not just npm run build/npm start."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 56,
+      "target_local_id": 44,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The backend core scope owns server/vite wiring concerns; the dev-proxy configuration lives in vite.config.ts alongside the rest of the repo/backend scaffold work SCP2 is responsible for."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 57,
+      "target_local_id": 58,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The app shell requirement depends on the naming decision to know what to render."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 53,
+      "target_local_id": 58,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The app shell extends the existing visual-design system (REQ9) rather than introducing a separate one."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 58,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The Frontend scope owns the app shell, header, and footer alongside the sender/recipient views it already implements."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 59,
+      "target_local_id": 49,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Criterion anchor for the app-shell requirement."
+    }
+  ]
+}
