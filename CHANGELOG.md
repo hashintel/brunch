@@ -1,5 +1,23 @@
 # @hashintel/brunch
 
+## 1.0.0-alpha.13
+
+### Patch Changes
+
+- [#379](https://github.com/hashintel/brunch/pull/379) [`16e96c7`](https://github.com/hashintel/brunch/commit/16e96c7d7d8863e4001cafe0f343200f4cdb0f39) Thanks [@kostandinang](https://github.com/kostandinang)! - Record controller takeovers before retaining immutable comparison evidence.
+
+- [#389](https://github.com/hashintel/brunch/pull/389) [`75a3361`](https://github.com/hashintel/brunch/commit/75a33611f8ad0e83522aa9c8ec8811de5df580be) Thanks [@kostandinang](https://github.com/kostandinang)! - Execute every authored setup, build, and verification action in run workspaces.
+
+- [#393](https://github.com/hashintel/brunch/pull/393) [`f1db3da`](https://github.com/hashintel/brunch/commit/f1db3dacf125e0db966b0b50e04266cec69d37a0) Thanks [@kostandinang](https://github.com/kostandinang)! - Upgrade the embedded Pi runtime and use Claude Opus 5 as Brunch's soft default model.
+
+- [#391](https://github.com/hashintel/brunch/pull/391) [`829f9be`](https://github.com/hashintel/brunch/commit/829f9be45be8391079292bacaf6fcbcaa5add79a) Thanks [@kostandinang](https://github.com/kostandinang)! - Lay out generated Petrinaut executor nets without overlapping rendered nodes.
+
+- [#388](https://github.com/hashintel/brunch/pull/388) [`4c29615`](https://github.com/hashintel/brunch/commit/4c29615f37aadb86e83ca9b9bdefdb93477e2b35) Thanks [@kostandinang](https://github.com/kostandinang)! - Stabilize greenfield execution planning and repair recovery for shared-root parallel builds.
+
+- [#394](https://github.com/hashintel/brunch/pull/394) [`48c94a8`](https://github.com/hashintel/brunch/commit/48c94a8036b33978c759ce0f411316e9c59700e8) Thanks [@kostandinang](https://github.com/kostandinang)! - Promote the corrected Nullwire and Wisp graph fixtures.
+
+- [#390](https://github.com/hashintel/brunch/pull/390) [`fe3570f`](https://github.com/hashintel/brunch/commit/fe3570fb7616eb5d345fdb718dc6ebf20212225d) Thanks [@kostandinang](https://github.com/kostandinang)! - Keep durable terminal runs from retrying agent or verification effects.
+
 ## 1.0.0-alpha.12
 
 ### Patch Changes
