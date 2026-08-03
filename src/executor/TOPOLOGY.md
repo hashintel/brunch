@@ -51,7 +51,6 @@ executor/
 ├── report-verdict.ts     reports.jsonl -> latest required slice and epic verification verdicts
 ├── run-complete.ts       completed/verified slices + epics -> run completion marker
 ├── run-execution-authority.ts canonical run identity -> one same-process drive owner + shared waiters
-├── run-auto-replan-policy.ts recommendation + retry budget -> conservative delegated action/refusal
 ├── run-freshness.ts      run metadata + plan provenance -> retry/replan freshness diagnosis
 ├── run-replan-recommendation.ts run retry eligibility -> human-readable recommendation
 ├── run-retry-eligibility.ts run freshness + lifecycle status -> safe HITL action set
@@ -142,9 +141,7 @@ For an execution-comparison workspace, that metadata also pins the exact already
 
 `run-retry-eligibility.ts` combines run freshness, lifecycle status, and durable Petri terminal authority to classify whether the current step can be retried, a fresh plan can be regenerated before retry, a new run is required, or the run is terminal. A journaled halt/deadlock remains terminal even when `run.json` lags and offers only start-new-run, inspect, or abandon recovery. It only returns allowed action names; it does not execute retries, mutate plans, or supersede runs.
 
-`run-replan-recommendation.ts` wraps retry eligibility in concise human-facing diagnosis text plus one recommended action. It is still read-only core: no prompts, no tool registration, no action execution, and no run mutation.
-
-`run-auto-replan-policy.ts` is the conservative automation policy over a precomputed recommendation. It auto-delegates only fresh-run `retry_current_step` when retry budget remains and stale-early `regenerate_plan`; stale started/missing runs require human start-new-run, and terminal/blocked runs stay inspect-only. It owns no filesystem, driver, tool, or graph effects: retry/regenerate are injected delegates, and the policy never auto-supersedes.
+`run-replan-recommendation.ts` wraps retry eligibility in concise human-facing diagnosis text plus one recommended action. It is still read-only core: no prompts, no tool registration, no action execution, and no run mutation. Acting on a recommendation stays human-selected through the `execute-replan-retry-current-step` / `execute-replan-regenerate-plan` / `execute-replan-start-new-run` tool surface; this family owns no automatic delegation layer.
 
 `run-supersession.ts` is the first bounded mutation helper in the HITL replanning family. Given an existing run and a fresh launch-ready plan, it creates a new `created` run with `supersedesRunId` pointing to the prior run. Creation, Petrinaut observation preparation, and failure rollback remain under one target-run authority lease, so no other run mutation can observe or act on a half-prepared replacement. It refuses missing prior runs, stale/non-ready plans, and target run id collisions, and it never mutates the prior run.
 

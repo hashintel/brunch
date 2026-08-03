@@ -414,7 +414,6 @@ tree:
       brunch.png: "Image asset."
     components:
       app-header.tsx: "Source asset."
-      drawer-card.tsx: "Source asset."
       icons.tsx: "Source asset."
       node-card.tsx: "Source asset."
     features:
