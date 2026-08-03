@@ -84,7 +84,6 @@
     "docs/**",
     "memory/**",
     ".fixtures/**",
-    "@types/**",
     "tmp/**",
     "src/**/_suspended/**",
     "dist-web/**",

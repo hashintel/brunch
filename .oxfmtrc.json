@@ -15,7 +15,6 @@
     "docs/**",
     "memory/**",
     ".fixtures/**",
-    "@types/**",
     "tmp/**",
     "dist-web/**",
     "bin/**",
