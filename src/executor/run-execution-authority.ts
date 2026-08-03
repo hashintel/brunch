@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { realpath } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
+import type { BrunchExecuteToolName } from '../session/schema/tool-names.js';
 import type { RunMetadata } from './run.js';
 
 const executions = new Map<string, Promise<unknown>>();
@@ -125,9 +126,15 @@ export const PRODUCTION_EXECUTE_TOOL_MUTATIONS = {
   execute_status: NOT_A_RUN_MUTATION,
   execute_test_result: 'test_result',
   execute_worktree_create: 'worktree_create',
-} as const satisfies Record<string, ProductionRunMutationEntry | null>;
+} as const satisfies Record<BrunchExecuteToolName, ProductionRunMutationEntry | null>;
 
-/** Exact classification of the registered production execute-RPC surface. */
+/**
+ * Exact classification of the registered production execute-RPC surface.
+ *
+ * ceiling: keyed by `string` because the method roster lives downstream in `src/rpc`; key it by a
+ * method-name union once those names move to a shared vocabulary leaf, since importing them here
+ * would invert the executor -> rpc dependency direction.
+ */
 export const PRODUCTION_EXECUTE_RPC_MUTATIONS: Readonly<Record<string, ProductionRunMutationEntry | null>> = {
   'execute.replanAbandonRun': 'run_abandon',
   'execute.replanRecommendation': NOT_A_RUN_MUTATION,
