@@ -3036,6 +3036,15 @@
     {
       "category": "dependency",
       "source_local_id": 83,
+      "target_local_id": 65,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The successor retains the server-side recorder as the authoritative surface for what the service received."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 83,
       "target_local_id": 84,
       "stance": null,
       "basis": "explicit",
@@ -3131,6 +3140,15 @@
       "basis": "explicit",
       "settlement": "settled",
       "rationale": "Retains the axe standard and adds a second one; D13's sole-standard framing no longer holds."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 86,
+      "target_local_id": 69,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The successor retains axe-core scanning as one of the two UI acceptance standards."
     },
     {
       "category": "dependency",

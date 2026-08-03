@@ -34,7 +34,7 @@ The Wisp snapshot's settled state includes:
 - the complete crypto, backend, UI, plan, and verification graph history,
   including superseded planning history
 
-The snapshot contains 88 nodes and 210 edges.
+The snapshot contains 88 nodes and 212 edges.
 
 Validate with:
 
