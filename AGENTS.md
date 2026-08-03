@@ -13,7 +13,9 @@ Plan-level frontier items in `memory/PLAN.md` are the unit of tracker/branch wor
 
 When starting a new frontier item:
 
-1. Create a Linear issue in the **Frontend (FE)** team and **brunch** project — use `/cli-linear`
+1. Create a Linear issue — use `/cli-linear`
+   - Brunch's own roadmap work: **Frontend (FE)** team, **brunch** project.
+   - Cross-cutting work that happens to land here (org-wide CI, infra, security, tooling) stays on the team and project owning the wider effort — **Infra (SRE)** for CI and infra.
    - Do **not** parent new post-release issues under FE-531; FE-531 tracked the now-closed initial release.
    - Only set a parent issue when the user or current plan explicitly names an active parent.
 2. Create a Graphite stacked branch — use `/cli-graphite` (read `docs/praxis/graphite-workflow.md` first)
