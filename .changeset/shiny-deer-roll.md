@@ -1,4 +1,5 @@
 ---
+"@hashintel/brunch": patch
 ---
 
-No package release: promote repository-only Nullwire and Wisp seed fixtures.
+Promote the corrected Nullwire and Wisp graph fixtures.
