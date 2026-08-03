@@ -6,7 +6,7 @@ full-stack demo for accountless, end-to-end encrypted, two-person messaging.
 oracle, and plan truth.
 
 Loading `nullwire/base` includes the complete graph; no additions or flags need
-to be selected separately. The snapshot contains 59 nodes and 132 edges. Its
+to be selected separately. The snapshot contains 61 nodes and 143 edges. Its
 greenfield execution projection is plan-ready with no findings.
 
 ## Product contract

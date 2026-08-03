@@ -4,9 +4,12 @@ A session-derived, execution-ready product graph for **Wisp**, a branded
 full-stack encrypted file-drop application. The canonical fixture name is
 `wisp-secure-drop`; the application itself remains Wisp.
 
-Source: Brunch session `019faf5a-360b-73a4-acb0-e7d8b6e67f57`, exported from
-the retained graph at LSN 34. The reusable seed snapshot normalizes all accepted
-items to the explicit basis required by the fixture loader.
+Source: Brunch session `019faf5a-360b-73a4-acb0-e7d8b6e67f57`, originally
+exported from the retained graph at LSN 34, then refined through LSN 8 in
+session `019fb753-1115-77cb-b6cb-c3dcd804fb7a`. The reusable seed snapshot
+preserves the accepted graph history, including superseded decisions, while
+normalizing accepted items to the explicit basis required by the fixture
+loader.
 
 `base.json` is the canonical complete snapshot. Loading
 `wisp-secure-drop/base` includes the whole graph; no additions, variants, or
@@ -21,13 +24,17 @@ The Wisp snapshot's settled state includes:
   server validation and collision rejection
 - Vitest as the concrete `npm test` runner, with real-Web-Crypto and jsdom
   component-test boundaries made explicit
+- an injectable backend clock plus in-process API, request-recorder, plaintext
+  sentinel, and client outbound-request verification harnesses
 - the Wisp product name
 - a shared secure-terminal shell across sender and recipient routes, with
   command-style workflows, local security events, and an accessible status strip
+- axe-core accessibility checks, exact clipboard assertions, and an explicit
+  interaction-state contract for distinct UI states
 - the complete crypto, backend, UI, plan, and verification graph history,
   including superseded planning history
 
-The snapshot contains 59 nodes and 133 edges.
+The snapshot contains 88 nodes and 212 edges.
 
 Validate with:
 
@@ -228,11 +235,16 @@ Vitest owns the authored `npm test` command:
 - Express and SQLite integration tests use Supertest, a controlled clock, UUID
   validation, collision attempts, expiry, revocation, size limits, and filename
   hardening.
+- A server-side request recorder proves what reached the service, while a client
+  outbound-request spy independently proves application code never attempted to
+  transmit fragment key material.
 - End-to-end tests prove that the same client-generated id appears in the POST
   body, stored row, response, share link, and decrypted AAD.
 - Unique plaintext sentinels are searched across captured requests, SQLite,
   logs, errors, and persisted server state; any server-side match fails the
   suite.
+- UI verification combines axe-core scans with exact clipboard writes and
+  per-state contract assertions; visual taste remains a human judgment.
 - A development-path check proves browser requests through Vite reach Express
   rather than returning a Vite `404`.
 - `npm run build` must succeed from a clean checkout without ambient files.
