@@ -33,6 +33,7 @@
 - **Members:** `shared-session-host-tracer` → `shared-session-host-cutover`.
 - **Done-definition:** one host owns each writable Pi runtime, JSONL writer, graph command authority, driver lease/handoff, and semantic live-event stream; TUI and React remain useful clients/adapters; `SessionEventRelay`, `brunch.sessionEvent`, `/rpc/driver`, and TUI-owned parallel host wiring are deleted; `memory/SPEC.md`, `README.md`, `CONTRIBUTING.md`, `docs/design/WEB_UI_ARCHITECTURE.md`, and the app/session/rpc/web topology homes describe only the canonical host plus presentation adapters.
 - **Anchors:** A47-L; D39-L, D84-L (to retire), D132-L, D133-L; I64-L, I65-L.
+- **Confirmation (2026-08-03):** an independent architecture review re-derived this arc unprompted as the top structural priority (split roots: `brunch-tui.ts` raw `SessionEventRelay` vs `LiveSessionHost`); it also flagged `workspace-session-coordinator.ts` breadth (782 lines, 27 interface/type declarations) — that decomposition rides this arc, not a separate frontier.
 
 ### deterministic-orientation — ◐ active
 
