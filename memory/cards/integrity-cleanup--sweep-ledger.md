@@ -63,7 +63,7 @@ Created:  2026-08-03
 
 | Capability | Status | Req | Fill | Owner / next | Notes |
 | --- | --- | --- | --- | --- | --- |
-| knip wired into `npm run check` (with topology-stub/ambient allowlist) **or** stub deleted | `new` | ● | proving | decision needed: `knip.jsonc`, `package.json` | Micro-decision first (wire vs delete; the unwired `konsistent` script rides the same decision). Either outcome discharges or re-affirms SPEC blind spot "No deadness oracle in the gate" — update the blind-spot Mitigation cell in the same row |
+| knip wired into `npm run check` (with topology-stub/ambient allowlist) **or** stub deleted | `spec` | ● | proving | `knip.jsonc`, `package.json` — decide during build (user, 2026-08-03) | Builder attempts wiring first; if the allowlist proves noisy or slow, fall back to deleting the stub and record why. The unwired `konsistent` script rides the same outcome. Either way, update the SPEC blind-spot Mitigation cell ("No deadness oracle in the gate") in the same row |
 
 ## Aggregate DoD
 
