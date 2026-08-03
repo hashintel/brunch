@@ -32,6 +32,11 @@ planning state:
 - [`docs/praxis/manual-testing.md`](./praxis/manual-testing.md) — outer-loop manual testing protocol for seeded workbenches, TUI + web sidecar observation, evidence capture, and slice-specific checks.
 - [`docs/praxis/seeded-dev-rpc.md`](./praxis/seeded-dev-rpc.md) — set up a seeded local Brunch workspace, inspect it over launcher-backed RPC reads, curate fixture truth through the explicit local mutate seam, and run the product-path fixture curation tracer.
 
+## Planning notes
+
+- [`planning/planning-record-substrate-assessment.md`](./planning/planning-record-substrate-assessment.md) — assessment of repo-native and out-of-band planning substrates for hierarchical `spec -> plan -> task` records, with hybrid designs for local source-of-truth docs plus tracker-based execution.
+- [`planning/pi-native-integration-opportunities.md`](./planning/pi-native-integration-opportunities.md) — working synthesis of Pi-native seams that may simplify or reshape future frontier planning.
+
 ## Behavioral kernels
 
 [`docs/design/BEHAVIORAL_KERNELS.md`](../design/BEHAVIORAL_KERNELS.md) is
