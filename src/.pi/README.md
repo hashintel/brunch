@@ -68,9 +68,7 @@ From `src/.pi/extensions/executor/` and `src/session/schema/tool-names.ts`:
 - `execute_snapshot`
 - `execute_plan_check`
 - `execute_plan_outline`
-- `execute_plan_outline_artifact`
 - `execute_plan_draft`
-- `execute_plan_draft_artifact`
 - `execute_plan_preview`
 - `execute_plan_file`
 - `execute_launch`
@@ -90,7 +88,10 @@ From `src/.pi/extensions/executor/` and `src/session/schema/tool-names.ts`:
 - `execute_promotion_prepare`
 - `execute_land_preflight`
 
-Note: `execute_plan_outline_artifact` and `execute_plan_draft_artifact` are registered graph-dependent tools, but excluded from the executor active-tool list per `src/agents/runtime/executor/active-tools.ts`.
+Every tool listed here is admitted by `src/agents/runtime/executor/active-tools.ts`. The two
+artifact-writing variants (`execute_plan_outline_artifact`, `execute_plan_draft_artifact`) were
+registered but never allowlisted, so no model could ever call them; FE-1311 retired them along with
+their `src/executor/` artifact writers.
 
 ## Active allowlists
 

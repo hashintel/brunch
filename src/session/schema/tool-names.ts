@@ -23,9 +23,7 @@ export const BRUNCH_EXECUTE_SLICE_START_TOOL = 'execute_slice_start';
 export const BRUNCH_EXECUTE_TEST_RESULT_TOOL = 'execute_test_result';
 export const BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL = 'execute_worktree_create';
 export const BRUNCH_EXECUTE_PLAN_CHECK_TOOL = 'execute_plan_check';
-export const BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL = 'execute_plan_draft_artifact';
 export const BRUNCH_EXECUTE_PLAN_DRAFT_TOOL = 'execute_plan_draft';
-export const BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL = 'execute_plan_outline_artifact';
 export const BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL = 'execute_plan_outline';
 export const BRUNCH_EXECUTE_STATUS_TOOL = 'execute_status';
 export const BRUNCH_EXECUTE_SNAPSHOT_TOOL = 'execute_snapshot';
@@ -57,9 +55,7 @@ export type BrunchExecuteToolName =
   | typeof BRUNCH_EXECUTE_TEST_RESULT_TOOL
   | typeof BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL
   | typeof BRUNCH_EXECUTE_PLAN_CHECK_TOOL
-  | typeof BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL
   | typeof BRUNCH_EXECUTE_PLAN_DRAFT_TOOL
-  | typeof BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL
   | typeof BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL
   | typeof BRUNCH_EXECUTE_STATUS_TOOL
   | typeof BRUNCH_EXECUTE_SNAPSHOT_TOOL;
