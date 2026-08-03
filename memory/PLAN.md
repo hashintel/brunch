@@ -68,6 +68,7 @@ Older completion history and archived completed frontier definitions live in [`d
 ### Parallel / Low-conflict
 
 - `capture-ledger-tracer` — pickup-ready proving follow-on to the completed `agent-control-plane-closure`: compare current ingest conduct with a versioned four-section capture ledger over one fixed mixed-source mission, using separate masked outcome and unblinded conduct judgments. Definition below.
+- `integrity-cleanup` — coverage-shaped earned sweep over the verified 2026-08-03 induction findings: the reduction-review deletion batch (with its corrections) plus copy-not-import predicate consolidation and roster-drift repairs. Buildable-now; low-conflict with the FE-1187 stack. Definition below.
 
 ### Horizon
 
@@ -520,6 +521,25 @@ Legacy link target; see Horizon.
 - **Verification:** Changesets status reports no package bump for this PR; release-workflow contract tests and actionlint accept both workflows; `npm run check:release-pack`, `npm run check`, and `npm run build` pass locally; the parent repair and PR Full gate return green before merge; the empty-intent run authenticates through Vault/App and creates no version PR or publish; the first subsequent App-created version PR receives Test/Preflight, then its merge runs the release-pack smoke and npm/tag/release/install checks witness the canary.
 - **Boundary:** `main` remains the stable `latest` channel. Stable automation, prerelease exit, and post-1.0 re-entry of `next` are a separate promotion frontier rather than a second path in this branch.
 
+### integrity-cleanup
+
+- **Name:** Integrity cleanup sweep — verified deletion batch + copy-not-import predicate consolidation
+- **Linear:** [FE-1311](https://linear.app/hash/issue/FE-1311/integrity-cleanup-sweep-verified-deletion-batch-and-predicate)
+- **Branch:** `ln/fe-1311-integrity-cleanup`; low-conflict with the FE-1187 stack.
+- **Kind:** coverage-shaped closure batch over the closed 2026-08-03 induction findings inventory (reduction review + architecture review, both independently verified; see `ln-review` contract catalog entries graduated 2026-08-03).
+- **Certainty:** earned; a row that reveals a real unknown regresses to proving individually and stops per sweep discipline.
+- **Classification:** buildable-now.
+- **Boundary:** in — the verified reduction-review deletion/shrink items, predicate consolidations (executor state predicates, `canonicalPath`, `pathExists`), roster-drift repairs, the CI-ripgrep name-the-contract comment, and the knip wire-vs-delete decision. Out — the Notion/PetriNet direction, all shared-session-host work (`workspace-session-coordinator.ts` decomposition rides that arc), and any new abstraction beyond one shared module per predicate family.
+- **Deletes / retires:** parked consequential-fact campaign; pre-FE-1163 schema snapshots; committed Oxc schema copies; inert tools `present_alternatives` / `execute_plan_outline_artifact` / `execute_plan_draft_artifact` with their components/tests; unused dev barrels/wrappers/CLI helpers; `row-schemas.ts` plus `drizzle-typebox`/`@sinclair/typebox`; TOON wrappers plus dep; `stringify-tree`/`lodash.flatten`; the deterministic-exchange minting chain; duplicate walkthrough PNGs; test-only production modules **after** same-row `TOPOLOGY.md` reconciliation (`run-auto-replan-policy`, `drawer-card`, packet redaction, accessibility contract, plan output).
+- **Canonicalizes:** one executor state-predicates owner (`stringArraysEqual` ×4 plus terminal-summary/marking semantics across `orchestrate.ts`/`observer-read.ts`/`petri-events.ts`/`petri-replay.ts`); one shared `canonicalPath` helper (three `git-*-port.ts` files, `worktree.ts`, `run-execution-authority.ts`); one `pathExists` test helper (22 copies); authority-map keys from the `tool-names.ts` union (`run-execution-authority.ts:128,131`); the orphan `'present_alternatives'` literal removed from `transcript-context.ts:26`.
+- **Locks in:** deadness verdicts are gated by out-of-graph-consumer checks (the CI ripgrep install line names its FE-1241 spawned-agent consumer in a comment); roster surfaces are type-coupled to `tool-names.ts`; knip either enforces in `npm run check` or its stub is deleted — discharging or explicitly re-affirming the SPEC blind spot "No deadness oracle in the gate".
+- **Constraints (induction corrections):** CI ripgrep is **not** deletable; `src/dev` is already build-excluded, so frame the probes build-exclusion row accordingly; the deps→`devDependencies` move verifies the published surface (`npm pack` / `check:release-pack`), never the repo import graph; intentional topology stubs are not deletion candidates on unusedness alone (AGENTS.md carve-out).
+- **Inventory authority:** `memory/cards/integrity-cleanup--sweep-ledger.md` (`Mode: sweep`), authored at scope time from the two 2026-08-03 induction reports.
+- **Aggregate DoD:** no required row remains `spec`/`new`/`partial`; `npm run verify:full` green (executor seams are touched); changeset recorded (published dependency set changes); no `TOPOLOGY.md`, `treedocs.yaml`, or doc teaches a retired module.
+- **Verification:** per-row `npm run verify`; `verify:full` before tie-off; deletion rows witnessed by import-graph absence **plus** the out-of-graph checks (`git log -S` provenance, TOPOLOGY/treedocs cross-reference); consolidation rows are behavior-preserving (existing tests green, no semantics change).
+- **Why now / unlocks:** removes ~7k LOC and 4 dependencies of navigation noise before the shared-session-host arc enters the same subtrees; the executor predicate consolidation removes writer/reader drift risk under `orchestrate`/`observer-read` ahead of that arc; the evidence is fresh and verified now.
+- **Traceability:** SPEC §Acknowledged Blind Spots "No deadness oracle in the gate"; `ln-review` contract-lens catalog (out-of-graph-consumers, copy-not-import — both 2026-08-03); FE-1241 (ripgrep provenance); FE-1163 (superseded snapshots); AGENTS.md §development phase posture, §intentional topology stubs.
+
 ## Dependencies
 
 ```text
@@ -550,6 +570,11 @@ parallel:
   capture-ledger-tracer
     depends_on: completed agent-control-plane-closure
     reuses: FE-1208 evaluator/report primitives | FE-1210 actor + split judgment
+  integrity-cleanup
+    source: 2026-08-03 review inductions (reduction + architecture batches)
+    deletes: parked campaigns | inert tools | committed derivable artifacts | dead wrappers + 4 deps
+    canonicalizes: executor state predicates | canonicalPath | tool-name-keyed rosters
+    guarded_by: out-of-graph-consumer checks + same-row TOPOLOGY reconciliation
 
 ka_evidence_queue:
   host-landing (FE-1201)
