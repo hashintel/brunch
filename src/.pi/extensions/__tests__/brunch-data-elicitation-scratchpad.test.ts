@@ -11,8 +11,7 @@ import {
   registerBrunchElicitationScratchpad,
   UPDATE_ELICITATION_SCRATCHPAD_TOOL,
 } from '../brunch-data/elicitation/index.js';
-import { scratchpadToolSchemaBaseline } from './fixtures/scratchpad-tool-schemas.pre-fe-1163.js';
-import { normalizeToolSchema } from './tool-schema-baseline.js';
+import { assertProviderLegalToolSchema, hasToolParametersProvenance } from '../shared/tool-schema.js';
 
 class FakeSessionManager {
   entries: Array<{ type: 'custom'; customType: string; data: unknown }> = [];
@@ -77,13 +76,19 @@ describe('read_elicitation_scratchpad', () => {
     }
   });
 
-  it('preserves the pre-FE-1163 provider-facing family schema semantics', () => {
+  it('keeps every scratchpad schema adapter-derived and provider-legal', () => {
     const schemas = Object.fromEntries(
       [...collectScratchpadTools()].map(([name, tool]) => [name, tool.parameters]),
     );
 
-    expect(Object.keys(schemas)).toEqual(Object.keys(scratchpadToolSchemaBaseline.schemas));
-    expect(normalizeToolSchema(schemas)).toEqual(normalizeToolSchema(scratchpadToolSchemaBaseline.schemas));
+    expect(Object.keys(schemas)).toEqual([
+      READ_ELICITATION_SCRATCHPAD_TOOL,
+      UPDATE_ELICITATION_SCRATCHPAD_TOOL,
+    ]);
+    for (const [name, parameters] of Object.entries(schemas)) {
+      expect(hasToolParametersProvenance(parameters), `${name} adapter provenance`).toBe(true);
+      expect(() => assertProviderLegalToolSchema(parameters), name).not.toThrow();
+    }
   });
 
   it('reports an empty scratchpad reconstructed from an empty branch', async () => {

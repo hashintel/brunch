@@ -7,8 +7,7 @@ import {
   PRESENT_REVIEW_SET_TOOL,
   registerStructuredExchange,
 } from '../exchanges/index.js';
-import { exchangeToolSchemaBaseline } from './fixtures/exchange-tool-schemas.pre-fe-1163.js';
-import { normalizeToolSchema } from './tool-schema-baseline.js';
+import { assertProviderLegalToolSchema, hasToolParametersProvenance } from '../shared/tool-schema.js';
 
 const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g');
 
@@ -91,22 +90,18 @@ describe('structured exchange renderers', () => {
     }
   });
 
-  it('preserves pre-FE-1163 tools while extending ask with bounded questionnaire fields', () => {
-    const tools = registerTools();
-    const currentSchemas = Object.fromEntries(
-      [...tools].map(([name, tool]) => [name, normalizeToolSchema(tool.parameters)]),
-    );
-    const baseline = normalizeToolSchema(exchangeToolSchemaBaseline.schemas) as Record<string, unknown>;
+  it('keeps every exchange schema adapter-derived and provider-legal, with the ask questionnaire fields', () => {
+    const schemas = Object.fromEntries([...registerTools()].map(([name, tool]) => [name, tool.parameters]));
 
-    expect([...tools.keys()]).toEqual(Object.keys(exchangeToolSchemaBaseline.schemas));
-    const unchangedTools = ([name]: [string, unknown]) => name !== 'ask' && name !== PRESENT_REVIEW_SET_TOOL;
-    expect(Object.fromEntries(Object.entries(currentSchemas).filter(unchangedTools))).toEqual(
-      Object.fromEntries(Object.entries(baseline).filter(unchangedTools)),
-    );
-    expect(JSON.stringify(currentSchemas[PRESENT_REVIEW_SET_TOOL])).toContain('settlement');
-    expect(JSON.stringify(currentSchemas[PRESENT_REVIEW_SET_TOOL])).toContain('advisory');
-    expect(JSON.stringify(currentSchemas[PRESENT_REVIEW_SET_TOOL])).toContain('settled');
-    expect(currentSchemas.ask).toMatchObject({
+    for (const [name, parameters] of Object.entries(schemas)) {
+      expect(hasToolParametersProvenance(parameters), `${name} adapter provenance`).toBe(true);
+      expect(() => assertProviderLegalToolSchema(parameters), name).not.toThrow();
+    }
+
+    expect(JSON.stringify(schemas[PRESENT_REVIEW_SET_TOOL])).toContain('settlement');
+    expect(JSON.stringify(schemas[PRESENT_REVIEW_SET_TOOL])).toContain('advisory');
+    expect(JSON.stringify(schemas[PRESENT_REVIEW_SET_TOOL])).toContain('settled');
+    expect(schemas.ask).toMatchObject({
       properties: {
         acceptsDigest: { type: 'string' },
         questions: { type: 'array', minItems: 1 },

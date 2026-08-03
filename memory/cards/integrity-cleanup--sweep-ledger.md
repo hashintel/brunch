@@ -25,6 +25,7 @@ Created:  2026-08-03
 ## Cross-cutting obligations
 
 - Every deletion row runs the out-of-graph-consumer checks before deleting, and reconciles `TOPOLOGY.md` / `treedocs.yaml` references **in the same row**.
+- **Pass `rg --hidden` for every consumer grep.** `src/.pi/**` is a hidden path, so plain `rg` silently reports zero consumers for anything under it (found row A1, 2026-08-03: five fixtures read as unreferenced until `--hidden` revealed five importing suites). Rows touching `src/.pi/` — inert tools, unused barrels/wrappers — are exposed to this false negative.
 - Intentional topology stubs (`export {}` + design comment) are not deletion candidates on unusedness alone.
 - Consolidation rows are behavior-preserving: existing suites stay green, no semantics change rides along.
 - Tie-off: `npm run verify:full` (executor seams are touched) and a changeset (`npm run changeset` — the published dependency set changes).
@@ -33,7 +34,7 @@ Created:  2026-08-03
 
 | Capability | Status | Req | Fill | Owner / next | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Pre-FE-1163 schema snapshots removed; baseline test asserts current provider constraints directly | `spec` | ● | earned | `src/.pi/extensions/__tests__/` (fixtures + `tool-schema-baseline.ts`) | Oracle: rewritten test green without snapshot fixtures; −2,339 LOC |
+| Pre-FE-1163 schema snapshots removed; baseline test asserts current provider constraints directly | `built` | ● | earned | `src/.pi/extensions/__tests__/` (fixtures + `tool-schema-baseline.ts`) | Oracle: rewritten test green without snapshot fixtures; −2,339 LOC. Built: 5 fixtures + helper deleted (−2,339); the five family suites now assert adapter provenance + provider legality via `shared/tool-schema.ts` predicates. Reconciled SPEC `I60-L` coverage cell (it cited the baselines). No `TOPOLOGY.md`/`treedocs.yaml` reference existed (`treedocs.yaml` excludes `__tests__`). Surfaced the `rg --hidden` hazard now recorded above. |
 | Parked consequential-fact campaign deleted (resurrect from git if it re-enters PLAN) | `spec` | ● | earned | `src/dev/consequential-fact-*` | Not in PLAN (verified); dev-lane; oracle: `npm run test` green, no dangling imports |
 | Committed Oxc schema copies deleted | `spec` | ● | earned | `@types/oxfmt_configuration_schema.json`, `@types/oxlint_configuration_schema.json` | Verified: `.oxlintrc.json`/`.oxfmtrc.json` `$schema` point at `node_modules`; oracle: `npm run check` green |
 | Test-only production modules deleted with same-row TOPOLOGY reconciliation | `spec` | ● | earned | `run-auto-replan-policy.ts` (`src/executor/TOPOLOGY.md`), `drawer-card.tsx` (`src/web/TOPOLOGY.md`), packet redaction, a11y contract, plan output | Each target: confirm TOPOLOGY entry doesn't declare a live seam → delete module + tests + doc/treedocs mention, or keep and record why. Oracle: verify green + no `TOPOLOGY.md`/`treedocs.yaml` orphan reference |

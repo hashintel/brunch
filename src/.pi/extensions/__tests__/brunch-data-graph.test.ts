@@ -18,8 +18,7 @@ import { READINESS_BANDS } from '../../../graph/schema/kinds.js';
 import { translateMutateGraph } from '../brunch-data/graph/command-adapter.js';
 import { registerBrunchGraph, type GraphReaders } from '../brunch-data/graph/index.js';
 import { MutateGraphParams, ReadGraphParams } from '../brunch-data/graph/tool-schemas.js';
-import { graphToolSchemaBaseline } from './fixtures/graph-tool-schemas.pre-fe-1163.js';
-import { normalizeToolSchema } from './tool-schema-baseline.js';
+import { assertProviderLegalToolSchema, hasToolParametersProvenance } from '../shared/tool-schema.js';
 
 let nextSpecSlug = 0;
 
@@ -45,10 +44,14 @@ function createGraphReads(db: BrunchDb, specId: number): GraphReaders {
 }
 
 describe('graph tool adapter', () => {
-  it('preserves the pre-FE-1163 provider-facing schema semantics', () => {
-    expect(normalizeToolSchema({ read_graph: ReadGraphParams, mutate_graph: MutateGraphParams })).toEqual(
-      normalizeToolSchema(graphToolSchemaBaseline.schemas),
-    );
+  it('keeps both graph schemas adapter-derived and provider-legal', () => {
+    for (const [name, parameters] of Object.entries({
+      read_graph: ReadGraphParams,
+      mutate_graph: MutateGraphParams,
+    })) {
+      expect(hasToolParametersProvenance(parameters), `${name} adapter provenance`).toBe(true);
+      expect(() => assertProviderLegalToolSchema(parameters), name).not.toThrow();
+    }
   });
 
   it('keeps read_graph provider-legal: no top-level union, companions enforced by adapter diagnostics', () => {
