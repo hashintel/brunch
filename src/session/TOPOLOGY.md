@@ -147,8 +147,13 @@ plus the coordination logic for workspace/spec/session lifecycle.
   delegates to — origin derives from conversational-message presence in the
   projected transcript, never entry counts (I46-L). Origination only *decides
   and seeds* — it fabricates **no** `present_*` exchange (D78-L revised
-  2026-06-12; the deterministic offer was a pre-elicitation-gaps fossil, now
-  probe-land machinery in `probes/deterministic-exchange-script.ts`). The LLM
+  2026-06-12; the deterministic offer was a pre-elicitation-gaps fossil whose
+  only surviving remnant is the permutation *script* in
+  `probes/deterministic-exchange-script.ts` — probe-land sequencing, consumed
+  by `__tests__/structured-exchange-loop.test.ts`. Nothing in the repo mints a
+  `present_*` pair from it: FE-1187 rewired the R24 parity probe to fabricate
+  its own pair in the active `present_candidates` grammar, and FE-1311 deleted
+  the orphaned synthetic-pair writers). The LLM
   turn completing a 'start' decision is fired by the launch path after session
   creation via `session.sendCustomMessage(kickTurnMessage(origin), { triggerTurn: true })`,
   guarded on model availability (unauthenticated launches idle); completion
