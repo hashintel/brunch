@@ -140,7 +140,15 @@ concept, but the durable table/result contract is still undefined.
 load time — not Brunch's schema-authoring vocabulary. That is `typebox@1.x`,
 which validates these derived schemas directly: they are plain JSON Schema
 (`type`/`required`/`properties`) and v1 ignores the extra 0.34 `Kind` symbol, so
-consuming row schemas needs no second schema runtime. `@sinclair/typebox` does,
-however, currently sit in `devDependencies` while `drizzle-typebox` sits in
-`dependencies`, so promoting it is owed before the first production consumer of
-`row-schemas.ts` ships.
+consuming row schemas needs no second schema runtime.
+
+Both `drizzle-typebox` and `@sinclair/typebox` sit in `devDependencies`. They
+were split across `dependencies`/`devDependencies` until the published surface
+decided it: no path reachable from the published entry points (`bin/brunch.js`,
+`dist/app/brunch.js`) imports `row-schemas.js`, so neither package is a
+production dependency today. `dist/db/row-schemas.js` still ships as an
+unreachable leaf whose `drizzle-typebox` import a consumer could only trigger by
+deep-importing it. **Actioning `src/graph/TOPOLOGY.md`'s directive to consume row
+schemas at persistence-facing validation seams must promote both packages to
+`dependencies` together** — promoting `drizzle-typebox` alone leaves its
+load-time peer unresolvable on a consumer install.
