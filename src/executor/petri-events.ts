@@ -7,6 +7,7 @@ import type {
   ExecutorNetEventPayload,
   ExecutorNetStepKind,
 } from './orchestrate-topology.js';
+import { terminalMatchesPayload } from './petri-state-predicates.js';
 import { runDirPath, type RunMetadata } from './run.js';
 
 export type PetriEventListener = (event: ExecutorNetEvent) => void;
@@ -353,19 +354,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isTerminalEvent(event: ExecutorNetEvent): event is PetriTerminalEvent {
   return event.kind === 'net_completed' || event.kind === 'net_halted' || event.kind === 'net_deadlocked';
-}
-
-function terminalMatchesPayload(existing: PetriTerminalEvent, proposed: PetriTerminalEventPayload): boolean {
-  return (
-    existing.kind === proposed.kind &&
-    (existing.kind !== 'net_halted' ||
-      (proposed.kind === 'net_halted' && existing.reason === proposed.reason)) &&
-    stringArraysEqual(existing.failedSliceIds, proposed.failedSliceIds)
-  );
-}
-
-function stringArraysEqual(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function listenerKey(cwd: string, runId: string): string {
