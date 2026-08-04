@@ -3,31 +3,42 @@
  *
  * Owns:
  * - pure tree-node input shape for renderers
- * - stringify-tree wrapper and fenced `tree` block convention
+ * - the recursive ASCII-tree formatter and fenced `tree` block convention
  * - no filesystem walking or workspace inventory semantics
  */
 
-import { createRequire } from 'node:module';
-
 import { codeBlock } from 'md-pen';
-
-const require = createRequire(import.meta.url);
-// `stringify-tree` publishes CommonJS only; keep the require here at the wrapper seam.
-const { stringifyTree } = require('stringify-tree') as {
-  stringifyTree: <T>(tn: T, nameFn: (t: T) => string, childrenFn: (t: T) => T[] | null) => string;
-};
 
 export type RenderTreeNode = {
   readonly label: string;
   readonly children?: readonly RenderTreeNode[];
 };
 
+/**
+ * Prefix a child subtree's lines: the child's own line gets the branch elbow,
+ * its descendants get either a vertical continuation or blank padding depending
+ * on whether the child is its parent's last.
+ */
+function prefixChild(lines: readonly string[], last: boolean): string[] {
+  return lines.map((line, index) => {
+    const prefix = index === 0 ? (last ? '└─' : '├─') : last ? '  ' : '│ ';
+    return prefix + line;
+  });
+}
+
+function nodeToLines(node: RenderTreeNode): string[] {
+  const children = node.children ?? [];
+  if (children.length === 0) {
+    return [`─ ${node.label}`];
+  }
+  return [
+    `┬ ${node.label}`,
+    ...children.flatMap((child, index) => prefixChild(nodeToLines(child), index === children.length - 1)),
+  ];
+}
+
 export function renderTree(root: RenderTreeNode): string {
-  return stringifyTree(
-    root,
-    (node) => node.label,
-    (node) => [...(node.children ?? [])],
-  );
+  return nodeToLines(root).join('\n');
 }
 
 export function renderTreeBlock(root: RenderTreeNode): string {
