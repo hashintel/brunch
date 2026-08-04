@@ -1,10 +1,11 @@
-import { access, readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { BRUNCH_DIR } from '../constants.js';
 import { agentStreamPath } from './agent-result.js';
 import type { AgentStreamEvent, VerifyStreamEvent } from './isolated-slice-operations.js';
 import type { BlockedStep, ExecutorNetEvent, ReadyStep, SchedulerPlan } from './orchestrate-topology.js';
+import { pathExists } from './path-exists.js';
 import { petriEventsPath, readPetriJournal } from './petri-events.js';
 import { inspectPetriJournalAuthority } from './petri-journal-authority.js';
 import {
@@ -1122,13 +1123,4 @@ async function readStreamFile<T extends { readonly event: string }>(
     }
   }
   return events;
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
 }

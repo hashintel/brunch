@@ -1,24 +1,16 @@
-import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { pathExists } from '../path-exists.js';
 import { petriNetPath } from '../petri.js';
 import { preparePromotion, promotionReportPath } from '../promotion.js';
 import { reportsPath } from '../report.js';
 import { withRunExecutionAuthority } from '../run-execution-authority.js';
 import { runDirPath, runMetadataPath } from '../run.js';
 import { createFakeGitRunPromotionPort } from './fake-ports.js';
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 async function createPetriExportedRun(
   cwd: string,

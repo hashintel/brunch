@@ -1,24 +1,16 @@
-import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { pathExists } from '../path-exists.js';
 import { planFilePath } from '../plan-file.js';
 import { populateWorktree } from '../populate.js';
 import { runDirPath, runMetadataPath, createRun } from '../run.js';
 import { selectSourcePolicy, sourcePolicyPath, type SourcePolicyKind } from '../source-policy.js';
 import { createWorktree } from '../worktree.js';
 import { createFakeGitWorktreePort } from './fake-ports.js';
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 async function createPopulatedRun(cwd: string): Promise<void> {
   const planPath = planFilePath(cwd, '42');

@@ -1,7 +1,8 @@
-import { access, mkdir, rm } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 import { prepareLaunch, type LaunchCurrentProjection, type LaunchResult } from './launch.js';
+import { pathExists } from './path-exists.js';
 import { petriEventsPath } from './petri-events.js';
 import { petriPlanSnapshotPath } from './petri-plan-snapshot.js';
 import { petriNetPath, petriSdcpnPath, preparePetriObservation } from './petri.js';
@@ -173,13 +174,4 @@ async function createSupersedingRunOwned(args: {
       { kind: 'write_file', path: petriEventsPath(args.cwd, runId) },
     ],
   };
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
 }

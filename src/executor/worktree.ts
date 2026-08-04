@@ -1,10 +1,11 @@
 import { execFile } from 'node:child_process';
-import { access, mkdir, rm } from 'node:fs/promises';
+import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 
 import { canonicalPath } from './canonical-path.js';
 import type { GitWorktreePort } from './execution-ports.js';
+import { pathExists } from './path-exists.js';
 import {
   runExecutionActive,
   withRunExecutionAuthority,
@@ -336,15 +337,6 @@ async function createWorktreeOwned(args: {
     metadataPath,
     sideEffects: [...worktreeResult.sideEffects, metadataEffect],
   };
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function hasGitWorktreeMarker(worktreeDir: string): Promise<boolean> {

@@ -1,4 +1,4 @@
-import { access, mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 
 import { BRUNCH_DIR } from '../constants.js';
@@ -11,6 +11,7 @@ import {
   type PublicPacketMaterialization,
 } from './execution-public-packet.js';
 import { prepareLaunch, type LaunchCurrentProjection, type LaunchResult } from './launch.js';
+import { pathExists } from './path-exists.js';
 import {
   runExecutionActive,
   withRunExecutionAuthority,
@@ -453,13 +454,4 @@ async function createRunOwned(
       { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
     ],
   };
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
 }

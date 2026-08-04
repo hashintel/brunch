@@ -1,9 +1,10 @@
-import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { pathExists } from '../path-exists.js';
 import * as petriEvents from '../petri-events.js';
 import * as petriLifecycleReconciliation from '../petri-lifecycle-reconciliation.js';
 import * as petriMarking from '../petri-marking.js';
@@ -27,15 +28,6 @@ import { copyHostSource } from '../source-copy.js';
 import { selectSourcePolicy } from '../source-policy.js';
 import { createWorktree } from '../worktree.js';
 import { createFakeGitWorktreePort } from './fake-ports.js';
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 async function createReportReadyRun(cwd: string, prepareObservation = false): Promise<void> {
   const planPath = planFilePath(cwd, '42');

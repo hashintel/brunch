@@ -110,6 +110,13 @@ async function selectSourcePolicyOwned(args: {
   };
 }
 
+// Deliberately not `path-exists.ts`'s `pathExists`: this reads the file, so it also
+// answers false for a directory or a file the process cannot decode as UTF-8. The two
+// sibling checks of the same populated-plan path (`launch.ts`, `run-freshness.ts`) use
+// the shared existence predicate, so the stricter form here is an unadjudicated
+// difference rather than a stated contract — it arrived whole with the file in FE-1089.
+// Do not collapse it into the shared predicate without deciding which check this call
+// site wants; doing so would widen what counts as a present populated plan.
 async function fileExists(path: string): Promise<boolean> {
   try {
     await readFile(path, 'utf8');

@@ -22,6 +22,7 @@ import {
   type ReadyStep,
   serialFiringPolicy,
 } from '../orchestrate.js';
+import { pathExists } from '../path-exists.js';
 import {
   appendPetriEvent,
   petriEventsPath,
@@ -302,15 +303,6 @@ function failedCycle(cycle: number, artifactOrdinal: number) {
       epoch.stage === 'verify' ? { ...epoch, verdict: 'failed' as const } : epoch,
     ),
   };
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function readReportEvents(cwd: string): Promise<unknown[]> {

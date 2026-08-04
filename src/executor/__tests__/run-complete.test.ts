@@ -1,22 +1,14 @@
-import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { pathExists } from '../path-exists.js';
 import { populatedPlanPath } from '../populate.js';
 import { reportsPath } from '../report.js';
 import { completeRun } from '../run-complete.js';
 import { runDirPath, runMetadataPath } from '../run.js';
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 async function createSliceCompletedRun(
   cwd: string,

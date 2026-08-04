@@ -1,23 +1,15 @@
-import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { pathExists } from '../path-exists.js';
 import { planFilePath } from '../plan-file.js';
 import { populateWorktree, populatedPlanPath } from '../populate.js';
 import { runDirPath, runMetadataPath, createRun } from '../run.js';
 import { worktreeDirPath, createWorktree } from '../worktree.js';
 import { createFakeGitWorktreePort } from './fake-ports.js';
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 describe('populateWorktree', () => {
   it('does not populate when run metadata is missing', async () => {

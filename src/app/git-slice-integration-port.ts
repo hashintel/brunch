@@ -1,8 +1,9 @@
-import { access, mkdir } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
 import { canonicalPath } from '../executor/canonical-path.js';
 import type { GitSliceIntegrateEffect, GitSliceIntegrationPort } from '../executor/execution-ports.js';
+import { pathExists } from '../executor/path-exists.js';
 import { runCommand, type CommandResult, type CommandRunner } from './command-runner.js';
 
 const GIT_TIMEOUT_MS = 30_000;
@@ -222,15 +223,6 @@ async function sharedRepositoryFailure(
 
 function canonicalGitPath(cwd: string, path: string): Promise<string> {
   return canonicalPath(resolve(cwd, path));
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 async function exactRootFailure(

@@ -1,6 +1,7 @@
-import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
+import { pathExists } from './path-exists.js';
 import { petriPlanSnapshotPath } from './petri-plan-snapshot.js';
 import { planProvenancePath } from './plan-file.js';
 import {
@@ -135,14 +136,5 @@ async function optionalReadFile(path: string): Promise<string | undefined> {
       return undefined;
     }
     throw error;
-  }
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
   }
 }
