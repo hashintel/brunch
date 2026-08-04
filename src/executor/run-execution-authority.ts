@@ -1,8 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { realpath } from 'node:fs/promises';
-import { resolve } from 'node:path';
 
 import type { BrunchExecuteToolName } from '../session/schema/tool-names.js';
+import { canonicalPath } from './canonical-path.js';
 import type { RunMetadata } from './run.js';
 
 const executions = new Map<string, Promise<unknown>>();
@@ -162,13 +161,5 @@ export async function withRunExecutionAuthority<Result, Contended = Result>(args
     return await owned;
   } finally {
     if (executions.get(key) === owned) executions.delete(key);
-  }
-}
-
-async function canonicalPath(path: string): Promise<string> {
-  try {
-    return await realpath(path);
-  } catch {
-    return resolve(path);
   }
 }

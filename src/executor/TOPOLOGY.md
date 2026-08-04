@@ -10,6 +10,7 @@ Pure contracts and orchestration helpers that turn `next` graph facts into execu
 executor/
 ├── TOPOLOGY.md
 ├── agent-result.ts       AgentRunnerPort in stable slice workspace -> attempt-distinct result/stream artifacts
+├── canonical-path.ts     shared realpath-or-lexical path normalization for worktree/repo identity comparisons (executor + app git ports)
 ├── durable-file.ts       shared file-fsync + rename + parent-chain directory-fsync replace, append, and mkdir primitives
 ├── epic-lifecycle.ts     integrated epic members -> optional injected run-tree verification -> epic completion facts
 ├── orchestrate-topology.ts compiled executor topology + run/slice/attempt/epic subnet identities, disjoint slice claims, explicit places/arcs, initial marking, and executor transition guards
@@ -100,6 +101,8 @@ rules:
   # enforced by __tests__/boundaries.test.ts
   executor/ x> db/, .pi/, app/, rpc/, web/ [no storage, adapter, transport, or UI effects]
 ```
+
+`canonical-path.ts` owns path-identity normalization for the "is this the exact git root / the same worktree" comparisons in `worktree.ts`, `run-execution-authority.ts`, and the app-layer `git-run-promotion-port.ts` / `git-slice-integration-port.ts`. It is homed here rather than in `app/` because the boundary rule above forbids the reverse edge; app ports import it the same way `git-host-land-port.ts`'s sibling layer imports `durable-file.ts`. Import it; do not re-copy it — the four consolidated copies were byte-identical, so the first divergent edit would have made two seams silently disagree about whether a worktree is isolated. Its fallback is deliberately lexical. `git-host-land-port.ts` keeps a **deliberate fork**, `canonicalPathAllowingMissing`, which resolves symlinks in the deepest existing ancestor because host landing normalizes targets that do not exist yet; that stronger form is load-bearing for the `target_aliases_run` / `target_inside_run` refusals under a symlinked temp root. The fork is intentional and named for its difference — do not "finish" the consolidation by collapsing the two.
 
 Journal/lifecycle parity replays both histories through the compiled topology and compares transition multisets. Journal-ahead authority is classified only from the actual residual `journal - lifecycle`, never a positional suffix: the complete residual must be parallel `slice_start` claims or matching transitioned epic-verification claims. Pending serial repair recovery uses the same multiset authority because earlier independent slices may have produced a different valid journal interleaving; an equal relation emits no duplicate transitions, while lifecycle-ahead recovery appends only the exact projected residual before activating the repair worker.
 

@@ -1,6 +1,7 @@
-import { access, mkdir, realpath } from 'node:fs/promises';
+import { access, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
+import { canonicalPath } from '../executor/canonical-path.js';
 import type { GitSliceIntegrateEffect, GitSliceIntegrationPort } from '../executor/execution-ports.js';
 import { runCommand, type CommandResult, type CommandRunner } from './command-runner.js';
 
@@ -245,14 +246,6 @@ async function exactRootFailure(
   return actual === expected
     ? undefined
     : `refusing non-isolated git workspace: git root is ${root.stdout.trim()}`;
-}
-
-async function canonicalPath(path: string): Promise<string> {
-  try {
-    return await realpath(path);
-  } catch {
-    return resolve(path);
-  }
 }
 
 function message(result: CommandResult, fallback: string): string {

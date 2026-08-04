@@ -22,8 +22,8 @@ export function createGitHostLandPort(options: { readonly run?: CommandRunner } 
   return {
     async inspect(args) {
       const [target, runRepo] = await Promise.all([
-        canonicalPath(args.targetDir),
-        canonicalPath(args.runWorktreeDir),
+        canonicalPathAllowingMissing(args.targetDir),
+        canonicalPathAllowingMissing(args.runWorktreeDir),
       ]);
       if (target === runRepo) return { status: 'refused', reason: 'target_aliases_run', sideEffects: [] };
       if (args.strategy === 'materialize' && isPathInside(target, runRepo)) {
@@ -256,8 +256,8 @@ export function createGitHostLandPort(options: { readonly run?: CommandRunner } 
 
     async materialize(args) {
       const [target, runRepo] = await Promise.all([
-        canonicalPath(args.targetDir),
-        canonicalPath(args.runWorktreeDir),
+        canonicalPathAllowingMissing(args.targetDir),
+        canonicalPathAllowingMissing(args.runWorktreeDir),
       ]);
       if (target === runRepo) return { status: 'refused', reason: 'target_aliases_run', sideEffects: [] };
       if (isPathInside(target, runRepo)) {
@@ -493,17 +493,31 @@ async function checkExactRoot(
 ): Promise<ExactRootCheck> {
   const root = await command(dir, ['rev-parse', '--show-toplevel']);
   if (root.exitCode !== 0) return { kind: 'failed', result: root };
-  const [actual, expected] = await Promise.all([canonicalPath(root.stdout.trim()), canonicalPath(dir)]);
+  const [actual, expected] = await Promise.all([
+    canonicalPathAllowingMissing(root.stdout.trim()),
+    canonicalPathAllowingMissing(dir),
+  ]);
   return actual === expected ? { kind: 'root' } : { kind: 'not_root' };
 }
 
-async function canonicalPath(path: string): Promise<string> {
+// A deliberate semantic fork of `executor/canonical-path.ts`, not a copy of it: host
+// landing normalizes targets that do not exist yet (`materialize` mkdirs the target
+// only after these comparisons), so it resolves symlinks in the deepest existing
+// ancestor and re-appends the missing tail. The shared helper's lexical fallback would
+// leave a symlinked ancestor unresolved (`/tmp/x` rather than `/private/tmp/x`), and the
+// `target_aliases_run` / `target_inside_run` refusals compare that result against an
+// existing — therefore realpath-resolved — run worktree. Collapsing this into the shared
+// helper would silently stop those refusals from firing for a missing target under a
+// symlinked root, which is the macOS temp-dir default.
+async function canonicalPathAllowingMissing(path: string): Promise<string> {
   try {
     return await realpath(path);
   } catch {
     const resolved = resolve(path);
     const parent = dirname(resolved);
-    return parent === resolved ? resolved : join(await canonicalPath(parent), basename(resolved));
+    return parent === resolved
+      ? resolved
+      : join(await canonicalPathAllowingMissing(parent), basename(resolved));
   }
 }
 
