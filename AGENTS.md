@@ -104,7 +104,7 @@ Frontier-item traceability, scope-card inheritance, and the verification-ownersh
 
 **PR release intent** (required for ordinary PRs into `next`): before submit or update, run `npx changeset status --since=origin/next`. If the published package changes, run `npm run changeset`; otherwise record the no-release decision with `npm run changeset -- --empty`. Commit the generated `.changeset/*.md` file. The local verify commands do not cover this base-aware CI check.
 
-**CI / read-only check**: `npm run check` — lint then fmt:check then check:markdown-links then check:skills then check:promoted-run-paths, no writes. Use this where the gate must not mutate the worktree.
+**CI / read-only check**: `npm run check` — lint then fmt:check then konsistent (structural conventions from `konsistent.json`) then check:markdown-links then check:skills then check:promoted-run-paths, no writes. Use this where the gate must not mutate the worktree.
 
 **Skill-system check**: `npm run check:skills` — verifies the `ln-*` skill set against the working guide, cross-skill links, and required guardrails (e.g. the topology-stub carve-out). Read-only.
 
@@ -120,7 +120,7 @@ Frontier-item traceability, scope-card inheritance, and the verification-ownersh
 | `npm run test:comparison` | expensive full-stack comparison oracles | no |
 | `npm run verify` | fix → test → build (fast default) | yes (via fix) |
 | `npm run verify:full` | fix → test:full → build (full local/merge-queue gate) | yes (via fix) |
-| `npm run check` | lint → fmt:check → check:markdown-links → check:skills → check:promoted-run-paths | no |
+| `npm run check` | lint → fmt:check → konsistent → check:markdown-links → check:skills → check:promoted-run-paths | no |
 | `npm run check:markdown-links` | remark-validate-links over Markdown files | no |
 | `npm run check:skills` | ln-* skill consistency | no |
 
