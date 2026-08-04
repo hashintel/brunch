@@ -110,9 +110,11 @@ Frontier-item traceability, scope-card inheritance, and the verification-ownersh
 
 **Markdown link check**: `npm run check:markdown-links` — validates local Markdown links and headings through `remark-validate-links`. Read-only.
 
+**Structural convention check**: `npm run konsistent` — enforces the positive file/export conventions in `konsistent.json`. It does not infer deadness or replace the manual out-of-graph-consumer checks required before deletion. Read-only.
+
 | Script | Steps | Writes? |
 | --- | --- | --- |
-| `npm run fix` | lint:fix → fmt | yes |
+| `npm run fix` | lint:fix → fmt → check:markdown-links | yes |
 | `npm run test` | all Vitest tests except `*.slow.test.ts` | no |
 | `npm run test:full` | all Vitest tests incl. slow tests | no |
 | `npm run test:slow` | core-slow → comparison | no |
@@ -121,12 +123,13 @@ Frontier-item traceability, scope-card inheritance, and the verification-ownersh
 | `npm run verify` | fix → test → build (fast default) | yes (via fix) |
 | `npm run verify:full` | fix → test:full → build (full local/merge-queue gate) | yes (via fix) |
 | `npm run check` | lint → fmt:check → konsistent → check:markdown-links → check:skills → check:promoted-run-paths | no |
+| `npm run konsistent` | positive file/export conventions from `konsistent.json` | no |
 | `npm run check:markdown-links` | remark-validate-links over Markdown files | no |
 | `npm run check:skills` | ln-* skill consistency | no |
 
-Ordering rationale: `fix` must run lint:fix before fmt because lint fixes can rewrite code that then needs reformatting. `check` mirrors that order (lint before fmt:check) so both scripts read as the same recipe in different modes.
+Ordering rationale: `fix` must run lint:fix before fmt because lint fixes can rewrite code that then needs reformatting; the read-only Markdown link check runs after both writers settle. `check` mirrors the lint-before-format order, then runs structural and documentation checks over the settled tree.
 
-Type-checking is done by oxlint via tsgolint (`.oxlintrc.json` sets `typeAware: true` and `typeCheck: true`); there is no separate `typecheck` script. Tooling: oxlint (lint + type-aware + type-check via tsgolint), oxfmt (format), vitest (test). Verification strategy details in SPEC.md §Verification Design.
+Type-checking is done by oxlint via tsgolint (`.oxlintrc.json` sets `typeAware: true` and `typeCheck: true`); there is no separate `typecheck` script. Tooling: oxlint (lint + type-aware + type-check via tsgolint), oxfmt (format), konsistent (positive structural conventions), remark-validate-links, vitest. Verification strategy details in SPEC.md §Verification Design.
 
 ## critical file-safety rule
 

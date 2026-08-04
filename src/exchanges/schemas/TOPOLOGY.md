@@ -16,7 +16,7 @@ const PresentCandidatesDetailsSchema = z.toJSONSchema(zPresentCandidatesDetails)
 - Zod source values use the `z` prefix and are not named `*Schema`.
 - Inferred TypeScript types use the bare domain name.
 - `*Schema` means JSON-Schema-shaped output generated from Zod with `z.toJSONSchema(...)`.
-- TypeBox is not a schema authoring layer for this seam; the only permitted TypeBox reference is the Pi `TSchema` cast adapter in `src/.pi/extensions/exchanges/pi-schema.ts`.
+- TypeBox is not a schema authoring layer for this seam; the only permitted TypeBox reference is the shared Pi `TSchema` adapter in `src/.pi/extensions/shared/tool-schema.ts`.
 - `Details`, `Params`, `Payload`, and `Result` are data-type name parts, not schema-library markers.
 
 ## File layout
@@ -48,7 +48,7 @@ chain active Pi tool / session trigger / RPC editor relay
 ```
 
 - Active `.pi/extensions/exchanges/*.ts` files own Pi registration and UI collection only.
-- `src/.pi/extensions/exchanges/pi-schema.ts` is the only Zod JSON Schema to Pi `TSchema` adapter.
+- `src/.pi/extensions/shared/tool-schema.ts` is the only Zod/TypeBox schema-to-Pi `TSchema` adapter for provider-facing Brunch tools.
 - `present_review_set.payload` is a **graph-owned boundary-teaching schema** (`zReviewSetProposalPayloadForBoundary` in `graph/review-set.ts`), not `z.unknown()`: the param boundary rejects a JSON string, the wrong tool's shape (e.g. `mutate_graph`'s `{createBasis, ops}`), and malformed nested companions such as `grounding: string`. The full requiredness/field-diagnostic contract stays owned by `validateReviewSetPayloadShape` in the same graph module; the boundary schema advertises `lens`, `epistemicStatus`, `grounding {summary, support[]}`, `pitch {title, narrative}`, `entityDrafts[]`, and role-named `edgeDrafts[]` so the model sees the nested structure before the deep validator runs.
 - `src/exchanges/projections/*` is the only construction boundary for active present/request `toolResult.details`.
 - `agents/contexts/exchanges/*` owns durable provider-visible markdown for active present/request emissions.

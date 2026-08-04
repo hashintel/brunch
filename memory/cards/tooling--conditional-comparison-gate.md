@@ -11,7 +11,7 @@ Posture: proving (category concern; no containing PLAN frontier).
 
 - The containing seam is the repository verification harness: package test lanes feed the single required GitHub Actions `Full gate` status.
 - This is dev-tooling rework, not a slice of an active product frontier; completed comparison frontiers remain the owners of the oracle behavior being scheduled.
-- There is no volatile `HANDOFF.md` state. Existing uncommitted scope files are independent; none declares the workflow/package/script paths below as primary writes.
+- No volatile handoff state belongs to this card. Other scope files are independent and do not declare the workflow/package/script paths below as primary writes.
 - The main risk is a false-negative path classification that skips an oracle affected through a transitive dependency; omission must therefore be fail-open and narrower than ordinary change-impact selection.
 
 ## Build state

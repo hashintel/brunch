@@ -15,14 +15,14 @@ with anchors into `pi-coding-agent` internals — cross-cutting enough (spans `e
 
 **Current coverage (D125-L / FE-1200):** discovery is mode-complete through the shared live ask registry. Answering is landed for free text, listed single/multi selection, bounded questionnaires, and review decisions; the remaining Other/None write-in, nested-comment, and richer-review limits are declared string-envelope ceilings, not missing discovery or wiring.
 
-**Current dependency:** `@earendil-works/pi-coding-agent` `^0.80.6` in `package.json`.
+**Current dependency:** `@earendil-works/pi-coding-agent` `0.83.0` in `package.json`.
 **Last full mechanism verification:** v0.80.3, run 2026-07-06 on the 0.79.10 → 0.80.3 bump via the
 checklist below. The internals cited below (`ExtensionMode`, `bindExtensions`,
 `ExtensionRunner.setUIContext`/`hasUI()`, `noOpUIContext`, the RPC mode's `ExtensionUIContext`) are
 **implementation details, not public API** — nothing in `@earendil-works/pi-coding-agent`'s documented
 surface promises they stay this shape. Re-verify this document whenever Brunch's pinned
 `pi-coding-agent` version bumps a minor or major (D67-L: Brunch tracks latest pi routinely, so this
-will happen). The public, stable part — `ExtensionUIContext`'s method signatures (`custom`,
+will happen). **The current 0.83.0 pin therefore has an overdue full mechanism re-verification; treat the internal-path notes below as orientation, not fresh proof.** The public, stable part — `ExtensionUIContext`'s method signatures (`custom`,
 `setEditorComponent`, `setWidget`, `setFooter`, `setHeader` take a factory; `select`/`confirm`/
 `input`/`editor` do not) — is much less likely to change and is the load-bearing fact for the rest of
 this document.

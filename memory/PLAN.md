@@ -18,6 +18,7 @@
 - **Comparison lanes:** the repo keeps two distinct evaluation doors: seed-based intra-product testing and mission-driven cross-product comparison. FE-1241 closed the brownfield comparison cases; FE-1215 landed the approachable operator workflow; the remaining operator residue is the structural mission-isolation hardening plus the later real Brunch+Claude saved-mission witness.
 - **Executor / Execute evidence queue:** several KA fronts are implementation-merged but still carry explicit outer evidence: `host-landing`, `executor-plan-synthesis`, `execution-comparison-tracer`, `executor-plan-coherence`, `executor-slice-verification-repair`, and `greenfield-secure-drop-demo`.
 - **Current seams and discipline:** Brunch ships on `1.0.0-alpha.x`. D125-L's live ask registry is the structured-exchange headless surface; the transcript-backed pending projection remains compatibility-only. Sweep classification remains fail-closed on exchange-schema terminal names (D117-L); the larger capture-conditional watermark question remains A40-L. Co-located `src/**/TOPOLOGY.md` files own current topology; scratch evidence is not durable until promoted to `.fixtures/runs/`.
+- **Integrity cleanup:** FE-1311's original sweep is dispositioned, including A2's verified keep, but the closure walkthrough admitted one final five-row pass before tie-off: publish only the working `dist-web` artifact, lock package exclusions, materialize probe topology, finish the comparison public-root boundary, remove the last exact `pathExists` clone, and name the DB schema-column test honestly. Other findings remain trigger-gated rather than riding this slice.
 
 ## Initiatives
 
@@ -46,6 +47,7 @@
 
 ### Active
 
+- `integrity-cleanup` ([FE-1311](https://linear.app/hash/issue/FE-1311/integrity-cleanup-sweep-verified-deletion-batch-and-predicate)) — **final closure walkthrough:** the original sweep is dispositioned; five buildable-now rows remain in [`memory/cards/integrity-cleanup--closure-walkthrough.md`](cards/integrity-cleanup--closure-walkthrough.md). No other audit residue may enter this ledger mid-flight.
 - `walkthrough-remediation-2` ([FE-1187](https://linear.app/hash/issue/FE-1187/walkthrough-remediation-sweep-2-wr18-follow-up-closure)) — **paused after `remediation-4` tie-off:** mixed-settlement review preservation and populated-group-only Impact Ledger rendering are built. Re-entry requires an explicit decision to resume extractor/oracle hardening, then restart R8–R10 from 0/3; A48-L, the separate web graph audit, and the consolidated outer checkpoint remain behind that gate. Execute O7–O9 stay KA-owned. Closing member of arc `deterministic-orientation`. Definition below.
 - `cli-mode-entry` — direct-mode CLI subcommands (`brunch specify [spec-id]` / `brunch execute <spec-id>`, reserving `develop`); admitted 2026-07-13, stacked after FE-1187's entry-surface work. Definition below.
 - **Alpha walkthrough lane** — post-publish outer-loop audit over the merged surface (`TESTING_PLAN.md` concern groups; findings in `TESTING_FINDINGS.md`). Runs A, C, and WR18 are source evidence; run D waits on FE-1187's reshaped surfaces. Not a frontier itself.
@@ -68,12 +70,12 @@ Older completion history and archived completed frontier definitions live in [`d
 ### Parallel / Low-conflict
 
 - `capture-ledger-tracer` — pickup-ready proving follow-on to the completed `agent-control-plane-closure`: compare current ingest conduct with a versioned four-section capture ledger over one fixed mixed-source mission, using separate masked outcome and unblinded conduct judgments. Definition below.
-- `integrity-cleanup` — coverage-shaped earned sweep over the verified 2026-08-03 induction findings: the reduction-review deletion batch (with its corrections) plus copy-not-import predicate consolidation and roster-drift repairs. Buildable-now; low-conflict with the FE-1187 stack. Definition below.
 
 ### Horizon
 
 - **Mode / reviewer follow-ons:** `develop-mode` (flag-gated third operational mode with execute-tier authority), `reviewer-agent-mode` (reviewer remains a subagent, not a primary mode), and `review-commentary-widening` (TUI-realistic `#`-mention review comments over D116-L payloads).
 - **Cleanups:** `named-inline-extension-identity`, `web-driver-streaming-residue`, and `test-tmpdir-hygiene` remain independent small follow-ons.
+- **Integrity follow-ons (trigger-gated, not admitted):** exact FE-1311 audit evidence remains in git history. Re-enter `src/utils/strings.ts` / `.npmcheckrc` only through a future repository-hygiene frontier; the `source-policy.ts` readability-vs-existence divergence only when populated-plan acceptance changes or fails; TOON only through the D83-L product call; and a production-dependency-closure oracle on the next `dependencies` edit. Do not fold these into the active closure ledger.
 - **Release automation later:** FE-1050 closed the reviewed Changesets alpha path on `next` → npm `alpha`; the still-intended `main`/`latest` stable-release automation remains a separate deferred promotion follow-on rather than part of the current alpha automation. Pointer: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#recently-completed-entries-archived-from-live-plan).
 - `host-landing` ([FE-1201](https://linear.app/hash/issue/FE-1201/mode-aware-host-landing-of-promoted-runs)) — **KA stream · owner: Kostandin.** Owes the real TUI+RPC `/brunch:land` walkthrough from `promotion_prepared` into a fresh target (A42-L live half / FE-1197 oracle 9 landing leg). Re-enter at the next live FE-1197 walkthrough. Pointers: SPEC A42-L, D111-L/I58-L; `src/app/TOPOLOGY.md`.
 - `executor-plan-synthesis` ([FE-1197](https://linear.app/hash/issue/FE-1197/synthesize-and-validate-executor-plans-from-approved-scopes)) — **KA stream · owner: Kostandin.** Owes live-capability oracles 1–5 on real elicited specs plus oracle 9's committed-scope → conforming-promotion tail. Re-enter in the next model-backed FE-1197 walkthrough. Pointers: SPEC D130-L and A42-L; `src/executor/TOPOLOGY.md`; `docs/praxis/manual-testing.md`.
@@ -523,27 +525,26 @@ Legacy link target; see Horizon.
 
 ### integrity-cleanup
 
-- **Name:** Integrity cleanup sweep — verified deletion batch + copy-not-import predicate consolidation
-- **Linear:** [FE-1311](https://linear.app/hash/issue/FE-1311/integrity-cleanup-sweep-verified-deletion-batch-and-predicate)
-- **Branch:** `ln/fe-1311-integrity-cleanup`; low-conflict with the FE-1187 stack.
-- **Kind:** coverage-shaped closure batch over the closed 2026-08-03 induction findings inventory (reduction review + architecture review, both independently verified; see `ln-review` contract catalog entries graduated 2026-08-03).
-- **Certainty:** earned; a row that reveals a real unknown regresses to proving individually and stops per sweep discipline.
-- **Classification:** buildable-now.
-- **Boundary:** in — the verified reduction-review deletion/shrink items, predicate consolidations (executor state predicates, `canonicalPath`, `pathExists`), roster-drift repairs, the CI-ripgrep name-the-contract comment, and the knip wire-vs-delete decision. Out — the Notion/PetriNet direction, all shared-session-host work (`workspace-session-coordinator.ts` decomposition rides that arc), and any new abstraction beyond one shared module per predicate family.
-- **Deletes / retires:** parked consequential-fact campaign; pre-FE-1163 schema snapshots; committed Oxc schema copies; inert tools `present_alternatives` / `execute_plan_outline_artifact` / `execute_plan_draft_artifact` with their components/tests; unused dev barrels/wrappers/CLI helpers; `row-schemas.ts` plus `drizzle-typebox`/`@sinclair/typebox`; TOON wrappers plus dep; `stringify-tree`/`lodash.flatten`; the deterministic-exchange minting chain; duplicate walkthrough PNGs; test-only production modules **after** same-row `TOPOLOGY.md` reconciliation (`run-auto-replan-policy`, `drawer-card`, packet redaction, accessibility contract, plan output).
-- **Canonicalizes:** one executor state-predicates owner (`stringArraysEqual` ×4 plus terminal-summary/marking semantics across `orchestrate.ts`/`observer-read.ts`/`petri-events.ts`/`petri-replay.ts`); one shared `canonicalPath` helper (three `git-*-port.ts` files, `worktree.ts`, `run-execution-authority.ts`); one `pathExists` test helper (22 copies); authority-map keys from the `tool-names.ts` union (`run-execution-authority.ts:128,131`); the orphan `'present_alternatives'` literal removed from `transcript-context.ts:26`.
-- **Locks in:** deadness verdicts are gated by out-of-graph-consumer checks (the CI ripgrep install line names its FE-1241 spawned-agent consumer in a comment); roster surfaces are type-coupled to `tool-names.ts`; knip either enforces in `npm run check` or its stub is deleted — discharging or explicitly re-affirming the SPEC blind spot "No deadness oracle in the gate".
-- **Constraints (induction corrections):** CI ripgrep is **not** deletable; `src/dev` is already build-excluded, so frame the probes build-exclusion row accordingly; the deps→`devDependencies` move verifies the published surface (`npm pack` / `check:release-pack`), never the repo import graph; intentional topology stubs are not deletion candidates on unusedness alone (AGENTS.md carve-out).
-- **Inventory authority:** [`memory/cards/integrity-cleanup--sweep-ledger.md`](cards/integrity-cleanup--sweep-ledger.md) (`Mode: sweep`), authored 2026-08-03 from the two induction reports. Current execution pointer: that ledger.
-- **Aggregate DoD:** no required row remains `spec`/`new`/`partial`; `npm run verify:full` green (executor seams are touched); changeset recorded (published dependency set changes); no `TOPOLOGY.md`, `treedocs.yaml`, or doc teaches a retired module.
-- **Verification:** per-row `npm run verify`; `verify:full` before tie-off; deletion rows witnessed by import-graph absence **plus** the out-of-graph checks (`git log -S` provenance, TOPOLOGY/treedocs cross-reference); consolidation rows are behavior-preserving (existing tests green, no semantics change).
-- **Why now / unlocks:** removes ~7k LOC and 4 dependencies of navigation noise before the shared-session-host arc enters the same subtrees; the executor predicate consolidation removes writer/reader drift risk under `orchestrate`/`observer-read` ahead of that arc; the evidence is fresh and verified now.
-- **Traceability:** SPEC §Acknowledged Blind Spots "No deadness oracle in the gate"; `ln-review` contract-lens catalog (out-of-graph-consumers, copy-not-import — both 2026-08-03); FE-1241 (ripgrep provenance); FE-1163 (superseded snapshots); AGENTS.md §development phase posture, §intentional topology stubs.
+- **Name:** Integrity cleanup sweep — final closure walkthrough
+- **Linear / branch:** [FE-1311](https://linear.app/hash/issue/FE-1311/integrity-cleanup-sweep-verified-deletion-batch-and-predicate) · `ln/fe-1311-integrity-cleanup`
+- **Kind / classification:** coverage-shaped closure batch · buildable-now.
+- **Certainty:** earned; every remaining row has a settled owner and oracle.
+- **Boundary:** only the five walkthrough findings enumerated in the live ledger: published web artifact exclusivity, probe topology ownership, comparison public-root conformance, the final exact `pathExists` clone, and DB test naming. Product behavior decisions, unrelated dead files/config, TOON, and new audit findings are out.
+- **Closes:** the last contradictions between FE-1311's canonical current-state claims and the package/module/file topology a fresh reader actually encounters.
+- **Aggregate DoD:** no required row remains `spec` / `new` / `partial`; `dist-web` is the sole shipped web artifact; all touched topology/import/name assertions pass; no new row is added by analogy.
+- **Inventory authority / execution pointer:** [`memory/cards/integrity-cleanup--closure-walkthrough.md`](cards/integrity-cleanup--closure-walkthrough.md).
+- **Promotion / disposal:** a row that ceases to be row-sized stops and routes through `ln-plan`; more than one newly discovered row proves the inventory was not closed. Delete the ledger and archive this definition only after all five rows land and canonical docs reconcile.
+- **Traceability:** D140-L; AGENTS.md §code organization and §topology files; `src/dev/TOPOLOGY.md`; current `package.json#files` and `scripts/check-release-pack.mjs`.
 
 ## Dependencies
 
 ```text
 active:
+  integrity-cleanup (FE-1311)
+    classification: buildable-now closure sweep
+    closes: published web artifact duality | missing probe topology | comparison root bypass | final exact pathExists clone | misleading DB test name
+    ledger: memory/cards/integrity-cleanup--closure-walkthrough.md
+    excludes: source-policy semantics | src/utils/strings.ts | .npmcheckrc | TOON | new findings
   walkthrough-remediation-2 (FE-1187)
     closes_arc: deterministic-orientation
     blocked_reentry: extractor/oracle reconciliation -> fresh R8–R10 0/3 campaign -> A48-L -> consolidated outer checkpoint
@@ -570,11 +571,6 @@ parallel:
   capture-ledger-tracer
     depends_on: completed agent-control-plane-closure
     reuses: FE-1208 evaluator/report primitives | FE-1210 actor + split judgment
-  integrity-cleanup
-    source: 2026-08-03 review inductions (reduction + architecture batches)
-    deletes: parked campaigns | inert tools | committed derivable artifacts | dead wrappers + 4 deps
-    canonicalizes: executor state predicates | canonicalPath | tool-name-keyed rosters
-    guarded_by: out-of-graph-consumer checks + same-row TOPOLOGY reconciliation
 
 ka_evidence_queue:
   host-landing (FE-1201)
