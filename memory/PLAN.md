@@ -15,7 +15,7 @@
 
 - **Ship gate:** FE-1187 `walkthrough-remediation-2` is still the sole remaining ship-gate frontier. `remediation-4` landed the mixed-settlement review contract, populated-only Impact Ledger rendering, terminal-adaptive shell, persistent Specify elicitation style, deterministic menus, Ask mechanics, Continue-language cleanup, KA handoff, and the R6 terminal-status rail; extractor/oracle hardening and the fresh R8–R10 0/3 campaign remain paused at user direction. Execute evidence O7–O9 is still KA-owned.
 - **Shared host follow-through:** FE-1200 proved the standalone web foundation, but the TUI still owns a separate live `AgentSession`, `SessionEventRelay`, and `/rpc/driver` sidecar path. The open architecture arc is `shared-session-host-convergence`.
-- **Comparison lanes:** the repo keeps two distinct evaluation doors: seed-based intra-product testing and mission-driven cross-product comparison. FE-1241 closed the brownfield comparison cases; FE-1215 landed the approachable operator workflow; the remaining operator residue is the structural mission-isolation hardening plus the later real Brunch+Claude saved-mission witness.
+- **Comparison lanes:** the repo keeps two distinct evaluation doors: seed-based intra-product testing and mission-driven cross-product comparison. FE-1241 closed the brownfield comparison cases; FE-1215 landed the approachable operator workflow; FE-1320 structurally separated controller-private mission material from fresh external harness targets. The remaining operator residue is the later real Brunch+Claude saved-mission witness.
 - **Executor / Execute evidence queue:** several KA fronts are implementation-merged but still carry explicit outer evidence: `host-landing`, `executor-plan-synthesis`, `execution-comparison-tracer`, `executor-plan-coherence`, `executor-slice-verification-repair`, and `greenfield-secure-drop-demo`.
 - **Current seams and discipline:** Brunch ships on `1.0.0-alpha.x`. D125-L's live ask registry is the structured-exchange headless surface; the transcript-backed pending projection remains compatibility-only. Sweep classification remains fail-closed on exchange-schema terminal names (D117-L); the larger capture-conditional watermark question remains A40-L. Co-located `src/**/TOPOLOGY.md` files own current topology; scratch evidence is not durable until promoted to `.fixtures/runs/`.
 
@@ -52,6 +52,7 @@
 
 ### Recently Completed
 
+- 2026-08-05 `comparison-mission-isolation-hardening` (FE-1320) — **✓ complete:** `/compare-specs` now places every harness in a fresh system-temporary external target root outside controller checkout, scratch, and retained trees; actual-entry-point tests cover the CS2 `../../private-mission.md` rival, target-root visibility, retained exact output, and target cleanup without claiming whole-host isolation.
 - 2026-08-05 `canonical-document-reconciliation` (FE-1318) — **✓ complete:** the unadopted PLAN-replacement proposal is historical, seven superseded design surfaces now point to current authority, comparison prose distinguishes four execution cases from three configured E2E contracts and one retained witness, and active document links resolve.
 - 2026-08-05 `host-landing-oracle-identity` (FE-1317) — **✓ complete:** the immutable host-landing oracle pack now includes all five behavior-bearing PTY inputs, with regression coverage for one-file-at-a-time hash sensitivity and identical-input stability.
 - 2026-08-06 `system-reorientation-audit` (FE-1316) — **✓ complete:** thirteen post-cleanup concerns received evidence-backed dispositions; one stale exchange-guidance defect was fixed, two bounded frontiers were admitted, and existing owners absorbed the remaining promoted work without creating a parallel queue.
@@ -63,7 +64,6 @@ Older completion history and archived completed frontier definitions live in [`d
 ### Next
 
 - `saved-mission-comparison-witness` — later operator-owned frontier: FE-1215 is landed, so the remaining work is scheduling the real Brunch + Claude `/compare-specs` witness, then revising/rerunning the saved mission to prove historical snapshots remain immutable. Definition below.
-- `comparison-mission-isolation-hardening` — admitted from FE-1215 smoke (`TESTING_FINDINGS.md` CS2): move the private mission outside the target-reachable tree (or equivalently jail the target's file tools) so the D134-L/I67-L mission boundary is structural, not conduct-dependent. Definition below.
 - `shared-session-host-tracer` — prove the one-host TUI attachment seam that FE-1200 deliberately left open. Definition below.
 - `shared-session-host-cutover` — wait-gated on the tracer; close the enumerated TUI/web host surface, then delete the raw sidecar relay and `/rpc/driver`. Definition below.
 
@@ -137,19 +137,6 @@ Legacy link target; see Horizon.
 - **Verification:** outer only — operator-led first run plus revision/rerun through the real stock-Pi prompt, with artifact inspection and snapshot fingerprints.
 - **Dependencies:** hard on operator scheduling; FE-1215's D134-L remediation landing is already satisfied.
 - **Traceability:** req 24/A5-L; D70-L; D134-L/I67-L; FE-1210 evidence discipline; SPEC Verification Design `saved-mission-comparison-witness` gate.
-
-### comparison-mission-isolation-hardening
-
-- **Name:** Structural private-mission isolation for `/compare-specs`
-- **Linear:** unassigned — create at pickup in Frontend / brunch.
-- **Branch:** tbd at pickup; stack after the landed FE-1215 workflow when this follow-on starts.
-- **Kind:** bounded hardening over the retained D134-L mission boundary.
-- **Certainty:** proving.
-- **Status:** admitted from `TESTING_FINDINGS.md` CS2; not started.
-- **Objective:** make the private mission structurally unreachable from the comparison target by storing it outside the target-reachable tree or equivalently constraining target file tools to the harness cwd.
-- **Acceptance:** the target cannot discover or read the private mission by normal `read`/`ls`/`find`/`grep` access; the run still retains the private mission for controller/operator evidence; no FE-1215 historical run is rewritten; the fix does not widen into a generic comparison-runner redesign.
-- **Verification:** focused artifact-path and target-visibility tests plus one targeted smoke over the retained `/compare-specs` flow.
-- **Traceability:** D134-L/I67-L; `TESTING_FINDINGS.md` CS2.
 
 ### shared-session-host-tracer
 
@@ -532,14 +519,10 @@ active:
     blocked_reentry: extractor/oracle reconciliation -> fresh R8–R10 0/3 campaign -> A48-L -> consolidated outer checkpoint
     cross_stream: O7/O8/O9 + carved Execute beats stay KA-owned
     -[stack]-> cli-mode-entry
-
 next:
   saved-mission-comparison-witness
     gated_by: operator availability
     depends_on: landed FE-1215 workflow
-  comparison-mission-isolation-hardening
-    source: TESTING_FINDINGS.md CS2 from FE-1215 witness
-    hardens: D134-L/I67-L private-mission boundary
   shared-session-host-tracer
     retires: A47-L
     proves: one host-owned writable runtime + real TUI + React attachment
