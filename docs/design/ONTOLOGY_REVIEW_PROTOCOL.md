@@ -333,11 +333,12 @@ Invariants:
 - **`kind` drives behavior; `form` is inert payload.** Readiness band, edge
   legality, and the elicitor's source-question all key off `kind`, never
   `detail.form`. `form` adds structure + a renderer hook only.
-- **One shared discriminant vocabulary across the kinds**, so a lens can query
+- **One shared discriminant vocabulary across the kinds**, so a method-specific renderer can query
   "all `formal`-form nodes in this spec" to render/round-trip a LEAN file
   regardless of kind.
-- **`form` defaults from the active elicitation lens / `spec.kind`**,
-  overridable per-node (a `function`-kind spec defaults claims to `formal`).
+- **Historical defaulting proposal:** §6.4 expected `form` to default from the
+  active lens or `spec.kind`. The lens runtime was retired; current schema and
+  callers, not this proposal, own form defaults.
 - `// ceiling:` method structure carried as `detail.form`, not per-method node
   kinds; promote a form to its own kind only if banding/edge-role feedback
   demands it.
@@ -421,11 +422,13 @@ Routing:
 
 ## 7. Heuristics surfaced (for the heuristics SoT follow-on)
 
-Heuristics are the **method-differentiation layer** (§6.1), not ancillary. They
-are currently scattered (the kind-discrimination rules in
-`src/agents/skills/map/references/map-{nodes,intents,oracles,plans,edges}.md`, `ELICITATION_QUESTIONS.md`,
-`ELICITATION_LENSES.md`, this doc); collating them into one inlinable source is a
-named follow-on (§9).
+Heuristics are the **method-differentiation layer** (§6.1), not ancillary. The
+live agent-facing sources are
+`src/agents/skills/map/references/map-{nodes,intents,oracles,plans,edges}.md`
+and `src/agents/references/data-model.md`.
+[ELICITATION_QUESTIONS.md](ELICITATION_QUESTIONS.md) and
+[ELICITATION_LENSES.md](ELICITATION_LENSES.md) are historical notes, not
+additional heuristic authorities.
 
 ```
 routing:
@@ -506,8 +509,9 @@ rather than into new kinds.
 
 **Follow-ons:**
 
-1. **Heuristics SoT** — collate the scattered routing/elicitation heuristics
-   (§7) into one inlinable source of truth for skills.
-2. **`ln-spec`** — propagate this resolved scope, the deferrals, and the
-   ceilings into `memory/SPEC.md` (the canonical home);
-   only then does this artifact's content become SPEC truth.
+1. **Heuristics SoT — closed:** current routing and elicitation heuristics live
+   in the map-skill references and shared agent data-model reference named in
+   §7.
+2. **SPEC propagation — closed:** D87-L–D89-L and FE-1052 absorbed the resolved
+   scope, deferrals, and ceilings. This artifact remains worked historical
+   rationale, not a pending input to `ln-spec`.

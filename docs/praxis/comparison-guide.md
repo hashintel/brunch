@@ -6,7 +6,8 @@ Use this guide to run a focused comparison and publish the result for the team.
 
 - **Elicitation:** compare the specifications produced by Brunch and Claude Code.
 - **Execution:** give both tools the same specification and compare what they build.
-- **End to end:** produce one specification with each tool, then execute both specifications with both tools.
+- **End to end:** compose elicitation and execution as a controlled study. There is no single
+  end-to-end operator command.
 
 ## Compare elicitation
 
@@ -26,17 +27,26 @@ From a trusted top-level project Pi session, run:
 /compare-execution minimal-petri-net-editor
 /compare-execution brunch-host-landing
 /compare-execution petrinaut-optimization
+/compare-execution prospect-research-workspace
 ```
 
 The workflow gives Brunch and Claude Code the same frozen specification and applies the selected case's independent checks to both outputs. Brownfield cases require a local checkout containing their pinned parent commit; the operator creates a fresh remote-free target from it. Alpha 10 records the Brunch version and commit automatically.
 
 ## End-to-end comparison
 
-End-to-end comparison is not yet available as a single operator command.
+End-to-end comparison is a dev/evaluation study shape, not a single operator command.
 
-The repository contains one completed technical example. It produced a Brunch specification and a Claude Code specification, executed each specification with both tools, and applied the same checks to all four outputs.
+The repository has three configured end-to-end study contracts:
+`minimal-petri-net-editor`, `brunch-host-landing`, and `petrinaut-optimization`.
+`prospect-research-workspace` is an execution-only regression case, not an end-to-end profile.
 
-Read the [example end-to-end report](../../.fixtures/runs/end-to-end-comparison/petri-editor-e2e-20260721T132600Z/report.md). For new comparisons, use `/compare-specs` for elicitation or `/compare-execution` for execution. A repeatable end-to-end operator workflow still needs to be added.
+Configured contracts are not retained evidence. The repository currently retains one historical
+end-to-end witness: the
+[Petri editor report](../../.fixtures/runs/end-to-end-comparison/petri-editor-e2e-20260721T132600Z/report.md).
+It produced a Brunch specification and a Claude Code specification, executed each specification
+with both tools, and applied the same checks to all four outputs. For operator-driven work, use
+`/compare-specs` for elicitation or `/compare-execution` for execution; compose end-to-end studies
+through the dev tooling and runbook below.
 
 ## Read the result
 

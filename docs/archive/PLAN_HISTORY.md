@@ -3,6 +3,14 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-08-05 FE-1318 canonical document reconciliation closeout
+
+`canonical-document-reconciliation` closed FE-1316 rows R06, R07, and R12 without creating another planning or comparison status store. The planning-substrate assessment now records its PLAN-replacement prescription as unadopted; PLAN, SPEC, Linear/Graphite, and co-located topology retain their established authority split.
+
+The sweep thinned the superseded elicitation-question, elicitation-lens, structured-exchange-collapse, session-host, and multi-session-daemon notes to historical rationale plus current pointers. It also removed stale review-set payload, lens, reviewer, and future-work prescriptions while preserving the live atomic settlement rationale. Supporting active links in the docs index, ontology protocol, and answering-path note now identify those records as historical.
+
+Comparison guidance now lists all four execution cases, distinguishes the three configured end-to-end contracts from the one retained historical witness, keeps `prospect-research-workspace` execution-only, and states that end-to-end composition has no single operator command. Targeted link validation over every touched document, the repository check, and the executable case-profile inventory passed. The temporary sweep ledger was deleted after all required rows closed.
+
 ## 2026-08-05 FE-1317 host-landing oracle identity closeout
 
 `host-landing-oracle-identity` ([FE-1317](https://linear.app/hash/issue/FE-1317/close-host-landing-oracle-identity-over-pty-behavior)) closed FE-1316 R13 on branch `ln/fe-1317-host-landing-oracle-identity`, stacked after FE-1316, without changing PTY-driver behavior. The compiled `brunch-host-landing-oracles-v1` implementation set now includes `tui-driver.ts`, `session.ts`, `screen.ts`, `keys.ts`, and `driver.exp`; a focused regression proves that changing each input independently changes `oraclePackSha256` while byte-identical inputs remain stable.
