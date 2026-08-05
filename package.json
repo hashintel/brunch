@@ -17,6 +17,7 @@
   "files": [
     "dist",
     "!dist/probes",
+    "!dist/web",
     "dist-web",
     "bin",
     "drizzle",
