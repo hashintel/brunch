@@ -46,6 +46,7 @@
 
 ### Active
 
+- `shared-session-host-tracer` ([FE-1321](https://linear.app/hash/issue/FE-1321/prove-shared-session-host-attachment-for-tui-and-react)) — active proving frontier: choose the production-cover TUI attachment seam for one host-owned writable runtime shared with React, retiring A47-L before the cutover is scoped. Definition below.
 - `walkthrough-remediation-2` ([FE-1187](https://linear.app/hash/issue/FE-1187/walkthrough-remediation-sweep-2-wr18-follow-up-closure)) — **paused after `remediation-4` tie-off:** mixed-settlement review preservation and populated-group-only Impact Ledger rendering are built. Re-entry requires an explicit decision to resume extractor/oracle hardening, then restart R8–R10 from 0/3; A48-L, the separate web graph audit, and the consolidated outer checkpoint remain behind that gate. Execute O7–O9 stay KA-owned. Closing member of arc `deterministic-orientation`. Definition below.
 - `cli-mode-entry` — direct-mode CLI subcommands (`brunch specify [spec-id]` / `brunch execute <spec-id>`, reserving `develop`); admitted 2026-07-13, stacked after FE-1187's entry-surface work. Definition below.
 - **Alpha walkthrough lane** — post-publish outer-loop audit over the merged surface (`TESTING_PLAN.md` concern groups; findings in `TESTING_FINDINGS.md`). Runs A, C, and WR18 are source evidence; run D waits on FE-1187's reshaped surfaces. Not a frontier itself.
@@ -64,7 +65,6 @@ Older completion history and archived completed frontier definitions live in [`d
 ### Next
 
 - `saved-mission-comparison-witness` — later operator-owned frontier: FE-1215 is landed, so the remaining work is scheduling the real Brunch + Claude `/compare-specs` witness, then revising/rerunning the saved mission to prove historical snapshots remain immutable. Definition below.
-- `shared-session-host-tracer` — prove the one-host TUI attachment seam that FE-1200 deliberately left open. Definition below.
 - `shared-session-host-cutover` — wait-gated on the tracer; close the enumerated TUI/web host surface, then delete the raw sidecar relay and `/rpc/driver`. Definition below.
 
 ### Parallel / Low-conflict
@@ -141,11 +141,11 @@ Legacy link target; see Horizon.
 ### shared-session-host-tracer
 
 - **Name:** Shared session host tracer — one runtime authority for TUI and React
-- **Linear:** unassigned (create at pickup, FE team / brunch project)
-- **Branch:** tbd at pickup; stack from the FE-1200 foundation after reconciling the current Graphite stack.
+- **Linear:** [FE-1321](https://linear.app/hash/issue/FE-1321/prove-shared-session-host-attachment-for-tui-and-react)
+- **Branch:** `ln/fe-1321-shared-session-host-tracer`; stacked after FE-1320 on the current frontier sequence.
 - **Kind:** structural — new process/lifecycle and TUI-adapter seam over the materialized `LiveSessionHost`.
 - **Certainty:** proving.
-- **Status:** not started; design entry point is [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md).
+- **Status:** active; ready for `/ln-execute shared-session-host-tracer`. Design entry point: [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md).
 - **Objective:** retire A47-L with the thinnest production-cover proof that one independently-lived cwd-scoped Brunch host can own the sole writable sealed Pi runtime for a target while both a real Pi TUI presentation and the React client attach to that same runtime authority.
 - **Why now / unlocks:** FE-1200 proved the host inventory and semantic browser contract but left `InteractiveMode` embedded in a separate TUI-owned runtime. Landing this unlocks an earned deletion-driven cutover instead of preserving dual host architectures.
 - **Acceptance:** the host can remain alive while either presentation attaches/detaches; exactly one sealed runtime writes target JSONL; the TUI remains a real Brunch/Pi interactive presentation; React receives only target-addressed Brunch semantic deltas and rehydrates from the same JSONL; one host-owned driver policy admits the TUI and rejects or hands off a conflicting React driver; a client crash/detach does not counterfeit runtime ownership; the winning TUI attachment shape is recorded in SPEC/design/topology before cutover scoping.
@@ -514,6 +514,10 @@ Legacy link target; see Horizon.
 
 ```text
 active:
+  shared-session-host-tracer (FE-1321)
+    retires: A47-L
+    proves: one host-owned writable runtime + real TUI + React attachment
+    -[hard]-> shared-session-host-cutover
   walkthrough-remediation-2 (FE-1187)
     closes_arc: deterministic-orientation
     blocked_reentry: extractor/oracle reconciliation -> fresh R8–R10 0/3 campaign -> A48-L -> consolidated outer checkpoint
@@ -523,10 +527,6 @@ next:
   saved-mission-comparison-witness
     gated_by: operator availability
     dependencies_satisfied: FE-1215 direct control | FE-1320 external target placement
-  shared-session-host-tracer
-    retires: A47-L
-    proves: one host-owned writable runtime + real TUI + React attachment
-    -[hard]-> shared-session-host-cutover
   shared-session-host-cutover
     classification: wait-gated until tracer lands
     closes: dual standalone-host / TUI-sidecar topology
