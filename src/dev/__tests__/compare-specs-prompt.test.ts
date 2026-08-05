@@ -39,6 +39,12 @@ describe('/compare-specs operator prompt', () => {
   it('places every harness target in a fresh system-temporary root outside controller trees', async () => {
     const prompt = await readFile(promptPath, 'utf8');
 
+    expect(prompt).toContain('invoking top-level project Pi session is the sole simulated-user actor');
+    expect(prompt).toContain('Keep at most one comparison-harness shell live at a time');
+    expect(prompt).toContain(
+      'Never launch a separate simulated-user process or let one interactive shell own another',
+    );
+    expect(prompt).toContain('Never put the mission text, file, or path in a harness context or cwd');
     expect(prompt).toContain('fresh system-temporary external target root');
     expect(prompt).toContain('outside the controller checkout, scratch run tree, and retained run tree');
     expect(prompt).toContain('its ancestor directories contain no controller-private run material');
@@ -50,6 +56,15 @@ describe('/compare-specs operator prompt', () => {
     );
     expect(prompt).toContain(
       'It is not an OS sandbox and does not claim isolation from unrestricted absolute-path or whole-host discovery',
+    );
+    expect(prompt).toContain(
+      'Only after that process cleanup, copy the exact harness-visible transcript and any unchanged harness-authored document',
+    );
+    expect(prompt).toContain(
+      'never overwrite an existing run directory, private mission snapshot, `harness-setup.md` snapshot, transcript, target output, or report',
+    );
+    expect(prompt).toContain(
+      'do not replace it with a parser, controller schema, helper state machine, generic runner, campaign framework, or automatic judge',
     );
   });
 
