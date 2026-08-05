@@ -17,6 +17,8 @@ This directory owns Brunch-only development loops and curation seams. Nothing he
 - the standalone component preview harness (`scripts/dev-components.ts` → `src/dev/component-preview.ts`) for previewing `.pi/components` in isolation on a real terminal, with no workspace/session/DB
 - the agent-drivable PTY walkthrough fallback (`npm run tui-driver` → `src/dev/tui-driver.ts`): named `expect`-pumped PTY sessions with guarded fifo control, headless-xterm screen rendering, and wait-for-text; use it when the canonical project-local `pi-interactive-shell` overlay cannot bind in a sandbox/headless host; sessions live under gitignored `.fixtures/scratch/tui-driver/`
 
+External `src/dev/**` consumers import end-to-end comparison operations through `end-to-end-comparison.ts`; only that public root imports its private same-named subtree.
+
 It does not own published CLI behavior, public RPC contracts, database imports from outside `graph/`, or the external `pi-interactive-shell`/`zigpty` runtime. The extension is permanent project development tooling declared under root `.pi` for host-capable manual runs; it never enters Brunch's shipped package manifest, sealed `src/.pi` profile, or runtime dependency graph. `docs/praxis/manual-testing.md` owns the measured priority order, install/health check, trust and auto-install implications, takeover/return, artifact bounds, and teardown procedure.
 
 ## Historical Replay Preparation

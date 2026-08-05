@@ -5,20 +5,18 @@ import { fileURLToPath } from 'node:url';
 
 import { runCommand, type CommandResult, type CommandRunner } from '../../app/command-runner.js';
 import {
+  assertControllerIsolation,
   createBrunchExecutionLaunch,
-  type ExecutionLaunch,
-} from '../end-to-end-comparison/brunch-adapter.js';
-import { createClaudeExecutionLaunch } from '../end-to-end-comparison/claude-adapter.js';
-import { materializeExactExecutionPacket } from '../end-to-end-comparison/public-packet.js';
-import {
   createBrunchSolutionIsolationPolicy,
+  createClaudeExecutionLaunch,
   createClaudeSolutionIsolationPolicy,
+  materializeExactExecutionPacket,
   materializePinnedSourceTree,
   verifyPreparedHistoricalReplay,
   type BrunchSolutionIsolationPolicy,
   type ClaudeSolutionIsolationPolicy,
-} from '../end-to-end-comparison/solution-isolation.js';
-import { assertControllerIsolation } from '../end-to-end-comparison/study-contract.js';
+  type ExecutionLaunch,
+} from '../end-to-end-comparison.js';
 import { seedBrownfieldBrunchExecutionWorkspace } from './brunch-lane.js';
 import {
   isPinnedExecutionCaseContract,
