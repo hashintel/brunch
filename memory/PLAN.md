@@ -18,7 +18,6 @@
 - **Comparison lanes:** the repo keeps two distinct evaluation doors: seed-based intra-product testing and mission-driven cross-product comparison. FE-1241 closed the brownfield comparison cases; FE-1215 landed the approachable operator workflow; the remaining operator residue is the structural mission-isolation hardening plus the later real Brunch+Claude saved-mission witness.
 - **Executor / Execute evidence queue:** several KA fronts are implementation-merged but still carry explicit outer evidence: `host-landing`, `executor-plan-synthesis`, `execution-comparison-tracer`, `executor-plan-coherence`, `executor-slice-verification-repair`, and `greenfield-secure-drop-demo`.
 - **Current seams and discipline:** Brunch ships on `1.0.0-alpha.x`. D125-L's live ask registry is the structured-exchange headless surface; the transcript-backed pending projection remains compatibility-only. Sweep classification remains fail-closed on exchange-schema terminal names (D117-L); the larger capture-conditional watermark question remains A40-L. Co-located `src/**/TOPOLOGY.md` files own current topology; scratch evidence is not durable until promoted to `.fixtures/runs/`.
-- **Integrity cleanup:** FE-1311's original sweep is dispositioned, including A2's verified keep, but the closure walkthrough admitted one final five-row pass before tie-off: publish only the working `dist-web` artifact, lock package exclusions, materialize probe topology, finish the comparison public-root boundary, remove the last exact `pathExists` clone, and name the DB schema-column test honestly. Other findings remain trigger-gated rather than riding this slice.
 
 ## Initiatives
 
@@ -47,14 +46,13 @@
 
 ### Active
 
-- `integrity-cleanup` ([FE-1311](https://linear.app/hash/issue/FE-1311/integrity-cleanup-sweep-verified-deletion-batch-and-predicate)) — **final closure walkthrough:** the original sweep is dispositioned; five buildable-now rows remain in [`memory/cards/integrity-cleanup--closure-walkthrough.md`](cards/integrity-cleanup--closure-walkthrough.md). No other audit residue may enter this ledger mid-flight.
 - `walkthrough-remediation-2` ([FE-1187](https://linear.app/hash/issue/FE-1187/walkthrough-remediation-sweep-2-wr18-follow-up-closure)) — **paused after `remediation-4` tie-off:** mixed-settlement review preservation and populated-group-only Impact Ledger rendering are built. Re-entry requires an explicit decision to resume extractor/oracle hardening, then restart R8–R10 from 0/3; A48-L, the separate web graph audit, and the consolidated outer checkpoint remain behind that gate. Execute O7–O9 stay KA-owned. Closing member of arc `deterministic-orientation`. Definition below.
 - `cli-mode-entry` — direct-mode CLI subcommands (`brunch specify [spec-id]` / `brunch execute <spec-id>`, reserving `develop`); admitted 2026-07-13, stacked after FE-1187's entry-surface work. Definition below.
 - **Alpha walkthrough lane** — post-publish outer-loop audit over the merged surface (`TESTING_PLAN.md` concern groups; findings in `TESTING_FINDINGS.md`). Runs A, C, and WR18 are source evidence; run D waits on FE-1187's reshaped surfaces. Not a frontier itself.
 
 ### Recently Completed
 
-- 2026-07-23 `prospect-research-workspace-regression` (FE-1253) — **✓ complete:** PR #369 retained the thin deterministic full-stack regression boundary and retired the unexecuted prospect campaign expansion.
+- 2026-08-05 `integrity-cleanup` (FE-1311) — **✓ complete:** the verified deletion/consolidation sweep and final five-row closure aligned the published package, probe topology, comparison public root, path-existence ownership, and DB test naming without reopening falsified deletion targets.
 - 2026-07-22 `brownfield-comparison-cases` (FE-1241) — **✓ complete, learning-first:** frozen Brunch and Petrinaut packets, pinned-source preparation, deterministic oracles, publication-compatible attempt evidence, and portable CI are built.
 - 2026-07-22 `comparison-publication-workflow` (FE-1251) — **✓ complete:** PR #364 landed immutable comparison provenance plus guarded, idempotent Comparison Reports publication and schema reconciliation.
 
@@ -523,28 +521,10 @@ Legacy link target; see Horizon.
 - **Verification:** Changesets status reports no package bump for this PR; release-workflow contract tests and actionlint accept both workflows; `npm run check:release-pack`, `npm run check`, and `npm run build` pass locally; the parent repair and PR Full gate return green before merge; the empty-intent run authenticates through Vault/App and creates no version PR or publish; the first subsequent App-created version PR receives Test/Preflight, then its merge runs the release-pack smoke and npm/tag/release/install checks witness the canary.
 - **Boundary:** `main` remains the stable `latest` channel. Stable automation, prerelease exit, and post-1.0 re-entry of `next` are a separate promotion frontier rather than a second path in this branch.
 
-### integrity-cleanup
-
-- **Name:** Integrity cleanup sweep — final closure walkthrough
-- **Linear / branch:** [FE-1311](https://linear.app/hash/issue/FE-1311/integrity-cleanup-sweep-verified-deletion-batch-and-predicate) · `ln/fe-1311-integrity-cleanup`
-- **Kind / classification:** coverage-shaped closure batch · buildable-now.
-- **Certainty:** earned; every remaining row has a settled owner and oracle.
-- **Boundary:** only the five walkthrough findings enumerated in the live ledger: published web artifact exclusivity, probe topology ownership, comparison public-root conformance, the final exact `pathExists` clone, and DB test naming. Product behavior decisions, unrelated dead files/config, TOON, and new audit findings are out.
-- **Closes:** the last contradictions between FE-1311's canonical current-state claims and the package/module/file topology a fresh reader actually encounters.
-- **Aggregate DoD:** no required row remains `spec` / `new` / `partial`; `dist-web` is the sole shipped web artifact; all touched topology/import/name assertions pass; no new row is added by analogy.
-- **Inventory authority / execution pointer:** [`memory/cards/integrity-cleanup--closure-walkthrough.md`](cards/integrity-cleanup--closure-walkthrough.md).
-- **Promotion / disposal:** a row that ceases to be row-sized stops and routes through `ln-plan`; more than one newly discovered row proves the inventory was not closed. Delete the ledger and archive this definition only after all five rows land and canonical docs reconcile.
-- **Traceability:** D140-L; AGENTS.md §code organization and §topology files; `src/dev/TOPOLOGY.md`; current `package.json#files` and `scripts/check-release-pack.mjs`.
-
 ## Dependencies
 
 ```text
 active:
-  integrity-cleanup (FE-1311)
-    classification: buildable-now closure sweep
-    closes: published web artifact duality | missing probe topology | comparison root bypass | final exact pathExists clone | misleading DB test name
-    ledger: memory/cards/integrity-cleanup--closure-walkthrough.md
-    excludes: source-policy semantics | src/utils/strings.ts | .npmcheckrc | TOON | new findings
   walkthrough-remediation-2 (FE-1187)
     closes_arc: deterministic-orientation
     blocked_reentry: extractor/oracle reconciliation -> fresh R8–R10 0/3 campaign -> A48-L -> consolidated outer checkpoint

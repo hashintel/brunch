@@ -3,6 +3,12 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-08-05 FE-1311 integrity cleanup closeout
+
+`integrity-cleanup` completed its verified deletion/consolidation sweep and final five-row closure on `ln/fe-1311-integrity-cleanup`. The closing pass made `dist-web` the sole published browser artifact, kept locally built probes out of the package while documenting their topology, routed external end-to-end comparison consumers through the public root, removed the final byte-identical `fileExists` clone, and renamed DB column round-trip coverage for what it proves.
+
+The frontier retained every target whose deletion premise was falsified by current topology, active successor work, CLI/built-path invocation, or another out-of-graph consumer. Trigger-gated residue remains in live PLAN Horizon rather than in an open cleanup ledger: `source-policy.ts` semantics, `src/utils/strings.ts`, `.npmcheckrc`, TOON/D83-L, and a future production-dependency-closure oracle. The temporary closure ledger was deleted after its five required rows and aggregate package/check/build oracles passed.
+
 ## 2026-08-03 Rolling PLAN trim (`ln-sync`, bru-uzev)
 
 The live PLAN was reduced back to a rolling shape: concise Context, Sequencing, live pickup definitions, 3-item Recently Completed, and an active/next-only dependency view.
