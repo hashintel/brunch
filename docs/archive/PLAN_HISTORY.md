@@ -3,6 +3,12 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-08-05 FE-1317 host-landing oracle identity closeout
+
+`host-landing-oracle-identity` ([FE-1317](https://linear.app/hash/issue/FE-1317/close-host-landing-oracle-identity-over-pty-behavior)) closed FE-1316 R13 on branch `ln/fe-1317-host-landing-oracle-identity`, stacked after FE-1316, without changing PTY-driver behavior. The compiled `brunch-host-landing-oracles-v1` implementation set now includes `tui-driver.ts`, `session.ts`, `screen.ts`, `keys.ts`, and `driver.exp`; a focused regression proves that changing each input independently changes `oraclePackSha256` while byte-identical inputs remain stable.
+
+The bounded hardening preserved the FE-1230 compile-time-closed oracle boundary and `src/dev/TOPOLOGY.md`'s immutable implementation-set rule. The existing non-slow controller/Git/refusal contracts and slow built-candidate public-TUI scenarios remained green; no retained comparison or outer evidence was run.
+
 ## 2026-08-06 FE-1316 system reorientation audit closeout
 
 `system-reorientation-audit` closed a bounded six-lane review of thirteen post-cleanup concerns. It found no deleted or stranded required behavior, separated merged executor mechanisms from their still-open outer witnesses, confirmed the comparison scenario layers are distinct, and routed tracing, dual-host, theme, and KA evidence work to their existing owners.
