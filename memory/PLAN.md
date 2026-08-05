@@ -135,7 +135,7 @@ Legacy link target; see Horizon.
 - **Objective:** prove that the corrected approachable saved-mission workflow works through its actual entry point and that mission revision affects future runs without rewriting historical evidence.
 - **Acceptance:** a stock Pi session runs the real `/compare-specs` prompt through ordinary-text approvals; the top-level session is the sole simulated-user actor and drives one direct Brunch shell then one direct Claude shell; the first run proves mission-consistent conduct, no mission leakage, honest outcomes/cleanup, unchanged target-authored documents, one aggregate notification, and a readable report; the operator then revises the mission and approves a second run whose edits do not rewrite the first run's retained snapshots.
 - **Verification:** outer only — operator-led first run plus revision/rerun through the real stock-Pi prompt, with artifact inspection and snapshot fingerprints.
-- **Dependencies:** hard on operator scheduling; FE-1215's D134-L remediation landing is already satisfied.
+- **Dependencies:** hard on operator scheduling; FE-1215 direct-control remediation and FE-1320 target-placement hardening are satisfied.
 - **Traceability:** req 24/A5-L; D70-L; D134-L/I67-L; FE-1210 evidence discipline; SPEC Verification Design `saved-mission-comparison-witness` gate.
 
 ### shared-session-host-tracer
@@ -522,7 +522,7 @@ active:
 next:
   saved-mission-comparison-witness
     gated_by: operator availability
-    depends_on: landed FE-1215 workflow
+    dependencies_satisfied: FE-1215 direct control | FE-1320 external target placement
   shared-session-host-tracer
     retires: A47-L
     proves: one host-owned writable runtime + real TUI + React attachment
