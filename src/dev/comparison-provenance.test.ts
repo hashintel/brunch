@@ -174,7 +174,7 @@ async function createControllerRepository(input: { readonly tag?: string } = {})
   await git(root, ['config', 'user.email', 'comparison@example.test']);
   await git(root, ['add', 'package.json']);
   await git(root, ['commit', '-m', 'fixture']);
-  if (input.tag !== undefined) await git(root, ['tag', input.tag]);
+  if (input.tag !== undefined) await git(root, ['tag', '--no-sign', input.tag]);
   return {
     root,
     commitSha: await git(root, ['rev-parse', 'HEAD']),
