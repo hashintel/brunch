@@ -18,7 +18,6 @@
 - **Comparison lanes:** the repo keeps two distinct evaluation doors: seed-based intra-product testing and mission-driven cross-product comparison. FE-1241 closed the brownfield comparison cases; FE-1215 landed the approachable operator workflow; the remaining operator residue is the structural mission-isolation hardening plus the later real Brunch+Claude saved-mission witness.
 - **Executor / Execute evidence queue:** several KA fronts are implementation-merged but still carry explicit outer evidence: `host-landing`, `executor-plan-synthesis`, `execution-comparison-tracer`, `executor-plan-coherence`, `executor-slice-verification-repair`, and `greenfield-secure-drop-demo`.
 - **Current seams and discipline:** Brunch ships on `1.0.0-alpha.x`. D125-L's live ask registry is the structured-exchange headless surface; the transcript-backed pending projection remains compatibility-only. Sweep classification remains fail-closed on exchange-schema terminal names (D117-L); the larger capture-conditional watermark question remains A40-L. Co-located `src/**/TOPOLOGY.md` files own current topology; scratch evidence is not durable until promoted to `.fixtures/runs/`.
-- **Current-state reorientation:** FE-1316 freezes the post-cleanup drift/overlap concerns into one temporary disposition ledger. It may route work to existing or new frontiers but implements none of them and must not become a second queue beside PLAN.
 
 ## Initiatives
 
@@ -53,15 +52,14 @@
 
 ### Recently Completed
 
+- 2026-08-06 `system-reorientation-audit` (FE-1316) — **✓ complete:** thirteen post-cleanup concerns received evidence-backed dispositions; one stale exchange-guidance defect was fixed, two bounded frontiers were admitted, and existing owners absorbed the remaining promoted work without creating a parallel queue.
 - 2026-08-05 `integrity-cleanup` (FE-1311) — **✓ complete:** the verified deletion/consolidation sweep and final five-row closure aligned the published package, probe topology, comparison public root, path-existence ownership, DB test naming, and portable repo-root Pi extension discovery without reopening falsified deletion targets.
 - 2026-07-22 `brownfield-comparison-cases` (FE-1241) — **✓ complete, learning-first:** frozen Brunch and Petrinaut packets, pinned-source preparation, deterministic oracles, publication-compatible attempt evidence, and portable CI are built.
-- 2026-07-22 `comparison-publication-workflow` (FE-1251) — **✓ complete:** PR #364 landed immutable comparison provenance plus guarded, idempotent Comparison Reports publication and schema reconciliation.
 
 Older completion history and archived completed frontier definitions live in [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
 
 ### Next
 
-- `system-reorientation-audit` ([FE-1316](https://linear.app/hash/issue/FE-1316/audit-current-system-authority-and-drift)) — evidence/disposition pass over the frozen cleanup, handover, documentation, legibility, presentation, and comparison/PTY concerns. Twelve rows are closed or promoted; the bounded `present_digest` guidance correction remains. Current execution pointer: [`memory/cards/system-reorientation-audit--lane-ledger.md`](cards/system-reorientation-audit--lane-ledger.md). **Retires:** uncertainty about which current seams are canonical versus implemented-but-unwitnessed, intentionally distinct, superseded, or genuinely divergent.
 - `canonical-document-reconciliation` — earned closure over the exact normative-looking drift promoted by FE-1316: demote the unadopted PLAN-replacement prescription, archive/thin the enumerated superseded design notes, and correct comparison case/profile prose. Definition below.
 - `host-landing-oracle-identity` — close the immutable host-landing oracle pack over every behavior-bearing PTY input before its next comparison use. Definition below.
 - `saved-mission-comparison-witness` — later operator-owned frontier: FE-1215 is landed, so the remaining work is scheduling the real Brunch + Claude `/compare-specs` witness, then revising/rerunning the saved mission to prove historical snapshots remain immutable. Definition below.
@@ -95,22 +93,6 @@ Legacy link target; see Horizon.
 ## Frontier Definitions
 
 <!-- Closed frontier definitions live in docs/archive/PLAN_HISTORY.md. Keep live definitions for active/next pickup items. -->
-
-### system-reorientation-audit
-
-- **Name:** Current-system authority and drift audit
-- **Linear:** [FE-1316](https://linear.app/hash/issue/FE-1316/audit-current-system-authority-and-drift)
-- **Branch:** `ln/fe-1316-system-authority-audit`, stacked after FE-1311 because its closure state is an audit input.
-- **Kind:** structural evidence/disposition frontier; not an implementation umbrella or alternate planning store.
-- **Certainty:** proving.
-- **Status:** audit complete; twelve rows are closed or promoted, with only the row-sized `present_digest` provider-guidance correction still partial.
-- **Objective:** give every concern in the frozen post-cleanup inventory one evidence-backed current-state disposition and canonical owner.
-- **Acceptance:** each row in the lane ledger reaches `closed` or `promoted`; alleged overlaps are classified as intentional, accidental, superseded, or unknown; factual handover drift is source-backed; promoted work has exactly one PLAN owner and no mirrored progress state remains in the ledger. Current close condition: correct and pin the stale `present_digest` provider guidance, then dispose the ledger.
-- **Verification:** structural census against the user-provided concern set and both flyovers; targeted code/test/build/package/provenance checks only where they discriminate a row; final user review of the disposition map.
-- **Depends on:** FE-1311 closure is satisfied; reuse the existing KA evidence queue, `capture-ledger-tracer`, `walkthrough-remediation-2`, and shared-session-host arc rather than duplicating them.
-- **Current execution pointer:** [`memory/cards/system-reorientation-audit--lane-ledger.md`](cards/system-reorientation-audit--lane-ledger.md).
-- **Promotion / disposal:** row-sized no-boundary corrections may close here; all implementation, witness, architecture, or independent doc cleanup promotes through `ln-plan`. Delete the ledger after every row is closed or promoted.
-- **Traceability:** D140-L, A47-L; `docs/planning/planning-record-substrate-assessment.md`; `TESTING_FINDINGS.md`; current subtree topology homes.
 
 ### canonical-document-reconciliation
 
@@ -581,17 +563,12 @@ active:
     -[stack]-> cli-mode-entry
 
 next:
-  system-reorientation-audit (FE-1316)
-    dependency_satisfied: integrity-cleanup closure
-    closes_next: bounded present_digest provider-guidance correction
-    disposes: frozen drift/overlap inventory -> closed | promoted to one PLAN owner
-    ledger: memory/cards/system-reorientation-audit--lane-ledger.md
-    -[hard]-> canonical-document-reconciliation
-    -[hard]-> host-landing-oracle-identity
   canonical-document-reconciliation
+    dependency_satisfied: FE-1316 disposition audit
     closes: FE-1316 R06 | R07 | R12
     classification: buildable-now earned docs closure
   host-landing-oracle-identity
+    dependency_satisfied: FE-1316 disposition audit
     closes: FE-1316 R13
     blocks: next retained host-landing comparison attempt
   saved-mission-comparison-witness
