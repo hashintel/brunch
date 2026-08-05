@@ -24,6 +24,7 @@ import type {
   GitWorktreePort,
   TestRunnerPort,
 } from '../../../executor/execution-ports.js';
+import { pathExists } from '../../../executor/path-exists.js';
 import { appendPetriEvent } from '../../../executor/petri-events.js';
 import { planFilePath } from '../../../executor/plan-file.js';
 import { PRODUCTION_EXECUTE_TOOL_MUTATIONS } from '../../../executor/run-execution-authority.js';
@@ -3461,19 +3462,10 @@ async function listExtensionEntrypoints(): Promise<string[]> {
     if (entry.isFile() && entry.name.endsWith('.ts')) files.push(path);
     if (entry.isDirectory()) {
       const indexFile = join(path, 'index.ts');
-      if (await fileExists(indexFile)) files.push(indexFile);
+      if (await pathExists(indexFile)) files.push(indexFile);
     }
   }
   return files;
-}
-
-async function fileExists(file: string): Promise<boolean> {
-  try {
-    await access(file);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function projectRoot(): string {
