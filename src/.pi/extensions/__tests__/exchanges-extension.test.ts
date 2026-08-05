@@ -69,9 +69,11 @@ describe('structured exchange tool guidance', () => {
 
     expect(guidance).toContain('Never author a listed option that duplicates the built-in Other affordance');
     expect(guidance).toContain("Do not restate a present_* offer's large pretext or digest body");
-    expect(guidance).toContain(
-      'For the declared review continuation, ask only for approve / request changes / reject',
-    );
+    expect(guidance).toContain('Collect conversational free-text corrections or clarifications');
+    expect(guidance).toContain('A continued ask does not accept the digest for capture');
+    expect(guidance).toContain('acceptsDigest');
+    expect(guidance).not.toContain('approve / request changes / reject');
+    expect(guidance).not.toContain('accepted terminal echoes the abstract');
   });
 });
 

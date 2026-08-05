@@ -61,7 +61,9 @@ Older completion history and archived completed frontier definitions live in [`d
 
 ### Next
 
-- `system-reorientation-audit` ([FE-1316](https://linear.app/hash/issue/FE-1316/audit-current-system-authority-and-drift)) — prepared evidence/disposition pass over the frozen cleanup, handover, documentation, legibility, presentation, and comparison/PTY concerns. FE-1311 closure is satisfied; current execution pointer: [`memory/cards/system-reorientation-audit--lane-ledger.md`](cards/system-reorientation-audit--lane-ledger.md). **Retires:** uncertainty about which current seams are canonical versus implemented-but-unwitnessed, intentionally distinct, superseded, or genuinely divergent.
+- `system-reorientation-audit` ([FE-1316](https://linear.app/hash/issue/FE-1316/audit-current-system-authority-and-drift)) — evidence/disposition pass over the frozen cleanup, handover, documentation, legibility, presentation, and comparison/PTY concerns. Twelve rows are closed or promoted; the bounded `present_digest` guidance correction remains. Current execution pointer: [`memory/cards/system-reorientation-audit--lane-ledger.md`](cards/system-reorientation-audit--lane-ledger.md). **Retires:** uncertainty about which current seams are canonical versus implemented-but-unwitnessed, intentionally distinct, superseded, or genuinely divergent.
+- `canonical-document-reconciliation` — earned closure over the exact normative-looking drift promoted by FE-1316: demote the unadopted PLAN-replacement prescription, archive/thin the enumerated superseded design notes, and correct comparison case/profile prose. Definition below.
+- `host-landing-oracle-identity` — close the immutable host-landing oracle pack over every behavior-bearing PTY input before its next comparison use. Definition below.
 - `saved-mission-comparison-witness` — later operator-owned frontier: FE-1215 is landed, so the remaining work is scheduling the real Brunch + Claude `/compare-specs` witness, then revising/rerunning the saved mission to prove historical snapshots remain immutable. Definition below.
 - `comparison-mission-isolation-hardening` — admitted from FE-1215 smoke (`TESTING_FINDINGS.md` CS2): move the private mission outside the target-reachable tree (or equivalently jail the target's file tools) so the D134-L/I67-L mission boundary is structural, not conduct-dependent. Definition below.
 - `shared-session-host-tracer` — prove the one-host TUI attachment seam that FE-1200 deliberately left open. Definition below.
@@ -101,14 +103,43 @@ Legacy link target; see Horizon.
 - **Branch:** `ln/fe-1316-system-authority-audit`, stacked after FE-1311 because its closure state is an audit input.
 - **Kind:** structural evidence/disposition frontier; not an implementation umbrella or alternate planning store.
 - **Certainty:** proving.
-- **Status:** prepared; FE-1311 dependency satisfied, so lane review may begin.
+- **Status:** audit complete; twelve rows are closed or promoted, with only the row-sized `present_digest` provider-guidance correction still partial.
 - **Objective:** give every concern in the frozen post-cleanup inventory one evidence-backed current-state disposition and canonical owner.
-- **Acceptance:** each row in the lane ledger reaches `closed` or `promoted`; alleged overlaps are classified as intentional, accidental, superseded, or unknown; factual handover drift is source-backed; promoted work has exactly one PLAN owner and no mirrored progress state remains in the ledger.
+- **Acceptance:** each row in the lane ledger reaches `closed` or `promoted`; alleged overlaps are classified as intentional, accidental, superseded, or unknown; factual handover drift is source-backed; promoted work has exactly one PLAN owner and no mirrored progress state remains in the ledger. Current close condition: correct and pin the stale `present_digest` provider guidance, then dispose the ledger.
 - **Verification:** structural census against the user-provided concern set and both flyovers; targeted code/test/build/package/provenance checks only where they discriminate a row; final user review of the disposition map.
 - **Depends on:** FE-1311 closure is satisfied; reuse the existing KA evidence queue, `capture-ledger-tracer`, `walkthrough-remediation-2`, and shared-session-host arc rather than duplicating them.
 - **Current execution pointer:** [`memory/cards/system-reorientation-audit--lane-ledger.md`](cards/system-reorientation-audit--lane-ledger.md).
 - **Promotion / disposal:** row-sized no-boundary corrections may close here; all implementation, witness, architecture, or independent doc cleanup promotes through `ln-plan`. Delete the ledger after every row is closed or promoted.
 - **Traceability:** D140-L, A47-L; `docs/planning/planning-record-substrate-assessment.md`; `TESTING_FINDINGS.md`; current subtree topology homes.
+
+### canonical-document-reconciliation
+
+- **Name:** Reconcile canonical documentation with current topology
+- **Linear:** unassigned — create at pickup in Frontend / brunch.
+- **Branch:** tbd at pickup; stack after FE-1316.
+- **Kind / classification:** coverage-shaped documentation closure · buildable-now.
+- **Certainty:** earned.
+- **Objective:** make every retained active planning/design/comparison document in the FE-1316 inventory point at current authority without preserving normative-looking superseded architecture.
+- **Boundary:** the planning-substrate assessment; `ELICITATION_QUESTIONS.md`; `ELICITATION_LENSES.md`; `STRUCTURED_EXCHANGE_COLLAPSE.md`; `SESSION_HOST_DECISION_CANDIDATE.md`; `MULTI_SESSION_DAEMON_ARCHITECTURE.md`; stale `REVIEW_SETS.md` future-work text; and comparison guide/runbook case/profile drift. No SPEC rewrite, product implementation, or new aggregate status document.
+- **Closes:** FE-1316 R06, R07, and R12.
+- **Acceptance:** the planning assessment labels its PLAN-replacement proposal unadopted; each enumerated historical design note is archived or thinned to history plus a current pointer; active comparison prose lists four execution cases, distinguishes three configured E2E contracts from retained witnesses, and does not imply an E2E operator command; Markdown links pass.
+- **Verification:** exact retired-vocabulary/current-authority searches, archive/link census, `npm run check:markdown-links`, and final diff review against the frozen inventory.
+- **Depends on:** FE-1316 disposition audit.
+- **Traceability:** AGENTS.md §topology files; `docs/praxis/ln-skills.md` canonical-state ownership; D98-L, D110-L, D116-L, D132-L–D134-L.
+
+### host-landing-oracle-identity
+
+- **Name:** Close host-landing oracle identity over PTY behavior
+- **Linear:** unassigned — create at pickup in Frontend / brunch.
+- **Branch:** tbd at pickup; stack after FE-1316 independently of the docs closure.
+- **Kind:** bounded verification hardening.
+- **Certainty:** earned.
+- **Objective:** make the immutable host-landing oracle-pack hash change for every behavior-bearing `tui-driver` input.
+- **Closes:** FE-1316 R13's concrete identity gap; it does not redesign or split the PTY driver.
+- **Acceptance:** the compiled host-landing implementation set includes `tui-driver.ts`, `session.ts`, `screen.ts`, `keys.ts`, and `driver.exp`; changing any one changes `oraclePackSha256`; identical inputs produce a stable hash.
+- **Verification:** focused oracle-pack identity regression plus current host-landing oracle contract tests.
+- **Depends on:** FE-1316 disposition audit; must land before the next retained host-landing comparison attempt or any claim that its current oracle identity covers PTY behavior.
+- **Traceability:** FE-1230 execution-comparison oracle boundary; `src/dev/TOPOLOGY.md`; `src/dev/execution-comparison-operator.ts`.
 
 ### walkthrough-remediation-2
 
@@ -552,8 +583,17 @@ active:
 next:
   system-reorientation-audit (FE-1316)
     dependency_satisfied: integrity-cleanup closure
+    closes_next: bounded present_digest provider-guidance correction
     disposes: frozen drift/overlap inventory -> closed | promoted to one PLAN owner
     ledger: memory/cards/system-reorientation-audit--lane-ledger.md
+    -[hard]-> canonical-document-reconciliation
+    -[hard]-> host-landing-oracle-identity
+  canonical-document-reconciliation
+    closes: FE-1316 R06 | R07 | R12
+    classification: buildable-now earned docs closure
+  host-landing-oracle-identity
+    closes: FE-1316 R13
+    blocks: next retained host-landing comparison attempt
   saved-mission-comparison-witness
     gated_by: operator availability
     depends_on: landed FE-1215 workflow

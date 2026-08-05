@@ -21,13 +21,13 @@ export const presentDigestTool = defineTool<typeof PresentDigestParams, PresentD
   name: PRESENT_DIGEST_TOOL,
   label: 'Present digest',
   description:
-    'Present a prose digest of large source material for approval, revision, or rejection before any graph mapping.',
+    'Present a prose digest of large source material for conversational correction before any graph mapping.',
   promptSnippet: 'Present a large-source digest for user review',
   promptGuidelines: [
     'Use present_digest for assistant-authored summaries of raw or large source material before mapping it to graph truth.',
     'Carry prose abstract, analysis, and recommendation only; do not include graph nodes, edges, draft ids, or graph command payloads.',
-    'Follow with ask using continues set to the same exchangeId; the accepted terminal echoes the abstract for later capture sweep reads.',
-    'For the declared review continuation, ask only for approve / request changes / reject; do not repeat the digest body in the ask.',
+    'Follow with ask using continues set to the same exchangeId. Collect conversational free-text corrections or clarifications; do not repeat the digest body in the ask.',
+    'A continued ask does not accept the digest for capture. Present a successor digest after material correction, then use a separate questionnaire or confirmation ask with acceptsDigest to authorize capture of the final abstract.',
   ],
   parameters: PresentDigestParams,
   executionMode: 'sequential',
