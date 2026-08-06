@@ -14,18 +14,18 @@ rpc handler surfaces:
 ├── read-only RPC registry
 │   └── read methods only
 ├── TUI-started web sidecar
-│   ├── /rpc observer connections: read methods only
-│   ├── /rpc/driver connection: read methods + live-session driver methods when handles exist
+│   ├── /rpc: target-required session.open/close/presentation/openAsks/driveTurn/answerExchange + semantic live events
+│   ├── /rpc/driver: transitional targetless handle methods + raw live events
 │   └── /petrinaut/stream: artifact replay followed by same-process live journal wake-ups
 └── standalone web combined host
-    └── /rpc: target-required session.open/close/presentation/openAsks/driveTurn/answerExchange
+    └── /rpc: target-required session.open/close/presentation/openAsks/driveTurn/answerExchange + semantic live events
 ```
 
-The full CLI/RPC host includes mutation-capable workspace/session methods. The TUI-started web sidecar is an attachment to the TUI-hosted process: ordinary `/rpc` observer connections expose projection/read methods plus `rpc.discover` and reject workspace/session write methods as `Method not found`. The explicitly designated `/rpc/driver` connection adds live driver methods only when their process-local handles are attached (`session.driveTurn` for a live `AgentSession`, `session.answerExchange` for a live exchange broker, `session.openAsks` — a read — for the live ask registry). Browser clients, CLI probes, TUI adapters, and future relays speak Brunch method names; they do not coordinate raw Pi RPC plus Brunch product RPC themselves.
+The full CLI/RPC host includes mutation-capable workspace/session methods. The TUI-started web sidecar is an attachment to the TUI-owned runtime: canonical `/rpc` exposes the same target-addressed hosted-session registry and validated `brunch.liveSessionEvent` stream as standalone web, adapting the exact `InteractiveMode` session rather than constructing another runtime. The transitional `/rpc/driver` connection preserves the older targetless process-local handles and raw `brunch.sessionEvent` stream only until `shared-session-host-cutover`; new browser work must not depend on it. Browser clients, CLI probes, and TUI adapters speak Brunch method names; they do not coordinate raw Pi RPC plus Brunch product RPC themselves.
 
 **Migration state:** the sidecar registry, `/rpc/driver`, and raw `brunch.sessionEvent` relay are transitional D84-L surfaces. FE-1200's target-addressed registry and `brunch.liveSessionEvent` remain the canonical browser contracts, but D141-L no longer requires TUI and standalone web to share one physical host. `shared-session-host-tracer` now adapts the real TUI-owned runtime into those same semantic contracts and acquires cross-process writer authority before runtime construction. Its PTY compound witness remains open; `shared-session-host-cutover` later removes the still-present raw sidecar-only surface. Do not add a third relay, compatibility alias, or new sidecar-only browser method during this transition. See [`docs/design/WEB_UI_ARCHITECTURE.md`](../../docs/design/WEB_UI_ARCHITECTURE.md).
 
-`session.submitExchangeResponse` (this directory) and `session.answerExchange` (the `/rpc/driver` leg above) are two structurally distinct paths, not variants of one mechanism — the former never touches Pi's `ctx.ui.*`/tool-execution layer at all; the latter answers a genuinely live tool call through the process-local broker when no local TUI is bound. See [`docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`](../../docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md) for the full mechanism and per-response-kind coverage.
+`session.submitExchangeResponse` (this directory) and `session.answerExchange` (the hosted-session path, with a transitional `/rpc/driver` adapter) are two structurally distinct paths, not variants of one mechanism — the former never touches Pi's `ctx.ui.*`/tool-execution layer at all; the latter answers a genuinely live tool call through the process-local broker for a browser driver. See [`docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`](../../docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md) for the full mechanism and per-response-kind coverage.
 
 RPC handlers project from canonical stores:
 
@@ -65,16 +65,16 @@ rpc/
 ├── handlers.ts
 │   ├── createRpcHandlers(...)            -> default full registry
 │   ├── createReadOnlyRpcHandlers(...)    -> read-only registry
-│   ├── createWebSidecarRpcHandlers(...)  -> TUI-sidecar driver registry + standalone hosted-session methods; each folded in only when its handle/boundary is supplied
+│   ├── createWebSidecarRpcHandlers(...)  -> canonical target-addressed hosted-session methods or transitional handle methods, selected by the supplied boundary
 │   └── rpc.discover                      -> discovery over active registry
 └── methods/
     ├── registry.ts                    -> method definition + discovery shape
     ├── workspace.ts                   -> workspace.* handlers
     ├── session.ts                     -> session.* handlers
-    ├── session-driver.ts              -> live AgentSession driver method
-    ├── session-exchange-answer.ts     -> live exchange answer method
-    ├── session-open-asks.ts           -> TUI-sidecar live ask registry reader
-    ├── hosted-session.ts              -> standalone target-addressed session.* methods
+    ├── session-driver.ts              -> transitional targetless live AgentSession driver method
+    ├── session-exchange-answer.ts     -> transitional targetless live exchange answer method
+    ├── session-open-asks.ts           -> transitional TUI-sidecar live ask registry reader
+    ├── hosted-session.ts              -> canonical target-addressed session.* methods for TUI companion and standalone web
     ├── graph.ts                       -> graph.* handlers
     ├── execute.ts                     -> execute.* run observers plus guarded replan recommendation/regeneration/supersession/abandonment
     └── schemas.ts                     -> shared protocol schemas
@@ -106,8 +106,8 @@ full RPC host:
     execute.replanStartNewRun
     execute.replanAbandonRun
 
-TUI-started web sidecar without live driver handle:
-  reads:
+TUI-started canonical companion connection (/rpc):
+  common reads:
     rpc.discover
     workspace.state
     workspace.selectionState
@@ -120,44 +120,27 @@ TUI-started web sidecar without live driver handle:
     execute.run
     execute.runTraceIndex
     execute.replanRecommendation
-  rejected as method-not-found:
-    workspace.activate
-    session.triggerExchange
-    session.submitExchangeResponse
-    session.submitMessage
-    session.driveTurn
+  target-required lifecycle:
+    session.open
+    session.close
+  target-required reads:
+    session.presentation
     session.openAsks
-    execute.replanRegeneratePlan
-    execute.replanStartNewRun
-    execute.replanAbandonRun
-
-TUI-started web sidecar observer connection (/rpc), even when live driver handles exist:
-  reads:
-    rpc.discover
-    workspace.state
-    workspace.selectionState
-    session.pendingExchange
-    session.exchanges
-    session.runtimeState
-    graph.overview
-    graph.nodeNeighborhood
-    execute.runs
-    execute.run
-    execute.runTraceIndex
-    execute.replanRecommendation
-  rejected as method-not-found:
-    workspace.activate
-    session.triggerExchange
-    session.submitExchangeResponse
-    session.submitMessage
+  target-and-driver-required writes:
     session.driveTurn
     session.answerExchange
-    session.openAsks
+  notifications:
+    brunch.liveSessionEvent
+  rejected as method-not-found:
+    workspace.activate
+    session.triggerExchange
+    session.submitExchangeResponse
+    session.submitMessage
     execute.replanRegeneratePlan
     execute.replanStartNewRun
     execute.replanAbandonRun
 
-TUI-started web sidecar driver connection (/rpc/driver) with live driver handles:
+TUI-started transitional driver connection (/rpc/driver) with live driver handles:
   reads:
     rpc.discover
     workspace.state
@@ -195,9 +178,11 @@ standalone web combined host (/rpc):
   target-and-driver-required writes:
     session.driveTurn
     session.answerExchange
+  notifications:
+    brunch.liveSessionEvent
 ```
 
-The standalone surface requires `(specId, sessionId)` on every method; driver operations additionally require `driverId`. It has no selected/current-session fallback and does not reuse the TUI sidecar's `/rpc/driver` handle contract. All four mutating hosted-session methods (`open`, `close`, `driveTurn`, `answerExchange`) advertise and return the full `LiveSessionHostResult` discriminated `{status}` union as JSON-RPC success payloads; schema-invalid params remain `-32602`, and thrown host failures remain `-32020`.
+Both canonical browser surfaces require `(specId, sessionId)` on every hosted-session method; driver operations additionally require `driverId`. Neither has a selected/current-session fallback or requires the transitional `/rpc/driver` contract. All four mutating hosted-session methods (`open`, `close`, `driveTurn`, `answerExchange`) advertise and return the full `LiveSessionHostResult` discriminated `{status}` union as JSON-RPC success payloads; schema-invalid params remain `-32602`, and thrown host failures remain `-32020`.
 
 ## Method overview
 
@@ -278,29 +263,29 @@ session.submitMessage
   effects: appends a user message to the selected session transcript and rejects ordinary text while a structured exchange is pending unless interruption=true (no submit-time capture — capture is elicitor turn-boundary sweep conduct, D80-L)
 
 session.driveTurn
-  access: write (TUI sidecar `/rpc/driver` when a driver handle is attached; standalone `/rpc` through the hosted-session registry)
-  params: TUI sidecar `{prompt}`; standalone `{specId, sessionId, driverId, prompt}`
-  result: sidecar `{status: completed}`; standalone `LiveSessionHostResult` discriminated `{status}` union, including refusals as success payloads
-  errors: -32601 on ordinary observers or when no driver handle is attached; -32010 when an attached sidecar handle reports no current live session; standalone errors only for invalid params or thrown host failures
-  effects: re-enters the live in-process AgentSession with one plain prompt; resulting AgentSessionEvents stream as brunch.sessionEvent frames and reduce to Pi JSONL transcript truth
-  boundary: not a generic transcript write API; no workspace activation, no submitMessage, no concurrency arbiter
+  access: write (canonical TUI-companion and standalone `/rpc` through the hosted-session registry; transitional TUI `/rpc/driver` through a targetless handle)
+  params: canonical `{specId, sessionId, driverId, prompt}`; transitional `{prompt}`
+  result: canonical `LiveSessionHostResult` discriminated `{status}` union, including refusals as success payloads; transitional `{status: completed}`
+  errors: canonical errors only for invalid params or thrown host failures; transitional -32601 when unavailable and -32010 when no current live session exists
+  effects: re-enters the exact live in-process AgentSession with one plain prompt; canonical `/rpc` emits validated target-addressed `brunch.liveSessionEvent` deltas that reduce to Pi JSONL truth, while transitional `/rpc/driver` retains raw `brunch.sessionEvent` only until cutover
+  boundary: not a generic transcript write API; no workspace activation or submitMessage
 
 session.answerExchange
-  access: write (TUI sidecar `/rpc/driver` when a broker is attached; standalone `/rpc` through the hosted-session registry)
-  params: TUI sidecar `{exchangeId, answer}`; standalone `{specId, sessionId, driverId, exchangeId, answer}`
+  access: write (canonical TUI-companion and standalone `/rpc` through the hosted-session registry; transitional TUI `/rpc/driver` through a targetless broker)
+  params: canonical `{specId, sessionId, driverId, exchangeId, answer}`; transitional `{exchangeId, answer}`
     questionnaire answers use a schema-tagged JSON string envelope checked against the open ask
-  result: sidecar `{status: completed}`; standalone `LiveSessionHostResult` discriminated `{status}` union, including `ask_closed` and `invalid_answer` as success payloads
-  errors: sidecar -32601 when unavailable, -32008 for no matching exchange, and -32602 for an invalid questionnaire envelope; standalone errors only for schema-invalid params or thrown host failures.
-  effects: resolves the in-process ask answer promise; Pi then appends the provider-legal tool result and continues the same live turn, whose AgentSessionEvents stream as brunch.sessionEvent frames and reduce to Pi JSONL transcript truth
-  boundary: not a transcript append API and not a second exchange store; review-set approval converges through the same session settlement operation as local TUI, while terminal-vs-web answer racing remains outside the current single-driver contract
+  result: canonical `LiveSessionHostResult` discriminated `{status}` union, including `ask_closed` and `invalid_answer` as success payloads; transitional `{status: completed}`
+  errors: canonical errors only for schema-invalid params or thrown host failures; transitional -32601 when unavailable, -32008 for no matching exchange, and -32602 for an invalid questionnaire envelope
+  effects: resolves the in-process ask answer promise; Pi appends the provider-legal tool result and continues the same live turn; canonical `/rpc` emits semantic deltas and transitional `/rpc/driver` retains raw frames only until cutover
+  boundary: not a transcript append API and not a second exchange store; review-set approval converges through the same session settlement operation as local TUI
 
 session.openAsks
-  access: read (TUI sidecar `/rpc/driver` when a live ask registry reader is attached; standalone `/rpc` through the hosted-session registry)
-  params: TUI sidecar none; standalone `{specId, sessionId}`
+  access: read (canonical TUI-companion and standalone `/rpc` through the hosted-session registry; transitional TUI `/rpc/driver` through a targetless reader)
+  params: canonical `{specId, sessionId}`; transitional none
   result: {openAsks: [{exchangeId, mode, question}]} — every currently-open ask with its full D116-L question payload
   source: the process-local live ask registry (D125-L); no transcript scan
-  errors: -32601 on ordinary observers or the full host; -32010 when no registry handle is attached
-  boundary: live-state discovery for the agent-as-user driver (D125-L), paired with session.answerExchange; the transcript-backed session.pendingExchange stays the file/observer-facing compatibility projection
+  errors: canonical errors only for invalid params or thrown host failures; transitional -32601 when unavailable and -32010 when no registry handle is attached
+  boundary: live-state discovery paired with session.answerExchange; the transcript-backed session.pendingExchange stays the file/observer-facing compatibility projection
 
 graph.overview
   access: read
@@ -390,7 +375,7 @@ WebSocket and stdio transports both carry these notifications independently from
 
 Petrinaut HTTP surfaces are sidecar routes, not JSON-RPC methods. `/petrinaut/stream?runId=<id>` subscribes before reading validated `petrinaut/net.sdcpn.json` + `events.jsonl`, emits the complete replay, catches up any append that raced the snapshot, then stays open for same-process journal wake-ups through terminal state. Refresh is single-flight per client; unreadable live state closes the stream so reconnect can retry rather than hanging, and a run-scoped journal-failure wake-up (failed durable append, FE-1190 fail-closed) closes active streams so clients reconnect against whatever remained durable instead of waiting on a wake-up that cannot come. Normal completion waits for journal order, while metadata-only abandonment has an explicit wake-up. Late joiners reconstruct the same firing/terminal timeline from artifacts. Active streams unsubscribe and end during web-host shutdown. Cross-origin read permission is emitted only for the configured `PETRINAUT_URL` origin. `/petrinaut/launch?runId=<id>` redirects to configured `PETRINAUT_URL` with an absolute local `sse` URL; it rejects missing config, missing artifacts, and non-loopback `Host` headers. Both routes are observer surfaces only and never affect run lifecycle authority.
 
-Live session-stream frames are process-local observer notifications, not request methods or persisted transcript truth. The TUI sidecar retains its raw Pi relay for existing observer tooling. The standalone host instead exposes only a semantic browser contract:
+Live session-stream frames are process-local observer notifications, not request methods or persisted transcript truth. Canonical `/rpc` exposes the same semantic browser contract from both the TUI-owned and standalone-web compositions. Only the transitional TUI `/rpc/driver` retains the raw Pi relay for existing observer tooling:
 
 ```pseudo
 brunch.liveSessionEvent:
@@ -414,11 +399,11 @@ Boundary — in layer: the streaming transport relay and its battery. Out of lay
 | 1 | Topology-A walking skeleton through the real host entry | `built` | ● | `src/dev/__tests__/web-driver-streaming.relay.test.ts` | I22-L: attaches via product factory, not the test |
 | 2 | Stream↔transcript differential (assembled `message_update` deltas == flushed JSONL) | `built` | ● | same test | D19-L linchpin |
 | 3 | Ordered incremental delivery (monotonic `seq`, no gaps/dupes) | `built` | ● | same test | |
-| 4 | Domain-projection multiplex (one WS carries raw-sidecar `brunch.sessionEvent` or standalone `brunch.liveSessionEvent` alongside `brunch.updated`) | `built` | ● | same test plus `src/dev/__tests__/standalone-web-session-host.real-entry.test.ts` | deferred-in-order while a request is in flight; standalone frames use host-level fan-out |
+| 4 | Domain-projection multiplex (one WS carries canonical `brunch.liveSessionEvent` or transitional `/rpc/driver` `brunch.sessionEvent` alongside `brunch.updated`) | `built` | ● | same test plus `src/dev/__tests__/standalone-web-session-host.real-entry.test.ts` | deferred-in-order while a request is in flight; canonical frames use host-level fan-out |
 | 6 | Reconnect/resume idempotence | `built` | ● | `src/dev/__tests__/web-driver-streaming.reconnect.test.ts` | observer-side, replay-less: reconnect refetches `session.*` projections and resumes later live frames |
-| 7 | One-driver / many-observer fan-out | `built` | ● | `src/dev/__tests__/web-driver-streaming.fan-out.test.ts` | observer-side, autonomous; three concurrent observers receive byte-identical streams and read-only sidecar writes reject |
+| 7 | One-driver / many-observer fan-out | `built` | ● | `src/dev/__tests__/web-driver-streaming.fan-out.test.ts` | observer-side, autonomous; three concurrent observers receive byte-identical streams; the transitional observer route still rejects unsupported writes |
 | 5 | Mid-stream ask convergence | `built` | ● | `src/dev/__tests__/web-driver-streaming.exchange-convergence.test.ts`, `src/.pi/extensions/__tests__/ask-headless-discovery.test.ts` | every no-UI ask mode registers in D125-L live state; `session.openAsks` discovers the full payload and `session.answerExchange` resolves the broker string, with per-mode decoding in the ask collector; JSONL receives the canonical terminal |
-| — | command-intake slice 1 (web drives a plain turn) | `built` | ● | `src/dev/__tests__/web-driver-streaming.command-intake.test.ts` | narrow `session.driveTurn` sidecar method re-enters the live AgentSession |
+| — | command-intake slice 1 (web drives a plain turn) | `built` | ● | `src/dev/__tests__/web-driver-streaming.command-intake.test.ts` | transitional `/rpc/driver` `session.driveTurn` re-enters the live AgentSession; canonical `/rpc` coverage lives in the production-wiring regressions |
 | — | `agent_end` → `agent_settled` consumer ordering | `built` | ● | `src/dev/__tests__/standalone-web-session-host.real-entry.test.ts` plus the candidate/review-set/digest settlement witnesses | React remains busy through intermediate events, refetches only on real `agent_settled`, and reconnects from canonical JSONL |
 | — | render feel (token / tool / dialog) | `n/a` | ○ | manual walkthrough | outer-loop only; no automated perceptual gate |
 
@@ -426,7 +411,7 @@ Classification: all required topology-A relay rows are built. D125-L's live regi
 
 ## RPC methods to web Query hooks
 
-The graph/workspace routes remain read-oriented. The standalone session route uses target-addressed presentation/open-ask queries and direct hosted-session mutations; the TUI sidecar retains its narrower handle-gated driver surface.
+The graph/workspace routes remain read-oriented. The same session route uses target-addressed presentation/open-ask queries and hosted-session mutations against either canonical `/rpc` composition; only the transitional TUI `/rpc/driver` retains the narrower targetless handle surface.
 
 ```pseudo
 query key families:
@@ -452,10 +437,10 @@ query key families:
 | `session.runtimeState` | `sessionRuntimeStateQueryOptions(rpc, target)` | implemented query option; not yet route-rendered | `session.runtimeState` |
 | `session.triggerExchange` | `triggerExchangeMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state |
 | `session.submitExchangeResponse` | `submitExchangeResponseMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state; review-set approval additionally invalidates `graph.overview(specId)` / `graph.nodeNeighborhood(specId)` |
-| `session.presentation` | `sessionPresentationQueryOptions(rpc, target)` | standalone session route hydrates canonical JSONL semantics | `agent_settled` or reconnect/remount refetch |
-| `session.openAsks` | direct target-addressed hosted-session query | standalone session route renders live controls for free text and listed single/multi choices; bounded-questionnaire payloads remain discoverable and answerable headlessly through the schema-tagged string/JSON envelope, with no dedicated React questionnaire form | live ask changes; settlement refetch |
-| `session.driveTurn` | direct hosted-session mutation | standalone session route wired with target + browser driver id; TUI sidecar remains handle-gated | live semantic `brunch.liveSessionEvent`; settlement refetch |
-| `session.answerExchange` | direct hosted-session mutation | standalone session route answers the supported ask family with target + browser driver id; TUI sidecar remains handle-gated | live semantic `brunch.liveSessionEvent`; settlement refetch |
+| `session.presentation` | `sessionPresentationQueryOptions(rpc, target)` | companion and standalone session routes hydrate canonical JSONL semantics | `agent_settled` or reconnect/remount refetch |
+| `session.openAsks` | direct target-addressed hosted-session query | companion and standalone routes render live controls for free text and listed single/multi choices; bounded-questionnaire payloads remain discoverable and answerable headlessly through the schema-tagged string/JSON envelope, with no dedicated React questionnaire form | live ask changes; settlement refetch |
+| `session.driveTurn` | direct hosted-session mutation | companion and standalone routes use target + browser driver id; only transitional `/rpc/driver` remains handle-gated | live semantic `brunch.liveSessionEvent`; settlement refetch |
+| `session.answerExchange` | direct hosted-session mutation | companion and standalone routes answer the supported ask family with target + browser driver id; only transitional `/rpc/driver` remains handle-gated | live semantic `brunch.liveSessionEvent`; settlement refetch |
 | `graph.overview` | `graphOverviewQueryOptions(rpc, specId)` | implemented; spec route loader primes it | exact `graph.overview(specId)` when `specId` is present |
 | `graph.nodeNeighborhood` | `graphNodeNeighborhoodQueryOptions(rpc, specId, nodeId, hops?)` | implemented query option; graph panel selection not yet wired | exact/prefix neighborhood invalidation when `nodeId` is present; broad topic fallback otherwise |
 | `execute.runs` | `executeRunsQueryOptions(rpc)` | implemented; run observer list route | exact `execute.runs` |
