@@ -12,6 +12,9 @@ import {
   createWebSidecarRpcHandlers,
   type WebHostAuthorityOptions,
 } from './handlers.js';
+import type { SessionTurnDriver } from './methods/session-driver.js';
+import type { SessionExchangeAnswerHandle } from './methods/session-exchange-answer.js';
+import type { SessionOpenAsksHandle } from './methods/session-open-asks.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from './product-updates.js';
 import { createPetrinautStreamHost, petrinautStreamRunId } from './web-host/petrinaut-stream.js';
 import type { WebSessionEventSource } from './websocket.js';
@@ -25,9 +28,19 @@ type WebHostBaseOptions = {
   webAssetRoot?: string;
   productUpdates?: ProductUpdatePublisher;
   sessionEvents?: WebSessionEventSource;
+  /** Transitional D84-L raw event source used only by /rpc/driver during contract convergence. */
+  legacySessionEvents?: WebSessionEventSource;
 };
 
-export type WebHostOptions = WebHostBaseOptions & WebHostAuthorityOptions;
+export type WebHostOptions = WebHostBaseOptions &
+  WebHostAuthorityOptions & {
+    /** Transitional D84-L /rpc/driver retained while /rpc uses hosted semantics. */
+    legacySidecar?: {
+      sessionTurnDriver?: SessionTurnDriver;
+      sessionExchangeAnswer?: SessionExchangeAnswerHandle;
+      sessionOpenAsks?: SessionOpenAsksHandle;
+    };
+  };
 
 export interface RunningWebHost {
   url: string;
@@ -113,10 +126,8 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
       }),
     );
 
-    if (
-      !options.hostedSession &&
-      (options.sessionTurnDriver || options.sessionExchangeAnswer || options.sessionOpenAsks)
-    ) {
+    const sidecar = options.legacySidecar ?? options;
+    if (sidecar.sessionTurnDriver || sidecar.sessionExchangeAnswer || sidecar.sessionOpenAsks) {
       rpcTransports.push(
         attachWebRpcTransport({
           server,
@@ -125,14 +136,16 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
             coordinator: options.coordinator,
             cwd: options.cwd,
             productUpdates,
-            ...(options.sessionTurnDriver ? { sessionTurnDriver: options.sessionTurnDriver } : {}),
-            ...(options.sessionExchangeAnswer
-              ? { sessionExchangeAnswer: options.sessionExchangeAnswer }
+            ...(sidecar.sessionTurnDriver ? { sessionTurnDriver: sidecar.sessionTurnDriver } : {}),
+            ...(sidecar.sessionExchangeAnswer
+              ? { sessionExchangeAnswer: sidecar.sessionExchangeAnswer }
               : {}),
-            ...(options.sessionOpenAsks ? { sessionOpenAsks: options.sessionOpenAsks } : {}),
+            ...(sidecar.sessionOpenAsks ? { sessionOpenAsks: sidecar.sessionOpenAsks } : {}),
           }),
           productUpdates,
-          ...(options.sessionEvents ? { sessionEvents: options.sessionEvents } : {}),
+          ...((options.legacySessionEvents ?? options.sessionEvents)
+            ? { sessionEvents: options.legacySessionEvents ?? options.sessionEvents }
+            : {}),
         }),
       );
     }

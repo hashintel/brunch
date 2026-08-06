@@ -18,17 +18,17 @@ pi list
 
 Pi packages execute with full system access: review and trust this repository before enabling the extension. After project trust is granted, Pi automatically installs a missing declared package on startup; this can fetch package contents from the network into ignored `.pi/npm/` cache state. The declaration and cache-ignore rule are committed, but installed cache contents are not. Do not install the extension into Brunch's root `package.json`, `src/.pi`, or runtime graph. Brunch reaches `zigpty` only indirectly through the pinned `pi-interactive-shell` package; it has no direct integration.
 
-### Shared-host transition evidence
+### Session runtime contract convergence evidence
 
-The current TUI sidecar and standalone web host are separate runtime compositions. Do not mistake running each successfully for proof that the new architecture replaced the old one. Work under PLAN arc `shared-session-host-convergence` must capture one compound outer witness against the **same durable target and sole writable runtime**:
+The normal TUI and standalone web host are two legitimate runtime compositions. Work under PLAN arc `shared-session-host-convergence` must prove that they share one target-addressed semantic contract, JSONL truth, and per-target writer authority rather than forcing both presentations onto an independent host. Capture one compound outer witness against the **same durable target and sole writable runtime**:
 
-1. start the independent host and record its process/runtime target identity;
-2. attach the real TUI presentation and React client;
+1. start the normal TUI and record its durable target identity and writer authority;
+2. attach companion React to the TUI-owned runtime through Brunch's semantic session contract;
 3. drive an ordinary turn plus one structured ask from the active driver;
 4. observe the same target-addressed semantic stream and fresh JSONL settlement in React;
-5. detach/restart one client without terminating or duplicating the hosted runtime;
-6. exercise driver conflict or explicit handoff; and
-7. confirm the TUI's editor, chrome, command/extension UI, and transcript remain useful.
+5. while the TUI owns the target, confirm a rival standalone-web process is refused before constructing a second runtime or writing the transcript;
+6. shut down the TUI normally, then confirm standalone web can acquire the same target and continue from fresh JSONL; and
+7. confirm the TUI's editor, chrome, command/extension UI, and transcript remain useful, and judge whether companion React is useful without surviving TUI exit (A51-L).
 
 Record the current/desired path and exact deletion evidence in the frontier's walkthrough artifact. The cutover is not witnessed while `SessionEventRelay`, `brunch.sessionEvent`, or `/rpc/driver` remains load-bearing. See [`docs/design/WEB_UI_ARCHITECTURE.md`](../design/WEB_UI_ARCHITECTURE.md).
 
