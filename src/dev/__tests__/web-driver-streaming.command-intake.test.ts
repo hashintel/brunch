@@ -12,6 +12,7 @@ import { createWorkspaceSessionCoordinator } from '../../session/workspace-sessi
 import { emitStartupOrientationForHarness } from '../tier-2-harness.js';
 import {
   assembleAssistantTextFromStream,
+  assembleLiveAssistantText,
   contiguousRange,
   latestAssistantTextFromJsonl,
   registerKeptFauxProvider,
@@ -92,39 +93,27 @@ describe('web-driver-streaming command intake', () => {
 
         await waitFor(
           () =>
-            [driver, ...observers].every(
-              (client) => assembleAssistantTextFromStream(client.events()) === WEB_DRIVEN_TEXT,
+            assembleAssistantTextFromStream(driver.events()) === WEB_DRIVEN_TEXT &&
+            observers.every(
+              (observer) => assembleLiveAssistantText(observer.liveSessionEvents()) === WEB_DRIVEN_TEXT,
             ),
           3000,
           'driver and observers to receive the web-driven assistant text',
         );
         flushSessionManagerToFile(runtime.session.sessionManager, context.workspace.session.file);
 
-        await waitFor(
-          () => {
-            const fingerprints = [driver, ...observers].map((client) =>
-              client.sessionFrames().map((frame) => JSON.stringify(frame.params)),
-            );
-            return (
-              fingerprints[1]?.length === fingerprints[0]?.length &&
-              fingerprints[2]?.length === fingerprints[0]?.length
-            );
-          },
-          3000,
-          'observer session streams to catch up with the driver stream',
-        );
+        const driverSeqs = driver.sessionFrames().map((frame) => frame.params.seq);
+        expect(driverSeqs).toEqual(contiguousRange(driverSeqs[0] ?? 0, driverSeqs.length));
+        expect(new Set(driverSeqs).size).toBe(driverSeqs.length);
+        expect(assembleAssistantTextFromStream(driver.events())).toBe(WEB_DRIVEN_TEXT);
 
-        const fingerprints = [driver, ...observers].map((client) =>
-          client.sessionFrames().map((frame) => JSON.stringify(frame.params)),
+        const observerFingerprints = observers.map((observer) =>
+          observer.liveSessionEvents().map((frame) => JSON.stringify(frame.params)),
         );
-        expect(fingerprints[1]).toEqual(fingerprints[0]);
-        expect(fingerprints[2]).toEqual(fingerprints[0]);
-
-        for (const client of [driver, ...observers]) {
-          const seqs = client.sessionFrames().map((frame) => frame.params.seq);
-          expect(seqs).toEqual(contiguousRange(seqs[0] ?? 0, seqs.length));
-          expect(new Set(seqs).size).toBe(seqs.length);
-          expect(assembleAssistantTextFromStream(client.events())).toBe(WEB_DRIVEN_TEXT);
+        expect(observerFingerprints[1]).toEqual(observerFingerprints[0]);
+        for (const observer of observers) {
+          expect(assembleLiveAssistantText(observer.liveSessionEvents())).toBe(WEB_DRIVEN_TEXT);
+          expect(observer.sessionFrames()).toEqual([]);
         }
         expect(latestAssistantTextFromJsonl(await readFile(context.workspace.session.file, 'utf8'))).toBe(
           WEB_DRIVEN_TEXT,

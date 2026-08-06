@@ -14,6 +14,7 @@ import { createWorkspaceSessionCoordinator } from '../../session/workspace-sessi
 import { emitStartupOrientationForHarness } from '../tier-2-harness.js';
 import {
   assembleAssistantTextFromStream,
+  assembleLiveAssistantText,
   hasToolEvent,
   latestAssistantTextFromJsonl,
   registerKeptFauxProvider,
@@ -104,7 +105,11 @@ describe('web-driver-streaming live exchange answer broker', () => {
           prompt: 'Drive a live structured exchange from the browser sidecar.',
         });
         await waitFor(
-          () => [driver, ...observers].every((client) => hasToolEvent(client.events(), 'ask', 'start')),
+          () =>
+            hasToolEvent(driver.events(), 'ask', 'start') &&
+            observers.every((observer) =>
+              observer.liveSessionEvents().some((frame) => frame.params.delta.type === 'ask_opened'),
+            ),
           4000,
           'ask to start and block',
         );
@@ -142,17 +147,18 @@ describe('web-driver-streaming live exchange answer broker', () => {
 
         await waitFor(
           () =>
-            [driver, ...observers].every(
-              (client) => assembleAssistantTextFromStream(client.events()) === FINAL_TEXT,
+            assembleAssistantTextFromStream(driver.events()) === FINAL_TEXT &&
+            observers.every(
+              (observer) => assembleLiveAssistantText(observer.liveSessionEvents()) === FINAL_TEXT,
             ),
           3000,
           'answered turn to finish and fan out',
         );
-        const fingerprints = [driver, ...observers].map((client) =>
-          client.sessionFrames().map((frame) => JSON.stringify(frame.params)),
+        const observerFingerprints = observers.map((observer) =>
+          observer.liveSessionEvents().map((frame) => JSON.stringify(frame.params)),
         );
-        expect(fingerprints[1]).toEqual(fingerprints[0]);
-        expect(fingerprints[2]).toEqual(fingerprints[0]);
+        expect(observerFingerprints[1]).toEqual(observerFingerprints[0]);
+        expect(observers.every((observer) => observer.sessionFrames().length === 0)).toBe(true);
 
         const jsonl = await readFile(context.workspace.session.file, 'utf8');
         expect(requestAnswerFromJsonl(jsonl)).toBe(ANSWER);
