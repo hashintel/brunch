@@ -61,8 +61,17 @@ describe('session runtime contract production tracer', () => {
         options.semanticSessionEvents?.subscribe((frame) => frames.push(frame));
         return { url: 'http://127.0.0.1:1', close: async () => {} };
       },
-      launchInteractive: async ({ tuiLiveSessionAdapter }) => {
+      launchInteractive: async ({ sessionEvents, tuiLiveSessionAdapter }) => {
         expect(boundary).toBeDefined();
+        const rawListeners = new Set<(event: never) => void>();
+        sessionEvents?.attachSession({
+          subscribe(listener: (event: never) => void) {
+            rawListeners.add(listener);
+            return () => rawListeners.delete(listener);
+          },
+        });
+        for (const listener of rawListeners) listener({ type: 'agent_start' } as never);
+
         const listeners = new Set<(event: never) => void>();
         const session = {
           isStreaming: false,
@@ -89,6 +98,7 @@ describe('session runtime contract production tracer', () => {
       },
     });
 
+    expect(frames).not.toContainEqual(expect.objectContaining({ method: 'brunch.sessionEvent' }));
     expect(frames).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

@@ -224,16 +224,7 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
   };
   const semanticSessionEvents = {
     subscribe(listener: (frame: ReturnType<typeof createLiveSessionEventFrame>) => void) {
-      const unsubscribeSemantic = tuiLiveSessionAdapter.subscribeAll((event) =>
-        listener(createLiveSessionEventFrame(event)),
-      );
-      // Transitional D84-L compatibility: existing observers still receive the
-      // raw relay until the cutover sweep deletes it; React ignores these frames.
-      const unsubscribeRaw = sessionEvents.subscribe(listener as never);
-      return () => {
-        unsubscribeSemantic();
-        unsubscribeRaw();
-      };
+      return tuiLiveSessionAdapter.subscribeAll((event) => listener(createLiveSessionEventFrame(event)));
     },
   };
   const routePath = webSidecarRoutePath(target.specId);
