@@ -523,8 +523,13 @@ active:
     open: A51-L
     built: writer guard + TUI semantic adapter + production contract wiring + semantic-only /rpc
            + production PTY boot/turn/cleanup witness through real InteractiveMode
+           + companion React convergence witness: production React app over a real WebSocket
+             against the TUI sidecar, semantic-only intake, settled equality with a fresh
+             canonical-JSONL projection, inert browser detach
     proves: real TUI companion React + cross-process single-writer exclusion + post-shutdown reopen
-    next: re-scope companion React convergence on the witnessed child/report shape
+    next: re-scope the structured-ask slice against the shared PTY choreography module
+          (src/app/__tests__/session-runtime-contract-pty-journey.ts), then rival refusal,
+          then shutdown/reopen
     completion_retires: A51-L
     -[hard]-> shared-session-host-cutover
   walkthrough-remediation-2 (FE-1187)
