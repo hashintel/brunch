@@ -2,7 +2,10 @@ import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
+import { fauxAssistantMessage } from '@earendil-works/pi-ai';
+import { registerFauxProvider } from '@earendil-works/pi-ai/compat';
 import {
+  createAgentSessionRuntime,
   DefaultResourceLoader,
   SessionManager,
   type ExtensionCommandContext,
@@ -12,6 +15,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it, vi } from 'vitest';
 
+import { createBrunchFauxModelRuntime, defaultBrunchFauxModel } from '../../probes/faux-provider.js';
 import { userMessage } from '../../probes/test-helpers.js';
 import {
   createWorkspaceSessionCoordinator,
@@ -24,12 +28,14 @@ import {
   BRUNCH_SETTINGS_POLICY,
   applyBrunchOfflineDefault,
   brunchResourceLoaderOptions,
+  createBrunchAgentSessionRuntimeFactory,
   createBrunchSettingsManager,
   runBrunchTui,
   runWithScopedBrunchOfflineDefault,
   createKickSendSerialChain,
   scheduleKickSend,
   startupHeaderForActivation,
+  type BrunchTuiLaunchContext,
 } from '../brunch-tui.js';
 import { runBrunchCli } from '../brunch.js';
 import {
@@ -456,6 +462,63 @@ describe('Brunch TUI boot', () => {
       'update:graph.overview',
       'sidecar-close',
     ]);
+  });
+
+  it('threads a supplied provider backend to the sealed runtime factory without disturbing production defaults', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-provider-seam-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-provider-agent-'));
+    const fauxModel = defaultBrunchFauxModel();
+    const provider = registerFauxProvider({
+      provider: fauxModel.provider,
+      api: `${fauxModel.api}-composition-seam`,
+      models: [{ id: fauxModel.modelId, name: fauxModel.modelName, input: ['text'] }],
+    });
+    provider.setResponses([() => fauxAssistantMessage('Composition seam opening.')]);
+    const { modelRuntime, registeredModel } = await createBrunchFauxModelRuntime(fauxModel, provider);
+    const agentServices = { modelRuntime, model: registeredModel };
+    let substituted: BrunchTuiLaunchContext | undefined;
+    let defaulted: BrunchTuiLaunchContext | undefined;
+
+    try {
+      await runBrunchTui({
+        cwd,
+        agentServices,
+        webSidecarRunner: async () => null,
+        runWorkspaceDialogPreflight: async () => ({ action: 'newSpec', title: 'Provider seam' }),
+        launchInteractive: async (context) => {
+          substituted = context;
+        },
+      });
+      expect(substituted?.agentServices).toBe(agentServices);
+
+      const runtime = await createAgentSessionRuntime(createBrunchAgentSessionRuntimeFactory(substituted!), {
+        cwd,
+        agentDir,
+        sessionManager: substituted!.workspace.session.manager,
+      });
+      try {
+        expect(runtime.session.modelRuntime).toBe(modelRuntime);
+        expect(runtime.session.model?.id).toBe(fauxModel.modelId);
+      } finally {
+        await runtime.dispose();
+      }
+
+      await runBrunchTui({
+        cwd,
+        webSidecarRunner: async () => null,
+        runWorkspaceDialogPreflight: async () => ({
+          action: 'newSession',
+          specId: substituted!.workspace.spec.id,
+        }),
+        launchInteractive: async (context) => {
+          defaulted = context;
+        },
+      });
+      expect(defaulted).toBeDefined();
+      expect(defaulted?.agentServices).toBeUndefined();
+    } finally {
+      provider.unregister();
+    }
   });
 
   it('mirrors debug cache by default and keeps subagents product-enabled', async () => {

@@ -1,3 +1,4 @@
+import { rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import process from 'node:process';
 
@@ -171,6 +172,13 @@ export interface BrunchTuiOptions {
   evaluationDirectiveAblation?: 'warrant-before-commit';
   openBrowser?: (url: string) => Promise<void>;
   advertiseWebSidecar?: (url: string) => void;
+  /**
+   * Provider-backend substitution for deterministic product tests, mirroring
+   * `runBrunchWeb`'s option of the same name. It reaches the sealed runtime
+   * factory through the default `launchPiInteractive` path, so a boot that
+   * supplies it still exercises the real TUI composition.
+   */
+  agentServices?: BrunchAgentServicesOverride;
 }
 
 export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void> {
@@ -212,6 +220,17 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
 
   const target = { specId: workspaceState.spec.id, sessionId: workspaceState.session.id };
   const writer = await acquireSessionWriter({ cwd, target });
+  // Pi's InteractiveMode ends an interactive quit (Ctrl-D, Ctrl-C, /quit) with
+  // `process.exit(0)`, so `run()` never resolves and the `finally` below never
+  // runs. The writer guard is deliberately fail-closed — a stale lock is never
+  // stolen — so without a synchronous exit release, one ordinary quit would
+  // strand the target for every later TUI and standalone-web process (I64-L).
+  // `process.on('exit')` cannot await, hence the sync removal here rather than
+  // `writer.release()`.
+  const releaseWriterOnExit = () => {
+    rmSync(writer.lockPath, { recursive: true, force: true });
+  };
+  process.on('exit', releaseWriterOnExit);
   const tuiLiveSessionAdapter = createTuiLiveSessionAdapter({ target, asks: liveExchange });
   const hostedSession: HostedSessionRpcBoundary = {
     liveSessions: tuiLiveSessionAdapter,
@@ -265,11 +284,14 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
       },
       liveAgentSession,
       tuiLiveSessionAdapter,
+      ...(options.agentServices ? { agentServices: options.agentServices } : {}),
     });
   } finally {
     await webSidecar?.close();
     await tuiLiveSessionAdapter.dispose();
     await writer.release();
+    // Last, so a throw from the teardown above still leaves the exit release armed.
+    process.off('exit', releaseWriterOnExit);
   }
 }
 
