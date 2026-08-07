@@ -70,7 +70,17 @@ plus the coordination logic for workspace/spec/session lifecycle.
   the executing tool's abort signal. An already-aborted signal never exposes an
   open ask; a later abort synchronously removes it, records `cancelled`, and
   resolves the collector without an answer. Answer, explicit cancellation, and
-  abort all detach the listener at settlement. `session.openAsks` therefore
+  abort all detach the listener at settlement. The registry separates discovery
+  from answering authority: `opener.openAsk` grants both, while
+  `opener.announceAsk` grants only discovery, for an ask a local interactive UI
+  owns and answers itself (D141-L's normal-TUI composition with a companion
+  browser). An announced ask is listed, reads `open`, and notifies subscribers —
+  so the TUI adapter emits one `ask_opened` and a reconnecting browser hydrates
+  it through `session.openAsks` — but stays outside the pending set, so
+  `submitAnswer` refuses it with `no_pending_exchange` and `answerExchange`
+  reports `ask_closed`. `.pi/extensions/exchanges/ask.ts` announces around its
+  interactive collectors for the standalone ask family; the `present_*`
+  continuation family does not announce yet. `session.openAsks` therefore
   discovers only live asks without scanning the transcript; the answer still
   arrives through the string `awaitAnswer`/`submitAnswer` contract and reduces
   to canonical `ask` details

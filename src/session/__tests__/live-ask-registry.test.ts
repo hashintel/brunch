@@ -184,6 +184,57 @@ describe('live ask registry', () => {
     await expect(answer).resolves.toBe(envelope);
   });
 
+  it('lists an announced ask as open but never makes it answerable here', () => {
+    const registry = createLiveAskRegistry();
+    const observed: OpenAsk[] = [];
+    registry.subscribe((entry) => observed.push(entry));
+    const announced = ask('tui-owned', { question: { body: 'Which shape should we take?' } });
+
+    const conclude = registry.opener.announceAsk(announced);
+
+    expect(registry.reader.openAsks()).toEqual([announced]);
+    expect(registry.reader.stateOf('tui-owned')).toBe('open');
+    expect(observed).toEqual([announced]);
+    // The local UI holding this ask is its only answering authority; a remote
+    // observer that tries to answer must be refused rather than silently
+    // resolving a rendezvous that does not exist.
+    expect(registry.answerer.submitAnswer({ exchangeId: 'tui-owned', answer: 'from the browser' })).toEqual({
+      submitted: false,
+      reason: 'no_pending_exchange',
+    });
+
+    conclude();
+
+    expect(registry.reader.openAsks()).toEqual([]);
+    expect(registry.reader.stateOf('tui-owned')).toBe('closed');
+    expect(observed).toEqual([announced]);
+  });
+
+  it('leaves the opener rendezvous untouched while an announcement is open', async () => {
+    const registry = createLiveAskRegistry();
+    const conclude = registry.opener.announceAsk(ask('announced'));
+    const answer = registry.opener.openAsk(ask('headless'), liveSignal());
+
+    expect(registry.reader.openAsks().map((entry) => entry.exchangeId)).toEqual(['headless', 'announced']);
+    expect(registry.answerer.submitAnswer({ exchangeId: 'headless', answer: 'still works' })).toEqual({
+      submitted: true,
+    });
+    await expect(answer).resolves.toBe('still works');
+
+    conclude();
+    expect(registry.reader.openAsks()).toEqual([]);
+  });
+
+  it('clears announcements on teardown alongside pending asks', () => {
+    const registry = createLiveAskRegistry();
+    registry.opener.announceAsk(ask('announced-teardown'));
+
+    registry.cancelAll();
+
+    expect(registry.reader.openAsks()).toEqual([]);
+    expect(registry.reader.stateOf('announced-teardown')).toBe('closed');
+  });
+
   it('answers choice and review modes through the same string broker contract', async () => {
     const registry = createLiveAskRegistry();
     const choice = registry.opener.openAsk(

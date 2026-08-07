@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { projectPresentDigest } from '../../../exchanges/projections/present-digest.js';
 import { zAskDetails } from '../../../exchanges/schemas/index.js';
-import { createLiveAskRegistry } from '../../../session/live-ask-registry.js';
+import { createLiveAskRegistry, type OpenAsk } from '../../../session/live-ask-registry.js';
 import { createAskTool } from '../exchanges/ask.js';
 import type { StructuredExchangeUiContext } from '../exchanges/shared/ui-context.js';
 
@@ -265,6 +265,101 @@ describe('headless ask discovery + broker answering', () => {
     const details = zAskDetails.parse((await done).details);
     expect(details).toMatchObject({ exchange_id: 'abandon', tool_meta: { curr: 'ask' }, cancelled: {} });
     expect(registry.reader.openAsks()).toEqual([]);
+  });
+
+  it('announces a UI-owned ask for observers without ever making it answerable', async () => {
+    const registry = createLiveAskRegistry();
+    const observed: OpenAsk[] = [];
+    registry.subscribe((entry) => observed.push(entry));
+    let refusedWhileOpen: unknown;
+    let listedWhileOpen: readonly OpenAsk[] = [];
+    const tool = createAskTool(registry.opener) as ReturnType<typeof createAskTool> & {
+      execute: (...args: unknown[]) => Promise<AskToolResult>;
+    };
+
+    const done = await tool.execute(
+      'tui-ask',
+      { exchangeId: 'tui-owned', body: 'Which shape should we take?' },
+      new AbortController().signal,
+      undefined,
+      {
+        hasUI: true,
+        ui: {
+          custom: async () => {
+            // Sampled from inside the editor: the browser sees the ask open,
+            // and its answer attempt is refused while the TUI still holds it.
+            listedWhileOpen = registry.reader.openAsks();
+            refusedWhileOpen = registry.answerer.submitAnswer({
+              exchangeId: 'tui-owned',
+              answer: 'from the browser',
+            });
+            return { status: 'answered', answer: 'From the TUI editor.' };
+          },
+        },
+      },
+    );
+
+    expect(listedWhileOpen).toEqual([
+      { exchangeId: 'tui-owned', mode: 'text', question: { body: 'Which shape should we take?' } },
+    ]);
+    expect(refusedWhileOpen).toEqual({ submitted: false, reason: 'no_pending_exchange' });
+    expect(observed).toHaveLength(1);
+    expect(zAskDetails.parse(done.details)).toMatchObject({
+      exchange_id: 'tui-owned',
+      answered: { text: 'From the TUI editor.' },
+    });
+    expect(registry.reader.openAsks()).toEqual([]);
+  });
+
+  it('announces a UI-owned single-select ask and concludes it when the picker settles', async () => {
+    const registry = createLiveAskRegistry();
+    let listedWhileOpen: readonly OpenAsk[] = [];
+    const tool = createAskTool(registry.opener) as ReturnType<typeof createAskTool> & {
+      execute: (...args: unknown[]) => Promise<AskToolResult>;
+    };
+
+    await tool.execute(
+      'tui-choice',
+      {
+        exchangeId: 'tui-choice',
+        body: 'Pick the route',
+        options: [{ id: 'safe', label: 'Safe path' }],
+      },
+      new AbortController().signal,
+      undefined,
+      {
+        hasUI: true,
+        ui: {
+          custom: async () => {
+            listedWhileOpen = registry.reader.openAsks();
+            return { id: 'safe' };
+          },
+        },
+      },
+    );
+
+    expect(listedWhileOpen.map((entry) => entry.mode)).toEqual(['single-select']);
+    expect(registry.reader.openAsks()).toEqual([]);
+  });
+
+  it('never announces on the headless path, leaving broker registration as the only open ask', async () => {
+    const registry = createLiveAskRegistry();
+    const observed: OpenAsk[] = [];
+    registry.subscribe((entry) => observed.push(entry));
+    const done = runHeadlessAsk(registry, { exchangeId: 'headless', body: 'What is the goal?' });
+    await tick();
+
+    expect(registry.reader.openAsks()).toEqual([
+      { exchangeId: 'headless', mode: 'text', question: { body: 'What is the goal?' } },
+    ]);
+    expect(observed).toHaveLength(1);
+
+    registry.answerer.submitAnswer({ exchangeId: 'headless', answer: 'Ship it.' });
+    expect(zAskDetails.parse((await done).details)).toMatchObject({
+      exchange_id: 'headless',
+      answered: { text: 'Ship it.' },
+    });
+    expect(registry.reader.stateOf('headless')).toBe('answered');
   });
 
   it('falls back to unavailable when no UI and no broker is available (unchanged)', async () => {

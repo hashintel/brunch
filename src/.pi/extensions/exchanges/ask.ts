@@ -23,7 +23,7 @@ import {
   type StandaloneAskParams,
 } from '../../../exchanges/schemas/index.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
-import type { LiveAskOpener } from '../../../session/live-ask-registry.js';
+import type { LiveAskOpener, OpenAsk } from '../../../session/live-ask-registry.js';
 import { ExchangeAnswerEditorComponent } from '../../components/exchange-answer-editor.js';
 import { createExchangeDecisionPickerComponent } from '../../components/exchange-decision-picker.js';
 import { ExchangeQuestionnaireComponent } from '../../components/exchange-questionnaire.js';
@@ -149,6 +149,30 @@ function selectedChoice(id: string, label: string, listedIds: ReadonlySet<string
   return { id, label, kind: listedIds.has(id) ? 'listed' : 'other' };
 }
 
+/**
+ * Publish an ask this process's own UI owns and will answer, for the duration
+ * of that interactive collection. Observers of the live registry see it open
+ * exactly as they see a headless one, but it never joins the answerable pending
+ * set — D125-L's registry is a no-UI *discovery* contract, and this is its
+ * observe-only companion, so the local UI stays the sole answering authority.
+ *
+ * ceiling: only the standalone ask family announces. Continuation asks over
+ * `present_*` offers (`ask/continuation.ts`) stay silent; widen this when a
+ * companion has to observe one of those.
+ */
+async function announcedToObservers<T>(
+  liveAsk: LiveAskOpener | undefined,
+  ask: OpenAsk,
+  collect: () => Promise<T>,
+): Promise<T> {
+  const conclude = liveAsk?.announceAsk(ask);
+  try {
+    return await collect();
+  } finally {
+    conclude?.();
+  }
+}
+
 async function collectFreeText(
   params: CollectableAskParams,
   question: AskQuestionEcho,
@@ -156,11 +180,7 @@ async function collectFreeText(
   liveAsk: LiveAskOpener | undefined,
   signal: AbortSignal,
 ): Promise<ToolResult> {
-  const collected = await firstAvailableFreeTextCollector([
-    () => collectFreeTextViaCustomEditor(params, ctx),
-    () => collectFreeTextViaPlainEditor(params, ctx),
-    () => collectFreeTextViaLiveAsk(params, question, liveAsk, signal),
-  ]);
+  const collected = await collectFreeTextAnswer(params, question, ctx, liveAsk, signal);
   if (collected === undefined)
     return terminal(params, question, 'unavailable', 'ask requires interactive UI');
   if (collected.status === 'cancelled') return terminal(params, question, 'cancelled');
@@ -185,6 +205,35 @@ async function collectFreeText(
       ...(comment ? { comment } : {}),
     }),
   );
+}
+
+/**
+ * The free-text ladder, split at the UI boundary so the announcement spans
+ * exactly its interactive segment and is concluded before the headless broker
+ * registration below it can register the same exchange id.
+ */
+async function collectFreeTextAnswer(
+  params: CollectableAskParams,
+  question: AskQuestionEcho,
+  ctx: StructuredExchangeUiContext,
+  liveAsk: LiveAskOpener | undefined,
+  signal: AbortSignal,
+): Promise<Exclude<FreeTextCollectionResult, { readonly status: 'try-next' }> | undefined> {
+  if (ctx.hasUI) {
+    const viaUi = await announcedToObservers(
+      liveAsk,
+      { exchangeId: params.exchangeId, mode: 'text', question },
+      () =>
+        firstAvailableFreeTextCollector([
+          () => collectFreeTextViaCustomEditor(params, ctx),
+          () => collectFreeTextViaPlainEditor(params, ctx),
+        ]),
+    );
+    if (viaUi) return viaUi;
+  }
+  return firstAvailableFreeTextCollector([
+    () => collectFreeTextViaLiveAsk(params, question, liveAsk, signal),
+  ]);
 }
 
 async function firstAvailableFreeTextCollector(
@@ -259,7 +308,12 @@ async function collectSingleChoice(
     return terminal(params, question, 'unavailable', 'ask choice requires options');
   }
   if (ctx.hasUI && typeof ctx.ui?.custom === 'function') {
-    return collectSingleChoiceWithBackNavigation(params, question, ctx, ctx.ui.custom);
+    const custom = ctx.ui.custom;
+    return announcedToObservers(
+      liveAsk,
+      { exchangeId: params.exchangeId, mode: 'single-select', question },
+      () => collectSingleChoiceWithBackNavigation(params, question, ctx, custom),
+    );
   }
   if (liveAsk) {
     return collectSingleChoiceViaLiveAsk(params, question, liveAsk, signal);
@@ -382,11 +436,15 @@ async function collectMultiChoice(
   signal: AbortSignal,
 ): Promise<ToolResult> {
   if (!hasOptions(params)) return terminal(params, question, 'unavailable', 'ask choices require options');
+  const announced: OpenAsk = { exchangeId: params.exchangeId, mode: 'multi-select', question };
   if (ctx.hasUI && typeof ctx.ui?.custom === 'function') {
-    return collectMultiChoiceWithBackNavigation(params, question, ctx, ctx.ui.custom);
+    const custom = ctx.ui.custom;
+    return announcedToObservers(liveAsk, announced, () =>
+      collectMultiChoiceWithBackNavigation(params, question, ctx, custom),
+    );
   }
   if (ctx.hasUI && typeof ctx.ui?.editor === 'function') {
-    return collectMultiChoiceViaEditor(params, question, ctx);
+    return announcedToObservers(liveAsk, announced, () => collectMultiChoiceViaEditor(params, question, ctx));
   }
   if (liveAsk) {
     return collectMultiChoiceViaLiveAsk(params, question, liveAsk, signal);
@@ -652,17 +710,24 @@ async function collectQuestionnaireAnswers(
   | { readonly status: 'cancelled' }
   | { readonly status: 'invalid' }
 > {
+  const announced: OpenAsk = {
+    exchangeId: params.exchangeId,
+    mode: 'questionnaire',
+    question: { body: params.body, questions: params.questions },
+  };
   if (ctx.hasUI && typeof ctx.ui?.custom === 'function') {
     const custom = ctx.ui.custom;
-    const answers = await withWorkingIndicatorHidden(ctx, () =>
-      custom<readonly QuestionnaireAnswer[]>(
-        (_tui, theme, _keybindings, done) =>
-          new ExchangeQuestionnaireComponent({
-            questions: params.questions,
-            theme,
-            borderColor: askBorderColor(ctx, theme),
-            onDone: done,
-          }),
+    const answers = await announcedToObservers(liveAsk, announced, () =>
+      withWorkingIndicatorHidden(ctx, () =>
+        custom<readonly QuestionnaireAnswer[]>(
+          (_tui, theme, _keybindings, done) =>
+            new ExchangeQuestionnaireComponent({
+              questions: params.questions,
+              theme,
+              borderColor: askBorderColor(ctx, theme),
+              onDone: done,
+            }),
+        ),
       ),
     );
     return answers === undefined ? { status: 'cancelled' } : { status: 'answered', answers };
@@ -670,16 +735,11 @@ async function collectQuestionnaireAnswers(
   const envelope = JSON.stringify({ schema: QUESTIONNAIRE_SUBMISSION_SCHEMA, answers: [] }, null, 2);
   const raw =
     ctx.hasUI && typeof ctx.ui?.editor === 'function'
-      ? await withWorkingIndicatorHidden(ctx, () => ctx.ui!.editor!(envelope))
+      ? await announcedToObservers(liveAsk, announced, () =>
+          withWorkingIndicatorHidden(ctx, () => ctx.ui!.editor!(envelope)),
+        )
       : liveAsk
-        ? await liveAsk.openAsk(
-            {
-              exchangeId: params.exchangeId,
-              mode: 'questionnaire',
-              question: { body: params.body, questions: params.questions },
-            },
-            signal,
-          )
+        ? await liveAsk.openAsk(announced, signal)
         : undefined;
   if (raw === undefined) return { status: 'cancelled' };
   try {

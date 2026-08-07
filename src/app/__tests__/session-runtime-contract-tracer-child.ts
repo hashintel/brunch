@@ -15,12 +15,17 @@
 import { writeFile } from 'node:fs/promises';
 import process from 'node:process';
 
-import { fauxAssistantMessage } from '@earendil-works/pi-ai';
+import { fauxAssistantMessage, fauxToolCall } from '@earendil-works/pi-ai';
 import { registerFauxProvider } from '@earendil-works/pi-ai/compat';
 
 import { createBrunchFauxModelRuntime, defaultBrunchFauxModel } from '../../probes/faux-provider.js';
 import { runBrunchTui } from '../brunch-tui.js';
 import {
+  TRACER_ASK_ANSWER,
+  TRACER_ASK_BODY,
+  TRACER_ASK_EXCHANGE_ID,
+  TRACER_ASK_PROMPT,
+  TRACER_ASK_REPLY,
   TRACER_OPENING_REPLY,
   TRACER_PROBE_PROMPT,
   TRACER_PROBE_REPLY,
@@ -30,11 +35,10 @@ import {
 
 /**
  * Enough queued steps to cover the product's opening turn, the parent's
- * ordinary turn, and any extra provider call the composition makes; every step
- * is the same content-addressed responder, so ordering cannot make the witness
- * pass by accident.
+ * ordinary and ask turns, an orientation kick, and any extra provider call the
+ * composition makes.
  */
-const QUEUED_RESPONSES = 8;
+const QUEUED_RESPONSES = 12;
 
 const [cwd, reportPath] = process.argv.slice(2);
 if (!cwd || !reportPath) {
@@ -51,15 +55,32 @@ const provider = registerFauxProvider({
   api: `${fauxModel.api}-production-pty`,
   models: [{ id: fauxModel.modelId, name: fauxModel.modelName, input: ['text'] }],
 });
-provider.setResponses(
-  Array.from(
-    { length: QUEUED_RESPONSES },
-    () => (context: unknown) =>
-      fauxAssistantMessage(
-        JSON.stringify(context).includes(TRACER_PROBE_PROMPT) ? TRACER_PROBE_REPLY : TRACER_OPENING_REPLY,
-      ),
-  ),
-);
+/**
+ * Every queued step is this same content-addressed responder, so ordering
+ * cannot make a witness pass by accident. The answered-ask branch is checked
+ * before the ask-prompt branch: once the answer is in context, the exchange is
+ * over, and re-reading the still-present prompt would loop on the tool call.
+ */
+function respond(context: unknown) {
+  const seen = JSON.stringify(context);
+  if (seen.includes(TRACER_ASK_ANSWER)) return fauxAssistantMessage(TRACER_ASK_REPLY);
+  if (seen.includes(TRACER_ASK_PROMPT)) {
+    return fauxAssistantMessage(
+      [
+        fauxToolCall(
+          'ask',
+          { exchangeId: TRACER_ASK_EXCHANGE_ID, body: TRACER_ASK_BODY },
+          { id: `${TRACER_ASK_EXCHANGE_ID}__call` },
+        ),
+      ],
+      { stopReason: 'toolUse' },
+    );
+  }
+  if (seen.includes(TRACER_PROBE_PROMPT)) return fauxAssistantMessage(TRACER_PROBE_REPLY);
+  return fauxAssistantMessage(TRACER_OPENING_REPLY);
+}
+
+provider.setResponses(Array.from({ length: QUEUED_RESPONSES }, () => respond));
 const { modelRuntime, registeredModel } = await createBrunchFauxModelRuntime(fauxModel, provider);
 
 try {

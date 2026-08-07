@@ -48,6 +48,33 @@ describe('TUI live-session adapter', () => {
     ]);
   });
 
+  it('emits one target-addressed ask_opened for an ask the TUI announces', () => {
+    const asks = createLiveAskRegistry();
+    const adapter = createTuiLiveSessionAdapter({ target, asks });
+    const events: unknown[] = [];
+    adapter.subscribeAll((event) => events.push(event));
+    adapter.attachSession(session());
+
+    const announced = {
+      exchangeId: 'tui-owned',
+      mode: 'text',
+      question: { body: 'Which shape should we take?' },
+    } as const;
+    const conclude = asks.opener.announceAsk(announced);
+
+    expect(events).toEqual([{ target, seq: 0, delta: { type: 'ask_opened', ask: announced } }]);
+    expect(adapter.openAsks(target)).toEqual([announced]);
+    // Announcement is observation, not authority: the browser's answer path
+    // must report the ask closed rather than resolving it behind the TUI.
+    expect(adapter.answerExchange(target, 'browser', 'tui-owned', 'from the browser')).toEqual({
+      status: 'ask_closed',
+    });
+
+    conclude();
+    expect(events).toHaveLength(1);
+    expect(adapter.openAsks(target)).toEqual([]);
+  });
+
   it('supports target-addressed drive/open-ask/answer and rejects concurrent turns as busy', async () => {
     const asks = createLiveAskRegistry();
     const adapter = createTuiLiveSessionAdapter({ target, asks });

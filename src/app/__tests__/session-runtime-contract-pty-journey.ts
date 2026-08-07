@@ -123,6 +123,17 @@ export async function dismissModeChooser(name: string): Promise<void> {
   await requireScreenWithout(name, MODE_CHOOSER, QUIT_TIMEOUT_MS);
 }
 
+/**
+ * The other half of the orientation juncture: commit the highlighted style
+ * rather than dismissing the menu. Same component whether the menu was raised
+ * at boot or by `/brunch:consult`, so one helper serves both.
+ */
+export async function commitModeChoice(name: string): Promise<void> {
+  await requireScreen(name, MODE_CHOOSER, BOOT_TIMEOUT_MS);
+  sendKeys(name, ['Enter']);
+  await requireScreenWithout(name, MODE_CHOOSER, QUIT_TIMEOUT_MS);
+}
+
 /** Normal Ctrl-D quit, bounded. Resolves to whether the PTY was still alive. */
 export async function quitAndAwaitExit(name: string, timeoutMs = QUIT_TIMEOUT_MS): Promise<boolean> {
   sendKeys(name, ['C-d']);

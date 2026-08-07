@@ -25,6 +25,19 @@ export const TRACER_PROBE_PROMPT = 'Confirm the production PTY tracer turn.';
 /** Assistant text the faux backend returns for exactly that prompt. */
 export const TRACER_PROBE_REPLY = 'Acknowledged the production PTY tracer turn.';
 
+/** The turn that makes the real assistant call the production `ask` tool. */
+export const TRACER_ASK_PROMPT = 'Open a structured question for the production PTY tracer.';
+
+/** Exchange id and question body the queued `ask` tool call carries. */
+export const TRACER_ASK_EXCHANGE_ID = 'production-pty-tracer-ask';
+export const TRACER_ASK_BODY = 'Which shape should the production PTY tracer prove?';
+
+/** The answer the parent types into the real Pi ask editor. */
+export const TRACER_ASK_ANSWER = 'The observe-only announcement shape.';
+
+/** Assistant text the faux backend returns once the ask has been answered. */
+export const TRACER_ASK_REPLY = 'Recorded the production PTY tracer answer.';
+
 export type ProductionTracerReport =
   | {
       readonly status: 'ready';
