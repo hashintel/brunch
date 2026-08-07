@@ -7,12 +7,15 @@
  * production standalone-web composition booted in this parent process is
  * refused the same durable target by the fail-closed writer guard before any
  * second runtime exists — and the incumbent completes a further ordinary turn
- * afterwards.
+ * afterwards. Then Ctrl-D releases ownership and the same standalone-web
+ * composition takes the target over, continuing the TUI's own canonical JSONL
+ * rather than starting a second one.
  *
- * The rival is exercised through the production path only (`runBrunchWeb` plus
- * the browser's own `createWebSocketRpcClient` over `/rpc`), never by calling
- * `acquireSessionWriter` directly, so the refusal proved here is the one a
- * second Brunch window would actually meet.
+ * Both halves are exercised through the production path only (`runBrunchWeb`
+ * plus the browser's own `createWebSocketRpcClient` over `/rpc`), never by
+ * calling `acquireSessionWriter`, `createStandaloneSessionRuntime`, or
+ * `SessionManager.open` directly, so what is proved here is what a second
+ * Brunch window would actually meet.
  *
  * This file must stay DOM-free. Declaring a browser environment for it also
  * switches Vite to its client transform, which rewrites `src/dev/tui-driver`'s
@@ -29,13 +32,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import process from 'node:process';
 
+import { fauxAssistantMessage, type FauxProviderRegistration } from '@earendil-works/pi-ai';
+import { registerFauxProvider } from '@earendil-works/pi-ai/compat';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 
 import { removeSession, stopSession } from '../../dev/tui-driver.js';
+import { createBrunchFauxModelRuntime, defaultBrunchFauxModel } from '../../probes/faux-provider.js';
+import type {
+  SessionPresentationEntry,
+  SessionPresentationResult,
+} from '../../projections/session/session-presentation.js';
+import { projectSessionPresentationFile } from '../../projections/session/session-presentation.js';
 import type { WorkspaceState } from '../../projections/workspace/workspace-state.js';
 import type { RunningWebHost } from '../../rpc/web-host.js';
-import type { SessionTarget } from '../../session/live-session-host.js';
+import type { LiveSessionHostResult, SessionTarget } from '../../session/live-session-host.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
 import { inspectCanonicalSessionFiles } from '../../session/workspace-session-coordinator/canonical-session-files.js';
 import {
@@ -43,6 +54,7 @@ import {
   JsonRpcClientError,
   type WebSocketRpcClient,
 } from '../../web/rpc-client.js';
+import type { BrunchAgentServicesOverride } from '../brunch-tui.js';
 import { runBrunchWeb } from '../brunch-web.js';
 import {
   BOOT_TIMEOUT_MS,
@@ -58,6 +70,9 @@ import {
 import {
   TRACER_PROBE_PROMPT,
   TRACER_PROBE_REPLY,
+  TRACER_REOPEN_OPENING_REPLY,
+  TRACER_REOPEN_PROMPT,
+  TRACER_REOPEN_REPLY,
   TRACER_REPORT_FILE,
   TRACER_RIVAL_PROMPT,
   TRACER_RIVAL_REPLY,
@@ -68,6 +83,11 @@ type RpcWebSocketConstructor = NonNullable<Parameters<typeof createWebSocketRpcC
 const RpcWebSocket = WebSocket as unknown as RpcWebSocketConstructor;
 
 const ECHO_TIMEOUT_MS = 30_000;
+const CONVERGENCE_TIMEOUT_MS = 30_000;
+/** Live-event silence that counts as "the standalone composition has settled". */
+const LIVE_QUIET_MS = 2_000;
+/** File-unique, so the registration cannot collide with another suite's in this process. */
+const REOPEN_PROVIDER_API_SUFFIX = 'authority-reopen';
 
 interface TranscriptMessage {
   readonly role: string;
@@ -96,6 +116,18 @@ interface AuthorityJourney {
   readonly aliveAfterQuit: boolean;
   readonly jsonlAfterQuit: string;
   readonly writerLockExistsAfterQuit: boolean;
+  readonly reopenOpenResult: unknown;
+  readonly reopenOwnerRecord: string | undefined;
+  readonly reopenSnapshot: CanonicalSnapshot;
+  readonly reopenPresentationMessages: readonly TranscriptMessage[];
+  readonly reopenDriveResult: LiveSessionHostResult;
+  readonly jsonlAfterDrivenTurn: string;
+  readonly sessionsAfterDrivenTurn: number;
+  readonly settledPresentationMessages: readonly TranscriptMessage[];
+  readonly settledPresentationEntryCount: number;
+  readonly freshProjectionMessages: readonly TranscriptMessage[];
+  readonly freshProjectionEntryCount: number;
+  readonly writerLockExistsAfterHostClose: boolean;
 }
 
 async function canonicalSnapshot(cwd: string): Promise<CanonicalSnapshot> {
@@ -132,6 +164,69 @@ function jsonlMessages(jsonl: string): TranscriptMessage[] {
     });
 }
 
+function projectionMessages(entries: readonly SessionPresentationEntry[]): TranscriptMessage[] {
+  return entries.flatMap((entry) =>
+    entry.kind === 'message' ? [{ role: entry.role, text: entry.text }] : [],
+  );
+}
+
+function readyPresentation(result: SessionPresentationResult): readonly SessionPresentationEntry[] {
+  if (result.status !== 'ready') throw new Error(`session.presentation was ${result.status}, not ready`);
+  return result.presentation.entries;
+}
+
+/**
+ * A standalone `session.open` may fire its own orientation kick, and whether it
+ * does so on a session that already has history is one of the things this
+ * witness is here to observe — so neither branch may be assumed. Wait for the
+ * live event stream to fall silent instead, which covers both.
+ */
+async function waitForLiveQuiet(frameCount: () => number, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let seen = frameCount();
+  let quietSince = Date.now();
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const now = frameCount();
+    if (now !== seen) {
+      seen = now;
+      quietSince = Date.now();
+      continue;
+    }
+    if (Date.now() - quietSince >= LIVE_QUIET_MS) return;
+  }
+  throw new Error('standalone composition never fell quiet after session.open');
+}
+
+/**
+ * The parent's own deterministic backend for the reopen leg. The PTY child's
+ * provider died with the TUI, so the transferred target is driven by a
+ * content-addressed responder registered here — same discipline as the child's,
+ * so no ordering accident can make the driven turn pass.
+ */
+async function registerReopenProvider(): Promise<{
+  readonly provider: FauxProviderRegistration;
+  readonly agentServices: BrunchAgentServicesOverride;
+}> {
+  const model = defaultBrunchFauxModel();
+  const provider = registerFauxProvider({
+    provider: model.provider,
+    api: `${model.api}-${REOPEN_PROVIDER_API_SUFFIX}`,
+    models: [{ id: model.modelId, name: model.modelName, input: ['text'] }],
+  });
+  provider.setResponses(
+    Array.from(
+      { length: 8 },
+      () => (context: unknown) =>
+        JSON.stringify(context).includes(TRACER_REOPEN_PROMPT)
+          ? fauxAssistantMessage(TRACER_REOPEN_REPLY)
+          : fauxAssistantMessage(TRACER_REOPEN_OPENING_REPLY),
+    ),
+  );
+  const { modelRuntime, registeredModel } = await createBrunchFauxModelRuntime(model, provider);
+  return { provider, agentServices: { modelRuntime, model: registeredModel } };
+}
+
 /**
  * The parent must not resolve the developer's real Pi agent directory:
  * `getAgentDir()` reads this variable at call time, and a standalone
@@ -166,8 +261,11 @@ async function driveAuthorityJourney(): Promise<AuthorityJourney> {
 
   await startProductionTui({ name, cwd, agentDir, reportPath });
 
-  let rivalHost: RunningWebHost | undefined;
-  let rivalClient: WebSocketRpcClient | undefined;
+  // One pair of handles serves both web legs — the refused rival and the
+  // successful reopen — so a failure anywhere strands neither port nor lock.
+  let webHost: RunningWebHost | undefined;
+  let webClient: WebSocketRpcClient | undefined;
+  let reopenProvider: FauxProviderRegistration | undefined;
   try {
     await requireScreen(name, 'Welcome to Brunch.', BOOT_TIMEOUT_MS);
     await dismissModeChooser(name);
@@ -190,13 +288,13 @@ async function driveAuthorityJourney(): Promise<AuthorityJourney> {
       // cannot need a provider backend, and withholding one keeps the
       // no-second-runtime leaf from being satisfiable by a working runtime.
       const host = await runBrunchWeb({ cwd, coordinator: createWorkspaceSessionCoordinator({ cwd }) });
-      rivalHost = host;
+      webHost = host;
       rivalHostUrl = host.url;
       const client = createWebSocketRpcClient({
         url: `${host.url.replace(/^http/u, 'ws')}/rpc`,
         WebSocketImpl: RpcWebSocket,
       });
-      rivalClient = client;
+      webClient = client;
       // A real request round-trip, not just a socket: the host is only proved
       // startable if it answers production RPC over its own /rpc.
       rivalWorkspaceStatus = (await client.request<WorkspaceState>('workspace.state')).status;
@@ -213,10 +311,10 @@ async function driveAuthorityJourney(): Promise<AuthorityJourney> {
 
     // Release the rival before the incumbent's next turn, so a stranded port or
     // half-open socket cannot be mistaken for continued contention pressure.
-    rivalClient?.close();
-    rivalClient = undefined;
-    await rivalHost?.close();
-    rivalHost = undefined;
+    webClient?.close();
+    webClient = undefined;
+    await webHost?.close();
+    webHost = undefined;
 
     await typeAndSubmit(name, TRACER_RIVAL_PROMPT, ECHO_TIMEOUT_MS);
     const rivalReplyScreen = await requireScreen(name, TRACER_RIVAL_REPLY, TURN_TIMEOUT_MS);
@@ -225,8 +323,97 @@ async function driveAuthorityJourney(): Promise<AuthorityJourney> {
     const afterQuit = await canonicalSnapshot(cwd);
     const writerLockExistsAfterQuit = await sessionWriterLockExists(cwd, target);
 
+    // Transfer leg: the TUI is gone and the lock is free, so a production
+    // standalone-web composition must take the same durable target over and
+    // continue its one canonical JSONL rather than starting a second.
+    const restoreReopenEnvironment = applyScratchPiEnvironment(agentDir);
+    let reopenOpenResult: unknown;
+    let reopenOwnerRecord: string | undefined;
+    let reopenSnapshot: CanonicalSnapshot;
+    let reopenPresentationMessages: readonly TranscriptMessage[];
+    let reopenDriveResult: LiveSessionHostResult;
+    let jsonlAfterDrivenTurn: string;
+    let sessionsAfterDrivenTurn: number;
+    let settledPresentation: readonly SessionPresentationEntry[];
+    let freshProjection: readonly SessionPresentationEntry[];
+    let writerLockExistsAfterHostClose: boolean;
+    try {
+      const registration = await registerReopenProvider();
+      reopenProvider = registration.provider;
+      const host = await runBrunchWeb({
+        cwd,
+        coordinator: createWorkspaceSessionCoordinator({ cwd }),
+        agentServices: registration.agentServices,
+      });
+      webHost = host;
+      const client = createWebSocketRpcClient({
+        url: `${host.url.replace(/^http/u, 'ws')}/rpc`,
+        WebSocketImpl: RpcWebSocket,
+      });
+      webClient = client;
+      let liveFrames = 0;
+      client.subscribe(() => {
+        liveFrames += 1;
+      });
+
+      reopenOpenResult = await client.request('session.open', target);
+      reopenOwnerRecord = await readSessionWriterOwnerRecord(cwd, target);
+      reopenSnapshot = await canonicalSnapshot(cwd);
+      await waitForLiveQuiet(() => liveFrames, CONVERGENCE_TIMEOUT_MS);
+      reopenPresentationMessages = projectionMessages(
+        readyPresentation(await client.request<SessionPresentationResult>('session.presentation', target)),
+      );
+
+      reopenDriveResult = await client.request<LiveSessionHostResult>('session.driveTurn', {
+        ...target,
+        driverId: 'standalone-web-takeover',
+        prompt: TRACER_REOPEN_PROMPT,
+      });
+
+      // Bounded retry on the parent-computed truth. A canonical JSONL that lags
+      // settlement is a production I65-L finding, not something to sleep past.
+      const settledAt = Date.now();
+      let fresh = await projectSessionPresentationFile({ target, sessionFile: afterQuit.file });
+      while (
+        !projectionMessages(readyPresentation(fresh)).some(
+          (message) => message.text === TRACER_REOPEN_REPLY,
+        ) &&
+        Date.now() - settledAt < CONVERGENCE_TIMEOUT_MS
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        fresh = await projectSessionPresentationFile({ target, sessionFile: afterQuit.file });
+      }
+      freshProjection = readyPresentation(fresh);
+      settledPresentation = readyPresentation(
+        await client.request<SessionPresentationResult>('session.presentation', target),
+      );
+      const afterDrivenTurn = await canonicalSnapshot(cwd);
+      jsonlAfterDrivenTurn = afterDrivenTurn.jsonl;
+      sessionsAfterDrivenTurn = afterDrivenTurn.availableCount;
+
+      client.close();
+      webClient = undefined;
+      await host.close();
+      webHost = undefined;
+      writerLockExistsAfterHostClose = await sessionWriterLockExists(cwd, target);
+    } finally {
+      restoreReopenEnvironment();
+    }
+
     removeSession(name, { force: false });
     return {
+      reopenOpenResult,
+      reopenOwnerRecord,
+      reopenSnapshot,
+      reopenPresentationMessages,
+      reopenDriveResult,
+      jsonlAfterDrivenTurn,
+      sessionsAfterDrivenTurn,
+      settledPresentationMessages: projectionMessages(settledPresentation),
+      settledPresentationEntryCount: settledPresentation.length,
+      freshProjectionMessages: projectionMessages(freshProjection),
+      freshProjectionEntryCount: freshProjection.length,
+      writerLockExistsAfterHostClose,
       rivalHostUrl,
       rivalWorkspaceStatus,
       rivalOpenRefused: rivalOpen.refused,
@@ -241,8 +428,9 @@ async function driveAuthorityJourney(): Promise<AuthorityJourney> {
       writerLockExistsAfterQuit,
     };
   } finally {
-    rivalClient?.close();
-    await rivalHost?.close();
+    webClient?.close();
+    await webHost?.close();
+    reopenProvider?.unregister();
     await stopSession(name);
     removeSession(name, { force: true });
     await rm(cwd, { recursive: true, force: true });
@@ -308,5 +496,54 @@ describe('writer authority under contention over the production TUI PTY', () => 
   it('cleanup — Ctrl-D still ends the PTY and releases the target writer lock', () => {
     expect(journey.aliveAfterQuit).toBe(false);
     expect(journey.writerLockExistsAfterQuit).toBe(false);
+  });
+
+  it('reopen — the released target is acquirable by a standalone web composition', () => {
+    // `opened`, not `attached`: this composition constructs the runtime the TUI
+    // gave up, rather than adapting one that is already live.
+    expect(journey.reopenOpenResult).toEqual({ status: 'opened' });
+    expect(journey.reopenOwnerRecord).toBeDefined();
+    const owner = JSON.parse(journey.reopenOwnerRecord ?? 'null') as { pid?: unknown };
+    expect(owner.pid).toBe(process.pid);
+  });
+
+  it('reopen — the standalone opened the TUI’s own session file, not a new one', () => {
+    expect(journey.reopenSnapshot.sessionCount).toBe(1);
+    expect(journey.reopenSnapshot.availableCount).toBe(1);
+    expect(journey.reopenSnapshot.file).toBe(journey.beforeProbe.file);
+  });
+
+  it('reopen — the TUI-era transcript survives the transfer', () => {
+    const tuiEra = jsonlMessages(journey.jsonlAfterQuit);
+    // Pinned, so the comparison below cannot pass by both sides being empty.
+    expect(tuiEra).toHaveLength(4);
+    expect(journey.reopenPresentationMessages.slice(0, tuiEra.length)).toEqual(tuiEra);
+  });
+
+  it('reopen — a driven turn appends to that same JSONL', () => {
+    expect(journey.reopenDriveResult).toEqual({ status: 'completed' });
+    const tuiEra = jsonlMessages(journey.jsonlAfterQuit);
+    const messages = jsonlMessages(journey.jsonlAfterDrivenTurn);
+    expect(messages.slice(0, tuiEra.length)).toEqual(tuiEra);
+    expect(messages.slice(-2)).toEqual([
+      { role: 'user', text: TRACER_REOPEN_PROMPT },
+      { role: 'assistant', text: TRACER_REOPEN_REPLY },
+    ]);
+    // One truth store (D141-L): reopening extends the TUI's file textually. A
+    // rewrite or truncation here is a stop-the-line respec signal, never a
+    // reason to loosen this assertion.
+    expect(journey.jsonlAfterDrivenTurn.startsWith(journey.jsonlAfterQuit)).toBe(true);
+    expect(journey.sessionsAfterDrivenTurn).toBe(1);
+  });
+
+  it('reopen — session.presentation equals a parent-computed fresh projection at settlement', () => {
+    // Supporting convergence check (I65-L) over the same file, not the primary
+    // evidence: the host projects through the same reader the parent uses.
+    expect(journey.settledPresentationMessages).toEqual(journey.freshProjectionMessages);
+    expect(journey.settledPresentationEntryCount).toBe(journey.freshProjectionEntryCount);
+  });
+
+  it('reopen — closing the standalone host releases the writer lock again', () => {
+    expect(journey.writerLockExistsAfterHostClose).toBe(false);
   });
 });

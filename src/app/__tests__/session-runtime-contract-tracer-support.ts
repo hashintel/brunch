@@ -35,6 +35,23 @@ export const TRACER_RIVAL_PROMPT = 'Carry on after the refused second window.';
 /** Assistant text the faux backend returns for exactly that prompt. */
 export const TRACER_RIVAL_REPLY = 'Carried on with the sole writable runtime.';
 
+/**
+ * The reopen turn, driven from a standalone web composition after the TUI has
+ * quit. Unlike the prompts above it is served by the *parent's* faux provider,
+ * so the PTY child never needs to know the target was transferred.
+ */
+export const TRACER_REOPEN_PROMPT = 'Continue this target from standalone web.';
+
+/** Assistant text the parent's faux backend returns for exactly that prompt. */
+export const TRACER_REOPEN_REPLY = 'Standalone web continued the transferred target.';
+
+/**
+ * Fallback assistant text for any other call the standalone composition makes
+ * on open — an orientation kick, if it fires one on a session that already has
+ * history. Distinct so the witness can see whether it happened.
+ */
+export const TRACER_REOPEN_OPENING_REPLY = 'Standalone web opened the transferred target.';
+
 /** The turn that makes the real assistant call the production `ask` tool. */
 export const TRACER_ASK_PROMPT = 'Open a structured question for the production PTY tracer.';
 
