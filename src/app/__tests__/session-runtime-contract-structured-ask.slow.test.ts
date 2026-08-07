@@ -34,7 +34,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { builtinEnvironments } from 'vitest/runtime';
 import { WebSocket } from 'ws';
 
-import { removeSession, sendKeys, sendText, stopSession } from '../../dev/tui-driver.js';
+import { removeSession, stopSession } from '../../dev/tui-driver.js';
 import type { SessionPresentationEntry } from '../../projections/session/session-presentation.js';
 import { projectSessionPresentationFile } from '../../projections/session/session-presentation.js';
 import type { WorkspaceState } from '../../projections/workspace/workspace-state.js';
@@ -58,6 +58,7 @@ import {
   requireScreen,
   sessionWriterLockExists,
   startProductionTui,
+  typeAndSubmit,
   waitForScreen,
 } from './session-runtime-contract-pty-journey.js';
 import {
@@ -188,15 +189,6 @@ function askOpenedEvents(
   });
 }
 
-/** Type into the real Pi editor and submit only once it has echoed the text back. */
-async function typeAndSubmit(name: string, text: string): Promise<void> {
-  sendText(name, text);
-  if (!(await waitForScreen(name, text, ATTACH_TIMEOUT_MS)).matched) {
-    throw new Error(`production Pi editor never echoed ${text}`);
-  }
-  sendKeys(name, ['Enter']);
-}
-
 async function waitForSettled(
   notifications: readonly WebSocketRpcNotification[],
   alreadySeen: number,
@@ -247,7 +239,7 @@ async function driveStructuredAskJourney(): Promise<StructuredAskJourney> {
     await waitFor(() => expect(transcriptList()).toBeDefined(), { timeout: ATTACH_TIMEOUT_MS });
 
     // The assistant's ask is provoked from the PTY keyboard; the browser watches.
-    await typeAndSubmit(name, TRACER_ASK_PROMPT);
+    await typeAndSubmit(name, TRACER_ASK_PROMPT, ATTACH_TIMEOUT_MS);
     await requireScreen(name, TRACER_ASK_BODY, TURN_TIMEOUT_MS);
 
     await waitFor(() => expect(askOpenedEvents(notifications).length).toBeGreaterThan(0), {
@@ -278,7 +270,7 @@ async function driveStructuredAskJourney(): Promise<StructuredAskJourney> {
     const settledBeforeAnswer = liveSessionDeltas(notifications).filter(
       (delta) => delta.type === 'agent_settled',
     ).length;
-    await typeAndSubmit(name, TRACER_ASK_ANSWER);
+    await typeAndSubmit(name, TRACER_ASK_ANSWER, ATTACH_TIMEOUT_MS);
     await requireScreen(name, TRACER_ASK_REPLY, TURN_TIMEOUT_MS);
     await waitForSettled(notifications, settledBeforeAnswer);
 
@@ -310,7 +302,7 @@ async function driveStructuredAskJourney(): Promise<StructuredAskJourney> {
     const settledBeforeStyle = liveSessionDeltas(notifications).filter(
       (delta) => delta.type === 'agent_settled',
     ).length;
-    await typeAndSubmit(name, CONSULT_COMMAND);
+    await typeAndSubmit(name, CONSULT_COMMAND, ATTACH_TIMEOUT_MS);
     await commitModeChoice(name);
     await waitForSettled(notifications, settledBeforeStyle);
 
