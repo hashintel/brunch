@@ -29,6 +29,8 @@ import {
   TRACER_OPENING_REPLY,
   TRACER_PROBE_PROMPT,
   TRACER_PROBE_REPLY,
+  TRACER_RIVAL_PROMPT,
+  TRACER_RIVAL_REPLY,
   TRACER_SPEC_TITLE,
   type ProductionTracerReport,
 } from './session-runtime-contract-tracer-support.js';
@@ -57,9 +59,12 @@ const provider = registerFauxProvider({
 });
 /**
  * Every queued step is this same content-addressed responder, so ordering
- * cannot make a witness pass by accident. The answered-ask branch is checked
- * before the ask-prompt branch: once the answer is in context, the exchange is
- * over, and re-reading the still-present prompt would loop on the tool call.
+ * cannot make a witness pass by accident. Branches are checked latest-marker
+ * first, because context accumulates: the answered-ask branch precedes the
+ * ask-prompt branch (once the answer is in context the exchange is over, and
+ * re-reading the still-present prompt would loop on the tool call), and the
+ * rival branch precedes the probe branch (the authority witness types the probe
+ * prompt first, so it is still in context when the rival turn arrives).
  */
 function respond(context: unknown) {
   const seen = JSON.stringify(context);
@@ -76,6 +81,7 @@ function respond(context: unknown) {
       { stopReason: 'toolUse' },
     );
   }
+  if (seen.includes(TRACER_RIVAL_PROMPT)) return fauxAssistantMessage(TRACER_RIVAL_REPLY);
   if (seen.includes(TRACER_PROBE_PROMPT)) return fauxAssistantMessage(TRACER_PROBE_REPLY);
   return fauxAssistantMessage(TRACER_OPENING_REPLY);
 }

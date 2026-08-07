@@ -43,7 +43,16 @@ Two adjacency notes for the builder:
 
 ## Slice 1 — rival standalone-web refusal under live TUI ownership
 
-Status: **next** · Weight: **full scope card**
+Status: **done** (2026-08-07) · Weight: **full scope card**
+
+Divergences from the tentative plan, all inside the declared manifest: the child's rival branch
+had to be ordered *above* the probe branch rather than merely above the opening-reply fallback,
+because the responder is content-addressed over accumulated context and the probe prompt is still
+present when the rival turn arrives. The journey module gained `typeAndSubmit` and
+`readSessionWriterOwnerRecord` (with `sessionWriterLockExists` re-expressed over the latter);
+`session-runtime-contract-structured-ask.slow.test.ts` still holds a private `typeAndSubmit` copy
+that a later touch of that file should collapse onto the shared helper. `QUEUED_RESPONSES` stayed
+at 12 — no turn went unanswered.
 
 ### Target Behavior
 

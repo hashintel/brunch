@@ -24,6 +24,7 @@ import {
   isSessionAlive,
   renderScreenFromLog,
   sendKeys,
+  sendText,
   sessionStatus,
   startSession,
   waitForScreenText,
@@ -134,6 +135,20 @@ export async function commitModeChoice(name: string): Promise<void> {
   await requireScreenWithout(name, MODE_CHOOSER, QUIT_TIMEOUT_MS);
 }
 
+/**
+ * Type one instruction into the real Pi editor and submit it only once the
+ * editor has echoed it back. Submitting blind would let a modal that is still
+ * capturing keys swallow the text and turn a missing turn into a timeout
+ * somewhere later.
+ */
+export async function typeAndSubmit(name: string, text: string, timeoutMs: number): Promise<void> {
+  sendText(name, text);
+  if (!(await waitForScreen(name, text, timeoutMs)).matched) {
+    throw new Error(`production Pi editor never echoed ${text}`);
+  }
+  sendKeys(name, ['Enter']);
+}
+
 /** Normal Ctrl-D quit, bounded. Resolves to whether the PTY was still alive. */
 export async function quitAndAwaitExit(name: string, timeoutMs = QUIT_TIMEOUT_MS): Promise<boolean> {
   sendKeys(name, ['C-d']);
@@ -146,12 +161,23 @@ export async function quitAndAwaitExit(name: string, timeoutMs = QUIT_TIMEOUT_MS
   return isSessionAlive(status.dir);
 }
 
-/** The per-target writer lock is a directory holding `owner.json` (I64-L). */
-export async function sessionWriterLockExists(cwd: string, target: SessionTarget): Promise<boolean> {
+/**
+ * The per-target writer lock is a directory holding `owner.json` (I64-L). The
+ * raw record is returned rather than a parsed shape, so a contention witness can
+ * compare it byte-for-byte and prove the incumbent's lock was neither stolen nor
+ * re-acquired.
+ */
+export async function readSessionWriterOwnerRecord(
+  cwd: string,
+  target: SessionTarget,
+): Promise<string | undefined> {
   try {
-    await readFile(join(sessionWriterLockPath(cwd, target), 'owner.json'));
-    return true;
+    return await readFile(join(sessionWriterLockPath(cwd, target), 'owner.json'), 'utf8');
   } catch {
-    return false;
+    return undefined;
   }
+}
+
+export async function sessionWriterLockExists(cwd: string, target: SessionTarget): Promise<boolean> {
+  return (await readSessionWriterOwnerRecord(cwd, target)) !== undefined;
 }

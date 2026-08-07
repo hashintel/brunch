@@ -25,6 +25,16 @@ export const TRACER_PROBE_PROMPT = 'Confirm the production PTY tracer turn.';
 /** Assistant text the faux backend returns for exactly that prompt. */
 export const TRACER_PROBE_REPLY = 'Acknowledged the production PTY tracer turn.';
 
+/**
+ * The turn typed after a rival standalone-web composition has been refused the
+ * TUI-owned target. It shares no substring with the other prompts, because the
+ * child's responder is content-addressed over the whole accumulated context.
+ */
+export const TRACER_RIVAL_PROMPT = 'Carry on after the refused second window.';
+
+/** Assistant text the faux backend returns for exactly that prompt. */
+export const TRACER_RIVAL_REPLY = 'Carried on with the sole writable runtime.';
+
 /** The turn that makes the real assistant call the production `ask` tool. */
 export const TRACER_ASK_PROMPT = 'Open a structured question for the production PTY tracer.';
 
