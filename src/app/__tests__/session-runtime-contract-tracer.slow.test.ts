@@ -6,22 +6,23 @@ import { join } from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-import {
-  isSessionAlive,
-  removeSession,
-  renderScreenFromLog,
-  sendKeys,
-  sendText,
-  sessionStatus,
-  startSession,
-  stopSession,
-  waitForScreenText,
-} from '../../dev/tui-driver.js';
+import { removeSession, sendKeys, sendText, sessionStatus, stopSession } from '../../dev/tui-driver.js';
 import type { HostedSessionRpcBoundary } from '../../rpc/methods/hosted-session.js';
-import { acquireSessionWriter, sessionWriterLockPath } from '../../session/session-writer-guard.js';
+import { acquireSessionWriter } from '../../session/session-writer-guard.js';
 import type { WorkspaceSessionReadyState } from '../../session/workspace-session-coordinator.js';
 import { inspectCanonicalSessionFiles } from '../../session/workspace-session-coordinator/canonical-session-files.js';
 import { runBrunchTui } from '../brunch-tui.js';
+import {
+  BOOT_TIMEOUT_MS,
+  CHILD_PATH,
+  TURN_TIMEOUT_MS,
+  dismissModeChooser,
+  quitAndAwaitExit,
+  requireScreen,
+  sessionWriterLockExists,
+  startProductionTui,
+  waitForScreen,
+} from './session-runtime-contract-pty-journey.js';
 import {
   TRACER_PROBE_PROMPT,
   TRACER_PROBE_REPLY,
@@ -138,13 +139,6 @@ describe('session runtime contract production tracer', () => {
  * `launchInteractive`, so the production `launchPiInteractive` path builds the
  * runtime and a real Pi `InteractiveMode` inside a PTY.
  */
-const REPO_ROOT = join(import.meta.dirname, '..', '..', '..');
-const CHILD_ENTRY = 'src/app/__tests__/session-runtime-contract-tracer-child.ts';
-const CHILD_PATH = join(REPO_ROOT, CHILD_ENTRY);
-const BOOT_TIMEOUT_MS = 90_000;
-const TURN_TIMEOUT_MS = 60_000;
-const MODE_CHOOSER = 'Choose how Specify mode should work';
-
 interface ProductionPtyJourney {
   readonly childSource: string;
   readonly report: ProductionTracerReport;
@@ -156,45 +150,6 @@ interface ProductionPtyJourney {
   readonly jsonl: string;
   readonly writerLockExists: boolean;
   readonly sessionDirRemoved: boolean;
-}
-
-async function waitForScreen(
-  name: string,
-  text: string | RegExp,
-  timeoutMs: number,
-): Promise<{ readonly matched: boolean; readonly screen: string[] }> {
-  const status = sessionStatus(name);
-  if (!status) throw new Error(`tui-driver session ${name} disappeared`);
-  return waitForScreenText(status.logPath, status.cols, status.rows, text, { timeoutMs });
-}
-
-async function requireScreen(name: string, text: string | RegExp, timeoutMs: number): Promise<string[]> {
-  const result = await waitForScreen(name, text, timeoutMs);
-  if (!result.matched) {
-    throw new Error(
-      `production TUI never rendered ${String(text)}\n${result.screen.map((line) => `│${line}`).join('\n')}`,
-    );
-  }
-  return result.screen;
-}
-
-/**
- * The absence half of wait-for-text. A modal that is still capturing keys
- * swallows typed text silently, so the journey has to see it gone rather than
- * assume a keypress has landed.
- */
-async function requireScreenWithout(name: string, text: string, timeoutMs: number): Promise<void> {
-  const status = sessionStatus(name);
-  if (!status) throw new Error(`tui-driver session ${name} disappeared`);
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const screen = await renderScreenFromLog(status.logPath, status.cols, status.rows);
-    if (!screen.join('\n').includes(text)) return;
-    if (Date.now() >= deadline) {
-      throw new Error(`production TUI still showed ${text}\n${screen.map((line) => `│${line}`).join('\n')}`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  }
 }
 
 /**
@@ -209,35 +164,15 @@ async function driveProductionPtyJourney(): Promise<ProductionPtyJourney> {
   const name = `production-pty-${randomUUID()}`;
   const childSource = await readFile(CHILD_PATH, 'utf8');
 
-  await startSession({
-    name,
-    cols: 120,
-    rows: 40,
-    cwd: REPO_ROOT,
-    command: [
-      '/usr/bin/env',
-      'PI_OFFLINE=1',
-      'PI_SKIP_VERSION_CHECK=1',
-      `PI_CODING_AGENT_DIR=${agentDir}`,
-      process.execPath,
-      '--import',
-      'tsx',
-      CHILD_ENTRY,
-      cwd,
-      reportPath,
-    ],
-  });
+  await startProductionTui({ name, cwd, agentDir, reportPath });
 
   try {
     // Boot: real Brunch startup chrome plus the Pi editor frame.
     const bootScreen = await requireScreen(name, 'Welcome to Brunch.', BOOT_TIMEOUT_MS);
 
     // The product opens Specify mode with its own how-to-work chooser, which
-    // holds the keyboard until dismissed. Esc is the ordinary "give another
-    // instruction" gesture, not a test hook.
-    await requireScreen(name, MODE_CHOOSER, BOOT_TIMEOUT_MS);
-    sendKeys(name, ['Esc']);
-    await requireScreenWithout(name, MODE_CHOOSER, 30_000);
+    // holds the keyboard until dismissed.
+    await dismissModeChooser(name);
 
     // Ordinary turn through the real editor: the prompt has to render before
     // Enter, or "editable prompt" is an untested claim.
@@ -248,22 +183,17 @@ async function driveProductionPtyJourney(): Promise<ProductionPtyJourney> {
     const replyScreen = await requireScreen(name, TRACER_PROBE_REPLY, TURN_TIMEOUT_MS);
 
     // Bounded cleanup: normal Ctrl-D quit, then durable postconditions.
-    sendKeys(name, ['C-d']);
-    const status = sessionStatus(name)!;
-    const quitDeadline = Date.now() + 30_000;
-    while (isSessionAlive(status.dir) && Date.now() < quitDeadline) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    }
-    const aliveAfterQuit = isSessionAlive(status.dir);
+    const aliveAfterQuit = await quitAndAwaitExit(name);
 
     const report = JSON.parse(await readFile(reportPath, 'utf8')) as ProductionTracerReport;
     const sessionFilesAfterQuit = await inspectCanonicalSessionFiles(cwd);
     const [only] = sessionFilesAfterQuit;
     if (!only?.available) throw new Error('production TUI left no readable canonical session');
     const jsonl = await readFile(only.file, 'utf8');
-    const writerLockExists = await pathExists(
-      sessionWriterLockPath(cwd, { specId: only.specId, sessionId: only.id }),
-    );
+    const writerLockExists = await sessionWriterLockExists(cwd, {
+      specId: only.specId,
+      sessionId: only.id,
+    });
 
     removeSession(name, { force: false });
     return {
@@ -283,15 +213,6 @@ async function driveProductionPtyJourney(): Promise<ProductionPtyJourney> {
     removeSession(name, { force: true });
     await rm(cwd, { recursive: true, force: true });
     await rm(agentDir, { recursive: true, force: true });
-  }
-}
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await readFile(join(path, 'owner.json'));
-    return true;
-  } catch {
-    return false;
   }
 }
 
