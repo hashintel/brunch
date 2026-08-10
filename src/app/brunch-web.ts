@@ -74,13 +74,14 @@ async function createStandaloneSessionRuntime(
   agentServices?: BrunchAgentServicesOverride,
 ): Promise<LiveSessionRuntime> {
   const writer = await acquireSessionWriter({ cwd, target });
+  let runtime: Awaited<ReturnType<typeof createAgentSessionRuntime>> | undefined;
   let runtimeDisposed = false;
   try {
     const workspace = await coordinator.openTargetSession(target);
 
     const liveExchange = createLiveAskRegistry();
     const liveAgentSession = { current: null };
-    const runtime = await createAgentSessionRuntime(
+    const createdRuntime = await createAgentSessionRuntime(
       createBrunchAgentSessionRuntimeFactory({
         workspace,
         coordinator: {
@@ -96,18 +97,19 @@ async function createStandaloneSessionRuntime(
       }),
       { cwd, agentDir: getAgentDir(), sessionManager: workspace.session.manager },
     );
-    await runtime.session.bindExtensions({});
+    runtime = createdRuntime;
+    await createdRuntime.session.bindExtensions({});
     const listeners = new Set<Parameters<LiveSessionRuntime['subscribe']>[0]>();
     const unsubscribeAsk = liveExchange.subscribe((ask) => {
       for (const listener of listeners) listener({ type: 'ask_opened', ask });
     });
     const project = createLiveSessionEventProjection();
-    const unsubscribe = runtime.session.subscribe((event) => {
+    const unsubscribe = createdRuntime.session.subscribe((event) => {
       const delta = project(event);
       if (delta) for (const listener of listeners) listener(delta);
     });
     return {
-      prompt: (text) => runtime.session.prompt(text, { expandPromptTemplates: false, source: 'rpc' }),
+      prompt: (text) => createdRuntime.session.prompt(text, { expandPromptTemplates: false, source: 'rpc' }),
       openAsks: () => liveExchange.reader.openAsks(),
       answerExchange: (exchangeId, answer) => liveExchange.answerer.submitAnswer({ exchangeId, answer }),
       subscribe(listener) {
@@ -120,14 +122,36 @@ async function createStandaloneSessionRuntime(
         unsubscribe();
         unsubscribeAsk();
         try {
-          await runtime.dispose();
+          await createdRuntime.dispose();
         } finally {
           await writer.release();
         }
       },
     };
   } catch (error) {
-    if (!runtimeDisposed) await writer.release();
+    const cleanupErrors: unknown[] = [];
+    if (runtime && !runtimeDisposed) {
+      runtimeDisposed = true;
+      try {
+        await runtime.dispose();
+      } catch (cleanupError) {
+        cleanupErrors.push(cleanupError);
+      }
+    }
+    try {
+      await writer.release();
+    } catch (cleanupError) {
+      cleanupErrors.push(cleanupError);
+    }
+    if (cleanupErrors.length > 0) {
+      throw new AggregateError(
+        [error, ...cleanupErrors],
+        'Standalone runtime initialization and cleanup failed',
+        {
+          cause: error,
+        },
+      );
+    }
     throw error;
   }
 }

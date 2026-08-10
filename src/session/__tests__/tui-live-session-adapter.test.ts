@@ -89,7 +89,37 @@ describe('TUI live-session adapter', () => {
 
     Object.defineProperty(live, 'isStreaming', { value: true });
     await expect(adapter.driveTurn(target, 'browser', 'Rival')).resolves.toEqual({ status: 'busy' });
+    await expect(adapter.close(target)).resolves.toEqual({ status: 'busy' });
     expect(live.prompt).toHaveBeenCalledTimes(1);
     expect(adapter.openAsks({ ...target, sessionId: 'rival' })).toBeUndefined();
+  });
+
+  it('enforces one browser driver per attachment epoch', async () => {
+    const adapter = createTuiLiveSessionAdapter({ target, asks: createLiveAskRegistry() });
+    const first = session();
+    adapter.attachSession(first);
+
+    await expect(adapter.driveTurn(target, 'browser-a', 'First')).resolves.toEqual({ status: 'completed' });
+    await expect(adapter.driveTurn(target, 'browser-b', 'Rival')).resolves.toEqual({
+      status: 'driver_conflict',
+    });
+    expect(adapter.answerExchange(target, 'browser-b', 'ask-1', 'Rival')).toEqual({
+      status: 'driver_conflict',
+    });
+
+    await expect(adapter.close(target)).resolves.toEqual({ status: 'closed' });
+    await expect(adapter.driveTurn(target, 'browser-b', 'After close')).resolves.toEqual({
+      status: 'completed',
+    });
+
+    adapter.attachSession(session());
+    await expect(adapter.driveTurn(target, 'browser-c', 'After attach')).resolves.toEqual({
+      status: 'completed',
+    });
+    adapter.detachSession();
+    adapter.attachSession(session());
+    await expect(adapter.driveTurn(target, 'browser-d', 'After detach')).resolves.toEqual({
+      status: 'completed',
+    });
   });
 });

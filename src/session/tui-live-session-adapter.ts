@@ -32,6 +32,7 @@ export function createTuiLiveSessionAdapter(input: {
   let session: TuiAdaptedSession | null = null;
   let unsubscribeSession: (() => void) | undefined;
   let unsubscribeAsks: (() => void) | undefined;
+  let driverId: string | null = null;
   let seq = 0;
 
   const emit = (delta: LiveSessionEvent['delta']) => {
@@ -46,6 +47,7 @@ export function createTuiLiveSessionAdapter(input: {
       unsubscribeSession?.();
       unsubscribeAsks?.();
       session = next;
+      driverId = null;
       seq = 0;
       const project = createLiveSessionEventProjection();
       unsubscribeSession = next.subscribe((event) => {
@@ -59,25 +61,33 @@ export function createTuiLiveSessionAdapter(input: {
       unsubscribeAsks?.();
       unsubscribeSession = undefined;
       unsubscribeAsks = undefined;
+      driverId = null;
       session = null;
     },
     async open(target) {
       return { status: matches(target) && session ? 'attached' : 'not_open' };
     },
     async close(target) {
-      return { status: matches(target) && session ? 'closed' : 'not_open' };
-    },
-    async driveTurn(target, _driverId, prompt) {
       if (!matches(target) || !session) return { status: 'not_open' };
       if (session.isStreaming) return { status: 'busy' };
+      driverId = null;
+      return { status: 'closed' };
+    },
+    async driveTurn(target, nextDriverId, prompt) {
+      if (!matches(target) || !session) return { status: 'not_open' };
+      if (driverId !== null && driverId !== nextDriverId) return { status: 'driver_conflict' };
+      if (session.isStreaming) return { status: 'busy' };
+      driverId = nextDriverId;
       await session.prompt(prompt, { expandPromptTemplates: false, source: 'rpc' });
       return { status: 'completed' };
     },
     openAsks(target) {
       return matches(target) && session ? input.asks.reader.openAsks() : undefined;
     },
-    answerExchange(target, _driverId, exchangeId, answer) {
+    answerExchange(target, nextDriverId, exchangeId, answer) {
       if (!matches(target) || !session) return { status: 'not_open' };
+      if (driverId !== null && driverId !== nextDriverId) return { status: 'driver_conflict' };
+      driverId = nextDriverId;
       const outcome = input.asks.answerer.submitAnswer({ exchangeId, answer });
       if (outcome.submitted) return { status: 'completed' };
       return { status: outcome.reason === 'invalid_answer' ? 'invalid_answer' : 'ask_closed' };
@@ -89,6 +99,7 @@ export function createTuiLiveSessionAdapter(input: {
     async dispose() {
       unsubscribeSession?.();
       unsubscribeAsks?.();
+      driverId = null;
       session = null;
       listeners.clear();
     },
