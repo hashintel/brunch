@@ -9,12 +9,7 @@
       },
       "resultSchema": {
         "type": "object",
-        "required": [
-          "status",
-          "cwd",
-          "spec",
-          "chrome"
-        ],
+        "required": ["status", "cwd", "spec", "chrome"],
         "properties": {
           "status": {
             "type": "string"
@@ -67,19 +62,13 @@
       "description": "Apply an explicit workspace→spec→session activation decision such as continuing, opening a session, creating a session, creating a spec, or cancelling.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "decision"
-        ],
+        "required": ["decision"],
         "properties": {
           "decision": {
             "anyOf": [
               {
                 "type": "object",
-                "required": [
-                  "action",
-                  "specId",
-                  "sessionFile"
-                ],
+                "required": ["action", "specId", "sessionFile"],
                 "properties": {
                   "action": {
                     "type": "string",
@@ -99,11 +88,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "action",
-                  "specId",
-                  "sessionFile"
-                ],
+                "required": ["action", "specId", "sessionFile"],
                 "properties": {
                   "action": {
                     "type": "string",
@@ -123,10 +108,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "action",
-                  "specId"
-                ],
+                "required": ["action", "specId"],
                 "properties": {
                   "action": {
                     "type": "string",
@@ -141,10 +123,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "action",
-                  "title"
-                ],
+                "required": ["action", "title"],
                 "properties": {
                   "action": {
                     "type": "string",
@@ -160,9 +139,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "action"
-                ],
+                "required": ["action"],
                 "properties": {
                   "action": {
                     "type": "string",
@@ -180,12 +157,7 @@
         "anyOf": [
           {
             "type": "object",
-            "required": [
-              "status",
-              "spec",
-              "session",
-              "chrome"
-            ],
+            "required": ["status", "spec", "session", "chrome"],
             "properties": {
               "status": {
                 "type": "string",
@@ -211,10 +183,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "status",
-              "chrome"
-            ],
+            "required": ["status", "chrome"],
             "properties": {
               "status": {
                 "type": "string",
@@ -261,9 +230,7 @@
       "description": "Project session exchanges from the selected or explicitly named linear Brunch session transcript.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "sessionId"
-        ],
+        "required": ["sessionId"],
         "properties": {
           "sessionId": {
             "type": "string",
@@ -279,10 +246,7 @@
       },
       "resultSchema": {
         "type": "object",
-        "required": [
-          "status",
-          "exchanges"
-        ],
+        "required": ["status", "exchanges"],
         "properties": {
           "status": {
             "type": "string"
@@ -315,10 +279,7 @@
       "description": "Return flattened transcript-backed runtime posture, mention, world-watermark, and lifecycle state for an explicit Brunch session.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "sessionId",
-          "specId"
-        ],
+        "required": ["sessionId", "specId"],
         "properties": {
           "sessionId": {
             "type": "string",
@@ -334,15 +295,7 @@
       },
       "resultSchema": {
         "type": "object",
-        "required": [
-          "status",
-          "specId",
-          "sessionId",
-          "agent",
-          "mentions",
-          "world",
-          "lifecycle"
-        ],
+        "required": ["status", "specId", "sessionId", "agent", "mentions", "world", "lifecycle"],
         "properties": {
           "status": {
             "type": "string",
@@ -359,10 +312,7 @@
           },
           "agent": {
             "type": "object",
-            "required": [
-              "operationalMode",
-              "role"
-            ],
+            "required": ["operationalMode", "role"],
             "properties": {
               "operationalMode": {
                 "type": "string",
@@ -377,18 +327,13 @@
           },
           "mentions": {
             "type": "object",
-            "required": [
-              "graphNodes",
-              "files"
-            ],
+            "required": ["graphNodes", "files"],
             "properties": {
               "graphNodes": {
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": [
-                    "id"
-                  ],
+                  "required": ["id"],
                   "properties": {
                     "id": {
                       "type": "string",
@@ -417,9 +362,7 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": [
-                    "path"
-                  ],
+                  "required": ["path"],
                   "properties": {
                     "path": {
                       "type": "string",
@@ -440,16 +383,11 @@
           },
           "world": {
             "type": "object",
-            "required": [
-              "graph",
-              "git"
-            ],
+            "required": ["graph", "git"],
             "properties": {
               "graph": {
                 "type": "object",
-                "required": [
-                  "latestLsn"
-                ],
+                "required": ["latestLsn"],
                 "properties": {
                   "latestLsn": {
                     "anyOf": [
@@ -467,9 +405,7 @@
               },
               "git": {
                 "type": "object",
-                "required": [
-                  "head"
-                ],
+                "required": ["head"],
                 "properties": {
                   "head": {
                     "anyOf": [
@@ -589,10 +525,7 @@
         "anyOf": [
           {
             "type": "object",
-            "required": [
-              "status",
-              "exchange"
-            ],
+            "required": ["status", "exchange"],
             "properties": {
               "status": {
                 "type": "string",
@@ -612,12 +545,7 @@
                   },
                   "mode": {
                     "type": "string",
-                    "enum": [
-                      "text",
-                      "single-select",
-                      "multi-select",
-                      "review"
-                    ]
+                    "enum": ["text", "single-select", "multi-select", "review"]
                   },
                   "prompt": {
                     "type": "string",
@@ -649,11 +577,7 @@
                           "minLength": 1
                         }
                       },
-                      "required": [
-                        "id",
-                        "label",
-                        "content"
-                      ],
+                      "required": ["id", "label", "content"],
                       "additionalProperties": false
                     }
                   },
@@ -664,9 +588,7 @@
                         "type": "boolean"
                       }
                     },
-                    "required": [
-                      "allowed"
-                    ],
+                    "required": ["allowed"],
                     "additionalProperties": false
                   },
                   "reviewSet": {
@@ -682,21 +604,10 @@
                   },
                   "respondsToPresentTool": {
                     "type": "string",
-                    "enum": [
-                      "present_candidates",
-                      "present_review_set",
-                      "present_digest"
-                    ]
+                    "enum": ["present_candidates", "present_review_set", "present_digest"]
                   }
                 },
-                "required": [
-                  "exchangeId",
-                  "lens",
-                  "mode",
-                  "prompt",
-                  "options",
-                  "note"
-                ],
+                "required": ["exchangeId", "lens", "mode", "prompt", "options", "note"],
                 "additionalProperties": false
               }
             },
@@ -704,10 +615,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "status",
-              "exchange"
-            ],
+            "required": ["status", "exchange"],
             "properties": {
               "status": {
                 "type": "string",
@@ -734,9 +642,7 @@
       "description": "Read the current transcript-backed pending structured exchange from the selected or explicitly named linear Brunch session.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "sessionId"
-        ],
+        "required": ["sessionId"],
         "properties": {
           "sessionId": {
             "type": "string",
@@ -754,10 +660,7 @@
         "anyOf": [
           {
             "type": "object",
-            "required": [
-              "status",
-              "exchange"
-            ],
+            "required": ["status", "exchange"],
             "properties": {
               "status": {
                 "type": "string",
@@ -777,12 +680,7 @@
                   },
                   "mode": {
                     "type": "string",
-                    "enum": [
-                      "text",
-                      "single-select",
-                      "multi-select",
-                      "review"
-                    ]
+                    "enum": ["text", "single-select", "multi-select", "review"]
                   },
                   "prompt": {
                     "type": "string",
@@ -814,11 +712,7 @@
                           "minLength": 1
                         }
                       },
-                      "required": [
-                        "id",
-                        "label",
-                        "content"
-                      ],
+                      "required": ["id", "label", "content"],
                       "additionalProperties": false
                     }
                   },
@@ -829,9 +723,7 @@
                         "type": "boolean"
                       }
                     },
-                    "required": [
-                      "allowed"
-                    ],
+                    "required": ["allowed"],
                     "additionalProperties": false
                   },
                   "reviewSet": {
@@ -847,21 +739,10 @@
                   },
                   "respondsToPresentTool": {
                     "type": "string",
-                    "enum": [
-                      "present_candidates",
-                      "present_review_set",
-                      "present_digest"
-                    ]
+                    "enum": ["present_candidates", "present_review_set", "present_digest"]
                   }
                 },
-                "required": [
-                  "exchangeId",
-                  "lens",
-                  "mode",
-                  "prompt",
-                  "options",
-                  "note"
-                ],
+                "required": ["exchangeId", "lens", "mode", "prompt", "options", "note"],
                 "additionalProperties": false
               }
             },
@@ -869,10 +750,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "status",
-              "exchange"
-            ],
+            "required": ["status", "exchange"],
             "properties": {
               "status": {
                 "type": "string",
@@ -908,10 +786,7 @@
       "description": "Submit a text, single-choice, or multi-choice answer for the selected session's current deterministic tuple-shaped pending structured exchange.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "exchangeId",
-          "answer"
-        ],
+        "required": ["exchangeId", "answer"],
         "properties": {
           "exchangeId": {
             "type": "string",
@@ -922,9 +797,7 @@
             "anyOf": [
               {
                 "type": "object",
-                "required": [
-                  "text"
-                ],
+                "required": ["text"],
                 "properties": {
                   "text": {
                     "type": "string",
@@ -936,9 +809,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "optionId"
-                ],
+                "required": ["optionId"],
                 "properties": {
                   "optionId": {
                     "type": "string",
@@ -950,9 +821,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "optionIds"
-                ],
+                "required": ["optionIds"],
                 "properties": {
                   "optionIds": {
                     "type": "array",
@@ -968,15 +837,11 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "review"
-                ],
+                "required": ["review"],
                 "properties": {
                   "review": {
                     "type": "object",
-                    "required": [
-                      "decision"
-                    ],
+                    "required": ["decision"],
                     "properties": {
                       "decision": {
                         "anyOf": [
@@ -1013,11 +878,7 @@
       },
       "resultSchema": {
         "type": "object",
-        "required": [
-          "status",
-          "exchangeId",
-          "answer"
-        ],
+        "required": ["status", "exchangeId", "answer"],
         "properties": {
           "status": {
             "type": "string",
@@ -1037,11 +898,7 @@
             "anyOf": [
               {
                 "type": "object",
-                "required": [
-                  "status",
-                  "lsn",
-                  "createdNodes"
-                ],
+                "required": ["status", "lsn", "createdNodes"],
                 "properties": {
                   "status": {
                     "type": "string",
@@ -1061,9 +918,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "status"
-                ],
+                "required": ["status"],
                 "properties": {
                   "status": {
                     "anyOf": [
@@ -1082,10 +937,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "status",
-                  "diagnostics"
-                ],
+                "required": ["status", "diagnostics"],
                 "properties": {
                   "status": {
                     "type": "string",
