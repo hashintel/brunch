@@ -4,7 +4,6 @@ import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  AuthStorage,
   createAgentSession,
   createBashToolDefinition,
   createEditToolDefinition,
@@ -15,7 +14,7 @@ import {
   createWriteToolDefinition,
   type CreateAgentSessionOptions,
   DefaultResourceLoader,
-  ModelRegistry,
+  ModelRuntime,
   SessionManager,
   SettingsManager,
   type Skill,
@@ -352,10 +351,17 @@ async function buildSessionOptions(
     );
   }
 
-  const authStorage = AuthStorage.create(join(isolatedDir, 'auth.json'));
-  authStorage.setRuntimeApiKey('anthropic', apiKey);
-  const modelRegistry = ModelRegistry.inMemory(authStorage);
-  const model = modelRegistry.find('anthropic', opts.model);
+  // pi 0.80.8 replaced the `authStorage` + `modelRegistry` session options with
+  // a single async `modelRuntime`. Built-ins only: `modelsPath: null` skips
+  // models.json and `refreshOnCreate: false` keeps creation offline, matching
+  // the old `ModelRegistry.inMemory` behaviour.
+  const modelRuntime = await ModelRuntime.create({
+    authPath: join(isolatedDir, 'auth.json'),
+    modelsPath: null,
+    refreshOnCreate: false,
+  });
+  await modelRuntime.setRuntimeApiKey('anthropic', apiKey);
+  const model = modelRuntime.getModel('anthropic', opts.model);
   if (!model) {
     throw new Error(`model anthropic/${opts.model} not found in the pi model registry`);
   }
@@ -387,8 +393,7 @@ async function buildSessionOptions(
     cwd: opts.sandboxDir,
     agentDir: isolatedDir,
     model,
-    authStorage,
-    modelRegistry,
+    modelRuntime,
     resourceLoader,
     noTools: 'builtin',
     tools: toolNames,
