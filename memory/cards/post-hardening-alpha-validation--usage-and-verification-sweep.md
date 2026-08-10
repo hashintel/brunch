@@ -77,7 +77,7 @@ One genuinely omitted capability may be added with a one-line justification. Mor
 | Conditional CI lane selection | `built` | ● | `earned` | `scripts/ci-test-lanes.mjs`, workflow | Focused selector tests prove closed allowlist omission and fail-open behavior for runtime, unknown/incomplete, and merge-group events; workflow and SPEC policy agree. Evidence: [`testing/walkthroughs/2026-08-10/conditional-ci-lane-selection.md`](../../testing/walkthroughs/2026-08-10/conditional-ci-lane-selection.md). |
 | Installed-package integrity | `built` | ● | `proving` | `scripts/check-release-pack.mjs`, package assets | `npm run check:release-pack` passes: tarball assets, isolated install, foreign-cwd boot/RPC, and SQLite native binding work without source-tree reachability. Evidence: [`testing/walkthroughs/2026-08-10/installed-package-integrity.md`](../../testing/walkthroughs/2026-08-10/installed-package-integrity.md). |
 | Installed interactive-mode boot | `built` | ● | `proving` | packaged CLI + TUI/web composition | A fresh packed isolated install using exactly the reviewed truthy `package.json.allowScripts` policy starts the installed authless TUI under the project-owned PTY fallback and installed standalone web from separate foreign cwd(s); the rendered pre-agent workspace chooser and served loopback HTML surface are observed before clean shutdown with no driver session, listener, or process residue. No provider turn or publication occurred. Evidence: [`testing/walkthroughs/2026-08-10/installed-interactive-mode-boot.md`](../../testing/walkthroughs/2026-08-10/installed-interactive-mode-boot.md). |
-| Current testing guidance | `partial` | ● | `earned` | FE-1348; reconcile D142-L after the Execute RPC spike | Existing branch/PR/command/runtime assumptions were reconciled, but `docs/praxis/manual-testing.md` and comparison guidance still prescribe interactive shells without D142-L's machine-first routing or its confirmed Brunch Execute exception. Update the canonical guidance without claiming a machine-only Execute path; Markdown-link check must pass. Existing evidence: [`TESTING_PLAN.md`](../../TESTING_PLAN.md). |
+| Current testing guidance | `built` | ● | `earned` | `TESTING_PLAN.md`, D142-L, manual/comparison/dev guidance | Canonical guidance now chooses machine, browser, or PTY control by the evidence claim; Herdr is the preferred PTY host, with overlay and headless fallbacks retained. The current prompt-level `interactive_shell` behavior and Brunch Execute process-move exception remain explicit and owned by `cli-mode-entry` / `comparison-machine-interface-cutover`; no unlanded cutover is claimed. `npm run check` passes with only pre-existing warnings. Evidence: [`TESTING_PLAN.md`](../../TESTING_PLAN.md), [`docs/praxis/manual-testing.md`](../../docs/praxis/manual-testing.md), [`docs/praxis/comparison-runs.md`](../../docs/praxis/comparison-runs.md), [`src/dev/README.md`](../../src/dev/README.md). |
 | Findings reconciliation | `partial` | ● | `earned` | `TESTING_FINDINGS.md` | Every observation from this sweep uses the pinned finding shape and terminates as fixed/promoted/retired; historical findings remain provenance rather than being reopened by default. |
 
 ## Explicit deferred / tripwired rows
@@ -118,48 +118,6 @@ Record evidence in `TESTING_FINDINGS.md`. Do not edit production code while exec
 4. Run browser/TUI companion and cross-composition rows, including A51-L/SA1/SA2.
 5. Reconcile guidance and findings; rerun the final canonical gates.
 6. Update ledger statuses and canonical PLAN/SPEC only for evidence actually obtained.
-
-## Active row scope: D142-L testing-guidance reconciliation
-
-Posture: earned (inherited from `post-hardening-alpha-validation`).
-
-### Objective
-
-Canonical operator guidance chooses the least indirect control surface that can prove the claim, while naming the current Brunch Execute machine-control gap without pretending it is closed.
-
-### Cold-start reads
-
-- `memory/SPEC.md` — D142-L and Verification Design
-- `memory/PLAN.md` — `post-hardening-alpha-validation`, `cli-mode-entry`, and `comparison-machine-interface-cutover`
-- `docs/praxis/manual-testing.md` — current TUI/browser protocol
-- `docs/praxis/comparison-runs.md` — current comparison recipes
-- `src/dev/README.md` — current dev-tool entry guidance
-- `.pi/prompts/compare-specs.md` and `.pi/prompts/compare-execution.md` — read-only current behavior; do not migrate either prompt in this row
-
-### Closure target
-
-- Canonicalize control selection by claim: Brunch public RPC, Pi RPC, or Claude stream-JSON/Agent SDK for represented machine-conduct claims; browser tools for browser claims; Herdr for terminal semantics or deliberate human observation; `pi-interactive-shell` as a non-Herdr overlay option; `tui-driver` as the headless PTY fallback.
-- Name the current exception: Brunch Execute comparison remains terminal-driven because neither stdio nor hosted RPC represents the complete process move; `cli-mode-entry` and `comparison-machine-interface-cutover` own closure.
-- Preserve current prompt truth: comparison docs must distinguish the present `interactive_shell` implementation from the planned machine-interface cutover.
-- Do not remove the pinned `pi-interactive-shell` package, alter `.pi/settings.json`, edit comparison prompts, add a harness, or claim a fresh provider witness.
-
-### Acceptance criteria
-
-- ✓ `rg` review of `docs/praxis/manual-testing.md`, `docs/praxis/comparison-runs.md`, and `src/dev/README.md` — no guidance presents PTY simulation as the default for nonvisual conduct; each retained PTY path states the claim that requires it.
-- ✓ `rg` review of comparison guidance — current `interactive_shell` prompt behavior and the planned D142-L cutover are both named without contradiction.
-- ✓ `npm run check:markdown-links` — all local links resolve.
-- ✓ `npm run check` — read-only repository policy remains green after the docs-only change.
-
-### Expected touched paths (this row)
-
-```text
-docs/praxis/
-├── manual-testing.md                                              ~
-└── comparison-runs.md                                             ~
-src/dev/README.md                                                   ~
-memory/cards/
-└── post-hardening-alpha-validation--usage-and-verification-sweep.md ~
-```
 
 ## Expected touched paths (frontier, tentative)
 
