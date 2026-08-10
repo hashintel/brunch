@@ -352,12 +352,17 @@ async function buildSessionOptions(
   }
 
   // pi 0.80.8 replaced the `authStorage` + `modelRegistry` session options with
-  // a single async `modelRuntime`. Built-ins only: `modelsPath: null` skips
-  // models.json and `refreshOnCreate: false` keeps creation offline, matching
-  // the old `ModelRegistry.inMemory` behaviour.
+  // a single async `modelRuntime`. Between them these three reproduce the old
+  // `ModelRegistry.inMemory` behaviour — built-in models only, no I/O at
+  // construction: `modelsPath: null` skips models.json, `allowModelNetwork`
+  // gates the create-time catalog fetch (already the default, but stated so an
+  // upstream default flip can't quietly put a network call on this path), and
+  // `refreshOnCreate: false` skips the initial catalog/availability refresh
+  // that create() would otherwise run.
   const modelRuntime = await ModelRuntime.create({
     authPath: join(isolatedDir, 'auth.json'),
     modelsPath: null,
+    allowModelNetwork: false,
     refreshOnCreate: false,
   });
   await modelRuntime.setRuntimeApiKey('anthropic', apiKey);
