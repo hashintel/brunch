@@ -97,4 +97,6 @@ No production, config, fixture, PLAN, SPEC, or findings-ledger path changed.
 | Close/cleanup proof | met-with-divergence | No route-level `session.close` occurred; host process/listener exited, writer owner remained absent, and no row-owned browser process remained. |
 | No implementation or manufactured success | met | Tracked diff is limited to the scoped ledger and this walkthrough; canonical runtime state was not edited. |
 
-Skipped-test-count delta versus parent: `0` (no tests run, added, skipped, or parked).
+Observed `npm run verify`: 337 test files passed, 1 skipped; 2761 tests passed, 2 skipped.
+
+Skipped-test-count delta versus parent: `0` (no tests were added, skipped, or parked by this row).
