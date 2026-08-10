@@ -1,0 +1,16 @@
+{
+  "status": "ready",
+  "cwd": "/Users/lunelson/Code/hashintel/brunch/.fixtures/scratch/fe-1348-stdio-public-rpc",
+  "spec": {
+    "id": 1,
+    "title": "FE-1348 authorized stdio RPC",
+    "kind": "product",
+    "origin": null,
+    "relatesToSpecId": null
+  },
+  "chrome": {},
+  "session": {
+    "id": "019feb7b-41a5-7c9c-93cd-5b79995a2347",
+    "file": "/Users/lunelson/Code/hashintel/brunch/.fixtures/scratch/fe-1348-stdio-public-rpc/.brunch/sessions/2026-08-10T11-42-31-333Z_019feb7b-41a5-7c9c-93cd-5b79995a2347.jsonl"
+  }
+}

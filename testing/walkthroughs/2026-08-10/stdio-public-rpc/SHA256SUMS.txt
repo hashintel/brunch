@@ -1,0 +1,8 @@
+55603b8c625140b3e2898272db915ba61314ee7459024f11983851474c3fe3ef  testing/walkthroughs/2026-08-10/stdio-public-rpc/01-activate.txt
+dd2887da94bb370a54414e73b2ef7cf86f4391650a361dc451edee7d97bfbdcd  testing/walkthroughs/2026-08-10/stdio-public-rpc/02-trigger.txt
+55603b8c625140b3e2898272db915ba61314ee7459024f11983851474c3fe3ef  testing/walkthroughs/2026-08-10/stdio-public-rpc/03-workspace-state.txt
+460154a75006c0df84c4f0c7feafdc2a0fb67caf4a5151c4c431471474f85e87  testing/walkthroughs/2026-08-10/stdio-public-rpc/04-runtime-state.txt
+c10358fffd9bd56e1acb991c04f2551009bbb44566939b191d69c47c077584a8  testing/walkthroughs/2026-08-10/stdio-public-rpc/05-exchanges.txt
+dd2887da94bb370a54414e73b2ef7cf86f4391650a361dc451edee7d97bfbdcd  testing/walkthroughs/2026-08-10/stdio-public-rpc/06-pending-exchange.txt
+4d88a9a477cf1698e7bb7df8a27401d82d39276ca30ff2781c80cc565a60ef78  testing/walkthroughs/2026-08-10/stdio-public-rpc/discovered-methods.json
+c64f082e00319f2f39b186efe9b947afbead15a7d6eb362e117e9628d0718afa  testing/walkthroughs/2026-08-10/stdio-public-rpc/session.jsonl

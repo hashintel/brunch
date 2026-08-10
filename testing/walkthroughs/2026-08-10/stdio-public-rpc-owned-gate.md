@@ -1,62 +1,88 @@
 # Stdio public RPC — owned gate
 
-Date: 2026-08-10  
-Commit tested: `a95269f696a4e0e331a4ed81b9ec64e7fcc4665a`  
-Branch: `ln/fe-1348-validate-current-brunch-usage-and-testing-paths`  
+Date: 2026-08-10
+
+Prior evidence commit: `89e063444`
+
+Retry base commit: `1aa97e6e3421d412acb37dae13c288a0f7f28783`
+
+Branch: `ln/fe-1348-validate-current-brunch-usage-and-testing-paths`
+
 Workspace: `.fixtures/scratch/fe-1348-stdio-public-rpc` (fresh, ignored, removed after capture)
 
 ## Disposition
 
-**Owned gate; row remains `partial`.** The real stdio entry proves discovery, workspace/spec/session activation, transcript-backed reads, and schema/result agreement. It cannot complete a structured exchange without an assistant-authored present tuple. `session.triggerExchange` explicitly advertises that the product mints no deterministic exchange and returned `{"status":"idle","exchange":null}`. A provider turn is excluded by this row, and fixture-minting/test-only wiring would violate the public-entry requirement.
+**Owned product-level gate; row remains `partial`.** Provider use was authorized for this bounded retry, but the launched Brunch runtime had no provider/model available to fire the assistant-first turn. `session.triggerExchange` returned `{"status":"idle","exchange":null}`. Canonical JSONL contains the context seed but no `brunch.kick`, assistant message, or structured present tuple; therefore `session.exchanges` is empty and `session.pendingExchange` is idle. There is no public pending exchange ID to answer, so calling `session.submitExchangeResponse` would be invalid rather than a typed response proof.
 
-Owner: FE-1348 `Stdio public RPC` row. Re-entry trigger: an explicitly authorized provider-backed assistant present on a disposable workspace, or a deterministic **supported product** RPC path that authors a pending exchange. Cost/value: one bounded follow-up can close public response submission and JSONL/projection convergence; manufacturing private transcript state now would produce misleading evidence.
+This preserves the prior truthful result: discovery, activation, reads, and empty canonical/projection agreement work through the public stdio RPC. The new retry removes authorization as the gate and localizes the remaining gate to provider/model availability inside the launched Brunch runtime.
 
-## Exact public commands and results
+Owner: FE-1348 `Stdio public RPC` row. Re-entry trigger: run the same bounded public path when the launched Brunch runtime has a provider/model available to `session.triggerExchange`, or when a deterministic supported product path can author a pending exchange. Cost/value: one real assistant-first turn plus one typed answer closes the row; private transcript minting would invalidate the evidence.
 
-All calls used `npm run dev-cli -- rpc`; no raw Pi RPC was used.
+## Runtime identity
+
+The invoking Pi harness reported, without credentials:
+
+```text
+PI_PROVIDER=openai-codex
+PI_MODEL=gpt-5.6-sol
+PI_REASONING_LEVEL=low
+```
+
+These identify the invoking harness only. The protected project `.pi/settings.json` declares no default provider/model fields, and the child Brunch runtime produced no model-authored transcript entry. No auth variables or secrets were recorded.
+
+## Exact public commands
+
+Every product call used `npm run dev-cli -- rpc`; no raw Pi RPC, test-only transcript mutation, or repeat campaign was used.
 
 ```sh
 W=.fixtures/scratch/fe-1348-stdio-public-rpc
 mkdir -p "$W"
 npm run dev-cli -- rpc rpc.discover --workspace "$W"
-npm run dev-cli -- rpc workspace.activate '{"decision":{"action":"newSpec","title":"FE-1348 stdio RPC scratch"}}' --workspace "$W"
-npm run dev-cli -- rpc workspace.state --workspace "$W"
+npm run dev-cli -- rpc workspace.activate '{"decision":{"action":"newSpec","title":"FE-1348 authorized stdio RPC"}}' --workspace "$W"
 npm run dev-cli -- rpc session.triggerExchange --workspace "$W"
-npm run dev-cli -- rpc session.runtimeState '{"specId":1,"sessionId":"019feb59-4703-716c-9010-44a8e118eca6"}' --workspace "$W"
-npm run dev-cli -- rpc session.exchanges '{"specId":1,"sessionId":"019feb59-4703-716c-9010-44a8e118eca6"}' --workspace "$W"
-npm run dev-cli -- rpc session.pendingExchange '{"specId":1,"sessionId":"019feb59-4703-716c-9010-44a8e118eca6"}' --workspace "$W"
+npm run dev-cli -- rpc workspace.state --workspace "$W"
+npm run dev-cli -- rpc session.runtimeState '{"specId":1,"sessionId":"019feb7b-41a5-7c9c-93cd-5b79995a2347"}' --workspace "$W"
+npm run dev-cli -- rpc session.exchanges '{"specId":1,"sessionId":"019feb7b-41a5-7c9c-93cd-5b79995a2347"}' --workspace "$W"
+npm run dev-cli -- rpc session.pendingExchange '{"specId":1,"sessionId":"019feb7b-41a5-7c9c-93cd-5b79995a2347"}' --workspace "$W"
 ```
 
-Key results:
+Exact serializable outputs are retained under [`stdio-public-rpc/`](stdio-public-rpc/). `discovered-methods.json` retains the relevant discovered parameter/result schemas.
+
+## Present, response, and result
 
 ```json
-{"status":"ready","spec":{"id":1,"title":"FE-1348 stdio RPC scratch","kind":"product"},"session":{"id":"019feb59-4703-716c-9010-44a8e118eca6"}}
 {"status":"idle","exchange":null}
-{"status":"ready","specId":1,"sessionId":"019feb59-4703-716c-9010-44a8e118eca6","agent":{"operationalMode":"specify","role":"elicitor"},"mentions":{"graphNodes":[],"files":[]},"world":{"graph":{"latestLsn":null},"git":{"head":null}}}
+```
+
+- Assistant-authored present: **none**.
+- Typed response: **not submitted**; no public pending exchange existed.
+- Submit result: **not applicable**.
+
+Discovery still describes `session.triggerExchange` as a kick that does not mint a deterministic exchange, and `session.submitExchangeResponse` as requiring an `exchangeId` plus a typed answer. The idle trigger result conforms to the discovered schema.
+
+## Canonical JSONL and projection agreement
+
+Retained [`session.jsonl`](stdio-public-rpc/session.jsonl) has exactly four entries:
+
+1. session header;
+2. `brunch.session_binding` for spec `1`;
+3. matching session name; and
+4. `brunch.context_seed`.
+
+It has no kick, assistant message, or structured present tuple. Fresh public projections agree exactly with that canonical state:
+
+```json
 {"status":"empty","exchanges":[],"openPrompt":null}
 {"status":"idle","exchange":null}
 ```
 
-## Discovery/schema and canonical comparison
+`session.runtimeState` is ready in Specify/elicitor mode. This proves canonical/projection agreement for the failed-to-fire assistant-first attempt, but not the required structured exchange. The retained JSONL and projection outputs may support later diagnosis; they do **not** close the separate cross-surface settlement row.
 
-`rpc.discover` advertised:
-
-- `workspace.activate` with strict `newSpec` input (`action`, nonblank `title`) and a `ready` result requiring `spec`, `session`, and `chrome`;
-- `session.runtimeState` requiring `specId` and `sessionId`, with `ready`/Specify/elicitor result constraints;
-- `session.pendingExchange` with terminal `pending` and `idle` result alternatives;
-- `session.submitExchangeResponse` with strict text, option, option-list, and review answer alternatives and an `accepted` result;
-- `session.triggerExchange` described as a kick that does **not** mint a deterministic exchange.
-
-The accepted activation result and all read results conform to those discovered schemas. The canonical JSONL contained exactly four entries: session header, `brunch.session_binding` for spec 1, matching session name, and the context seed appended by `session.triggerExchange`. It contained no structured present/request tuple. Accordingly, both public projections agreed: `session.exchanges` was empty and `session.pendingExchange` was idle. This is agreement, but not completion of the row's required structured exchange.
-
-## Cleanup proof
-
-After capture:
+## Cleanup
 
 ```sh
 rm -rf .fixtures/scratch/fe-1348-stdio-public-rpc
-find .fixtures/scratch -maxdepth 1 -name 'fe-1348-stdio-public-rpc' -print
-# no output
+test ! -e .fixtures/scratch/fe-1348-stdio-public-rpc
 ```
 
-No fixture, seed, ignored seeded-workbench DB, or promoted run artifact was touched.
+The scratch workspace was removed. No fixture, seed, ignored seeded-workbench state, or promoted run artifact was touched.
