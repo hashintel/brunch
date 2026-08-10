@@ -58,11 +58,18 @@ describe('/compare-specs operator prompt', () => {
       'It is not an OS sandbox and does not claim isolation from unrestricted absolute-path or whole-host discovery',
     );
     expect(prompt).toContain(
-      'Only after that process cleanup, copy the exact harness-visible transcript and any unchanged harness-authored document',
+      'save its exact harness-visible transcript from the controller-owned `interactive_shell` record into controller-owned scratch evidence',
+    );
+    expect(prompt).toContain(
+      'Copy only any unchanged harness-authored document from the external target into that scratch evidence',
+    );
+    expect(prompt).not.toContain(
+      'copy the exact harness-visible transcript and any unchanged harness-authored document from the external target',
     );
     expect(prompt).toContain(
       'never overwrite an existing run directory, private mission snapshot, `harness-setup.md` snapshot, transcript, target output, or report',
     );
+    expect(prompt).toContain('retain target-cwd/session identity, final process status, and cleanup notes');
     expect(prompt).toContain(
       'do not replace it with a parser, controller schema, helper state machine, generic runner, campaign framework, or automatic judge',
     );
