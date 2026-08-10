@@ -1,94 +1,99 @@
-# Print projection — owned installed-package gate
+# Print projection — source and installed-package evidence
 
-Date: 2026-08-10  
-Commit tested: `89e063444`  
-Branch: `ln/fe-1348-validate-current-brunch-usage-and-testing-paths`  
-Host: macOS arm64, Node `v24.19.0`, npm `12.0.2`  
-Workspace: `/tmp/brunch-fe-1348-print-hJITyF/selected-workspace` (fresh bounded scratch, removed after capture)
+- Date: 2026-08-10
+- Commit tested: `d195d8dbb`
+- Branch: `ln/fe-1348-validate-current-brunch-usage-and-testing-paths`
+- Host: macOS arm64, Node `v24.19.0`, npm `12.0.2`
+- Installed-leg workspace: `/tmp/brunch-fe-1348-print-final-IC1hKr/selected-workspace` (fresh bounded scratch, removed after capture)
 
 ## Disposition
 
-**Owned gate; row remains `partial`.** The source entry projected the selected workspace and exited 0 without changing any canonical file. A real `npm pack` and foreign-cwd global-prefix install completed, but npm 12 blocked `better-sqlite3@12.11.1`'s install script. The installed `brunch --mode print` therefore exited 1 before producing a projection because its native binding was absent. No install-script bypass or repair was attempted.
+**Built.** The previously recorded source leg projected its selected workspace and left every canonical file byte-stable. On the current commit, a fresh real tarball installed into an isolated global prefix using exactly the reviewed `package.json.allowScripts` policy now used by `scripts/check-release-pack.mjs`. From a foreign cwd, the installed CLI projected a freshly activated selected workspace and exited 0. Every canonical regular file had identical SHA-256 and size before and after print.
 
-Owner: FE-1348 `Print projection` row. Re-entry trigger: a fresh real packed install in an environment that permits the package-declared native dependency install scripts, or an owned successful release-pack installation retained for reuse. Cost/value: one bounded rerun can compare the installed projection and close byte stability; bypassing package installation now would weaken release-shape evidence.
+This closes only the `Print projection` row. It does not widen into interactive startup or alter the separate `Installed-package integrity` row.
 
-This does not close or alter the separate `Installed-package integrity` row.
+## Source leg retained from the owned-gate run
 
-## Setup and exact commands
-
-The selected workspace was established through the supported source RPC entry before the read-only baseline:
+The source command passed on commit `89e063444`:
 
 ```sh
-SCRATCH=$(mktemp -d /tmp/brunch-fe-1348-print-XXXXXX)
+npm run dev-cli -- --workspace "$WORK" --mode print
+```
+
+It identified the activated workspace, spec, session, and canonical session file. The baseline and post-source manifests were identical for all canonical regular files. That valid source evidence is preserved rather than rerun.
+
+## Fresh installed leg
+
+The workspace was created through supported source RPC before the read-only baseline. The packed install reproduced the release-pack harness policy without unrestricted script execution:
+
+```sh
+SCRATCH=$(mktemp -d /tmp/brunch-fe-1348-print-final-XXXXXX)
 WORK="$SCRATCH/selected-workspace"
 PACK="$SCRATCH/pack"
 PREFIX="$SCRATCH/prefix"
-mkdir -p "$WORK" "$PACK" "$PREFIX"
+FOREIGN="$SCRATCH/foreign-cwd"
+mkdir -p "$WORK" "$PACK" "$PREFIX" "$FOREIGN"
+
 npm run dev-cli -- rpc workspace.activate \
-  '{"decision":{"action":"newSpec","title":"FE-1348 print projection scratch"}}' \
+  '{"decision":{"action":"newSpec","title":"FE-1348 installed print projection scratch"}}' \
   --workspace "$WORK"
 
-(cd "$WORK" && find .brunch -type f -print0 | sort -z | xargs -0 shasum -a 256) > "$SCRATCH/before.sha256"
-npm run dev-cli -- --workspace "$WORK" --mode print
-(cd "$WORK" && find .brunch -type f -print0 | sort -z | xargs -0 shasum -a 256) > "$SCRATCH/after-source.sha256"
+(cd "$WORK" && find .brunch -type f -print0 | sort -z | xargs -0 shasum -a 256) \
+  > "$SCRATCH/before.sha256"
 
 npm pack --pack-destination "$PACK"
-npm install --global --prefix "$PREFIX" "$PACK/hashintel-brunch-1.0.0-alpha.13.tgz"
-(cd "$WORK" && "$PREFIX/bin/brunch" --mode print)
-(cd "$WORK" && find .brunch -type f -print0 | sort -z | xargs -0 shasum -a 256) > "$SCRATCH/after-installed-attempt.sha256"
+ALLOW=$(node -e "const p=require('./package.json'); process.stdout.write(Object.entries(p.allowScripts).filter(([,v])=>v).map(([k])=>k).join(','))")
+npm install --global --prefix "$PREFIX" --allow-scripts="$ALLOW" \
+  "$PACK/hashintel-brunch-1.0.0-alpha.13.tgz"
+
+(cd "$FOREIGN" && "$PREFIX/bin/brunch" --cwd "$WORK" --mode print)
+
+(cd "$WORK" && find .brunch -type f -print0 | sort -z | xargs -0 shasum -a 256) \
+  > "$SCRATCH/after-installed.sha256"
+cmp "$SCRATCH/before.sha256" "$SCRATCH/after-installed.sha256"
 ```
 
-Command outcomes:
+The exact reviewed allowlist was:
 
-| Leg | Exit | Outcome |
-| --- | ---: | --- |
-| Source `npm run dev-cli -- --workspace "$WORK" --mode print` | 0 | Projection produced. |
-| `npm pack` | 0 | Real `1.0.0-alpha.13` tarball produced. |
-| npm 12 global-prefix install | 0 | Install completed with blocked-script warnings. |
-| Installed foreign-cwd `brunch --mode print` | 1 | No projection; missing `better_sqlite3.node`. |
+```text
+better-sqlite3@12.11.1,@google/genai,protobufjs,esbuild,fsevents,@nubjs/nub@0.4.5
+```
 
-## Source projection evidence
+The install added 211 packages and emitted only deprecation warnings; it emitted no blocked-script warning. The tarball SHA-256 was `664354adf2300470e24ba59c183ac306985a1e17a83742ea7a320caa3cd26ace`.
+
+## Installed projection evidence
+
+The command exited 0 with empty stderr and produced:
 
 ```text
 Brunch workspace state
 status: ready
-cwd: /tmp/brunch-fe-1348-print-hJITyF/selected-workspace
-spec: FE-1348 print projection scratch (1)
-session: 019feb5b-d240-7dda-af7d-927a68bc9742
-sessionFile: /tmp/brunch-fe-1348-print-hJITyF/selected-workspace/.brunch/sessions/2026-08-10T11-08-11-200Z_019feb5b-d240-7dda-af7d-927a68bc9742.jsonl
+cwd: /tmp/brunch-fe-1348-print-final-IC1hKr/selected-workspace
+spec: FE-1348 installed print projection scratch (1)
+session: 019feb9c-b5eb-7bd0-9bf5-d6674a7d51bb
+sessionFile: /tmp/brunch-fe-1348-print-final-IC1hKr/selected-workspace/.brunch/sessions/2026-08-10T12-19-03-787Z_019feb9c-b5eb-7bd0-9bf5-d6674a7d51bb.jsonl
 ```
 
-The output identifies the activated selected workspace, spec, session, and canonical session file.
+This proves the installed executable was launched from a cwd outside both the repository and selected workspace while projecting the explicitly selected workspace.
 
-## Installed-leg gate evidence
-
-npm reported:
-
-```text
-npm warn install-scripts 3 packages had install scripts blocked because they are not covered by allowScripts:
-npm warn install-scripts   better-sqlite3@12.11.1 (install: prebuild-install || node-gyp rebuild --release)
-```
-
-The installed CLI then reported `Could not locate the bindings file` for every expected `better_sqlite3.node` location under the isolated prefix. It emitted no workspace projection. This is the known real-package-install gate, not a print-output mismatch.
-
-## Byte-stability manifest
+## Canonical-file byte stability
 
 All canonical regular files present after activation were included:
 
 ```text
-8dbc5652e46b23246b8f8fb65f5685a9100e026c6e799d55840a5881440936a9  .brunch/brunch-v1.db
-c824e8518007494ac6e74a20cfcd37d1a5caa75b1c3d7ab105d8c7c85e4fc6ba  .brunch/sessions/2026-08-10T11-08-11-200Z_019feb5b-d240-7dda-af7d-927a68bc9742.jsonl
-ee3cb916c85d676daefc0f62970c9a22847c80dcba89b6d91a7f65716a33e610  .brunch/workspace.json
+1cfebdc9267250ea69e0c3d0834ec1213bae1c3fc18a8b8469449982170757b8  .brunch/brunch-v1.db
+6eac5ca577fcb0dc571177896ead50ccc0000b53734fe15b56462c439d7dcc79  .brunch/sessions/2026-08-10T12-19-03-787Z_019feb9c-b5eb-7bd0-9bf5-d6674a7d51bb.jsonl
+c5c58867b0051a8b3e5da2fc325f6b4417bd72bcd6b05bc770e306193d65edc2  .brunch/workspace.json
 ```
 
-Sizes were respectively 69,632 bytes, 496 bytes, and 348 bytes. The baseline, post-source, and post-installed-attempt manifest files each had SHA-256:
+Sizes were respectively 69,632 bytes, 512 bytes, and 348 bytes before and after. Both manifest files had SHA-256:
 
 ```text
-c1ee36abe49a3ffcf348089e64152dcd2d88e017b28388364de2c2f08b8fd238
+ed65ca3771bc04531dbaa4276f49319074988d0e457e5dcdd975d99fef0260f4
 ```
 
-Thus source print and the failed installed attempt left every existing canonical file byte-stable. The installed success case remains unproved and is not inferred from this failed attempt.
+`cmp` passed for both the checksum manifests and independently captured size manifests. Installed print therefore did not mutate, add, or remove any canonical regular file.
 
 ## Cleanup proof
 
-The complete `/tmp/brunch-fe-1348-print-hJITyF` root contained the workspace, tarball, and isolated prefix. It was removed after capture; `test ! -e /tmp/brunch-fe-1348-print-hJITyF` returned success. No retained install, fixture, seed, workbench, or promoted run artifact remains.
+The complete `/tmp/brunch-fe-1348-print-final-IC1hKr` root contained the selected workspace, tarball, isolated prefix, foreign cwd, and command captures. It was removed after documenting the evidence; no retained install, fixture, seed, workbench, or promoted run artifact remains.
