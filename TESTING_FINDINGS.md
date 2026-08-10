@@ -1,36 +1,35 @@
 # Walkthrough Findings Log
 
-## Current status — post-PR-305 alpha walkthroughs
+## Current status — FE-1348 alpha usage and verification sweep
 
-Status: `TESTING_PLAN.md` now supersedes the original broad 2026-07-02 plan with a concern-grouped post-PR-305 alpha walkthrough script. PR #305 has merged; today’s work is outer-loop testing on top of the merged surface, not gating that PR. Append observations under this section. Keep the historical findings below as provenance, not as the active checklist.
+Current row status, owners, evidence gates, and execution order live in the [FE-1348 sweep ledger](memory/cards/post-hardening-alpha-validation--usage-and-verification-sweep.md). This file records only walkthrough observations that need a durable fixed, promoted, or retired disposition. The older entries below remain provenance, not an active checklist.
 
-Current concern groups:
+The A51-L colleague walkthrough is parked. Its product row and SA1/SA2 remain open; this reconciliation does not supply the missing human judgment or complete FE-1348.
 
-- onboarding and first-run safety: no Pi auth, bare cwd, populated cwd, disposable Brunch 0.x database copy
-- workspace/spec posture orientation and capture logic
-- seeding conditions and initial agent orientation
-- prompt, skill, and model routing audit
-- `.brunch/debug/` mirror and trigger legibility
-- `/brunch:consult` style/action menu options for elicitor and executor
-- merged chrome/rendering carryover: wheel, mode switch, gallery, continue/recovery, persistent editor
-- FE-1187 walkthrough-closure overlap opportunities when naturally witnessed (Execute O7–O9 route to the KA stream)
+### 2026-08-10 retained-corpus reconciliation
 
-### Cross-check against historical findings and new concerns
-
-| Historical item | Current disposition for this session |
+| Sweep observation | Findings disposition |
 | --- | --- |
-| F1–F6 kick prompt/origination/thinking/welcome basics | Historical defects from the first walkthrough. Re-observe only as part of onboarding, debug-mirror, and initial-orientation concerns. |
-| F7, F8, F11 old `present_question` / `request_response` rendering | Superseded by D116-L one-shot `ask` and FE-1169 compact ask rendering. Re-test current `ask`, candidates, and review-set rendering only. |
-| F9 single-select vs multi-select conduct | Fold into prompt/skill routing and `/brunch:consult` style/action audit if it recurs. |
-| F10 Other-label/comment duplication | Old request-response-path finding. Re-observe only through current `ask` Other/comment behavior if encountered. |
-| F12 registry event-order failure | Fixed historical builder issue; no manual action. |
-| F13–F17 welcome placement, kick salience, resume orientation, deterministic menu | Now map to onboarding, initial orientation, posture/capture logic, and consult-menu checks. FE-1187 owns the remaining LN deterministic-orientation evidence; Execute O7–O9 route to the KA stream. |
-| F18–F20 FE-1164 ask free-text/comment defects | Fixed inline on FE-1164; current session should only catch regressions in the reshaped `ask` surface. |
-| Cross-check: stale prompt text about ranked gaps | Actively check during prompt/debug audit; route as prompt/context if still present. |
-| New: no-auth and login onboarding | Partly witnessed in FE-1159, but re-run in a scratch `PI_CODING_AGENT_DIR` because this is alpha-user critical. |
-| New: bare/populated/legacy workspace entry | Not covered by the historical log; record as onboarding-safety findings. |
-| New: durable `spec.posture` semantics | Treat as an open product/spec question unless code/session evidence proves a real carrier exists. |
-| New: dynamic model selection | D123-L settled the alpha surface as Pi-native `/model` with a soft default. Role-tiered recommendations remain SPEC Future Direction and re-enter only when foreground/subagent evidence shows one default is inadequate. |
+| [Authless bare-workspace entry](testing/walkthroughs/2026-08-10/authless-bare-workspace-entry.md) | No finding: creation, `/login` recovery, and no-provider authority checks agreed. |
+| [Populated-workspace posture entry](testing/walkthroughs/2026-08-10/populated-workspace-posture-entry.md) | No finding: dialog choices, public readback, and canonical posture state agreed. |
+| [Specify session interaction](testing/walkthroughs/2026-08-10/specify-session-interaction.md) | No finding: the one invalid provider attempt was quiet, mutation-free, and immediately recovered under the already-settled R6 contract. |
+| [Execute mode interaction](testing/walkthroughs/2026-08-10/execute-mode-interaction-owned-gate.md) | Not a finding: retained as the ledger's owned `partial` product-evidence gate; no unsupported Compile/Execute state was manufactured. |
+| [Session resume and active-tree continuity](testing/walkthroughs/2026-08-10/session-resume-active-tree-continuity.md) | No finding: active-branch projections remained stable across relaunch and rejected the append-order rival. |
+| [Cross-composition writer transfer](testing/walkthroughs/2026-08-10/cross-composition-writer-transfer.md) | No finding: refusal, release, reacquisition, continuity, and cleanup matched the single-writer contract. |
+| [Standalone-web driven session](testing/walkthroughs/2026-08-10/standalone-web-driven-session.md) | Not a finding: agent-browser startup prevented observation; the ledger retains the owned `partial` evidence gate and re-entry trigger. |
+| [Stdio public RPC](testing/walkthroughs/2026-08-10/stdio-public-rpc-owned-gate.md) | Not a finding: the launched runtime had no provider/model; the ledger retains the owned `partial` evidence gate and re-entry trigger. |
+| [Print projection](testing/walkthroughs/2026-08-10/print-projection-owned-gate.md) | No finding: source and installed foreign-cwd projections were byte-stable. |
+| [Cross-surface graph/session settlement](testing/walkthroughs/2026-08-10/cross-surface-graph-session-settlement-owned-gate.md) | Not a finding: retained evidence lacked two fresh comparable session projections; the ledger retains the owned `partial` evidence gate and re-entry trigger. |
+| [Seeded workbench and fixture validation](testing/walkthroughs/2026-08-10/seeded-workbench-and-fixture-validation.md) | No finding: validator, seed CLI, public reads, and runtime-state disposal agreed. |
+| [TUI-driver lifecycle fallback](testing/walkthroughs/2026-08-10/tui-driver-lifecycle-fallback.md) | No finding: the lifecycle passed; the stale scripted expectation was not a documentation or product defect. |
+| [Component-preview surface](testing/walkthroughs/2026-08-10/component-preview-surface.md) | No finding: the sampled current registry families exposed no defect, architecture question, weak evidence, or measurable simplification. |
+| [Debug-mirror legibility](testing/walkthroughs/2026-08-10/debug-mirror-legibility.md) | No finding: trigger-qualified mirrors agreed with canonical runtime inputs and remained projections. |
+| [Read-only repository gate](testing/walkthroughs/2026-08-10/read-only-repository-gate.md) | No finding: all nine warnings were classified frozen-baseline advisories, not new contradictions. |
+| [Full retained local gate](testing/walkthroughs/2026-08-10/full-retained-local-gate.md) | No finding: the aggregate gate passed; six warnings were the same classified baseline and skipped-test delta was zero. |
+| [Comparison lane entry](testing/walkthroughs/2026-08-10/comparison-lane-entry.md) | No finding: the closed lane passed without implying a fresh provider or mission campaign. |
+| [Conditional CI lane selection](testing/walkthroughs/2026-08-10/conditional-ci-lane-selection.md) | No finding: selector, workflow, and SPEC policy agreed with no omitted capability. |
+| [Installed-package integrity](testing/walkthroughs/2026-08-10/installed-package-integrity.md) | No finding: dependency deprecation warnings did not contradict install, foreign-cwd execution, or SQLite activation. |
+| [Installed interactive-mode boot](testing/walkthroughs/2026-08-10/installed-interactive-mode-boot.md) | No finding: both installed startup surfaces and cleanup passed without provider or publication claims. |
 
 ### 2026-07-28 Secure Drop pilot — greenfield elicitation → plan synthesis
 
@@ -498,21 +497,21 @@ Disposition: logged — process-cleanup confirmation remains the operator/top-le
 
 Both entries are design questions raised by the structured-ask slice, not defects. The slice proved the correctness half automatically (`src/app/__tests__/session-runtime-contract-structured-ask.slow.test.ts`); the presentation half needs a human judgment the slice deliberately did not make. Owner frontier: `shared-session-host-tracer`. Re-entry trigger for both: A51-L's colleague walkthrough, which is a precondition of retiring A51-L.
 
-#### SA1 · consult menu / chrome carryover · medium · open design question
+#### SA1 · consult menu / chrome carryover · medium · promoted design question
 
 Concern: under the normal-TUI composition the companion browser renders a TUI-owned ask with its ordinary answer form, but submitting it is refused as `ask_closed` and surfaces as a visible error.
 Evidence: `src/app/__tests__/session-runtime-contract-structured-ask.slow.test.ts` (single-answering-authority leaf); the refusal path is `src/session/tui-live-session-adapter.ts` `answerExchange` → `ask_closed`, rendered by the `Ask` form's error branch in `src/web/routes/session.tsx`.
 Observation: the refusal is honest and requires no contract change, but a colleague sees an inviting form that cannot succeed.
 Expected: a human judges whether that is confusing enough to warrant the deliberately excluded ownership marker on `OpenAsk` (e.g. `owner: 'tui'` / `answerable: false`) so the companion can render a TUI-owned ask read-only.
-Disposition: deferred — owner frontier `shared-session-host-tracer` (`memory/PLAN.md`), re-entry trigger the A51-L colleague walkthrough. Cost/value: the marker is a small field but ripples through `zOpenAsk`, the `SessionPresentationEntry` ask variant, the overlay reducer, and the `Ask` component — perhaps half a day — for a UX-polish gain the automated oracle does not require; cheap to defer because the correctness half is already guarded.
+Disposition: promoted — owner frontier `shared-session-host-tracer` (`memory/PLAN.md`), re-entry trigger the A51-L colleague walkthrough. Cost/value: the marker is a small field but ripples through `zOpenAsk`, the `SessionPresentationEntry` ask variant, the overlay reducer, and the `Ask` component — perhaps half a day — for a UX-polish gain the automated oracle does not require; cheap to defer because the correctness half is already guarded.
 
-#### SA2 · consult menu / chrome carryover · medium · open design question
+#### SA2 · consult menu / chrome carryover · medium · promoted design question
 
 Concern: whether observation-without-answering is sufficient companion value for structured asks.
 Evidence: the same witness — the companion observes the ask and converges at settlement, but the TUI is the sole answering authority (assumption A51-L in `memory/SPEC.md`).
 Observation: the slice chose observation over dual-answer because dismissing a TUI picker from outside is not reachable — the extension holds only Pi's tool-execution `AbortSignal`, and aborting it cancels the whole turn.
 Expected: a human judges whether a colleague watching an ask they cannot answer is useful, or whether dual-answer authority is a real product requirement.
-Disposition: deferred — owner frontier `shared-session-host-tracer`, re-entry trigger the A51-L colleague walkthrough. Cost/value: if dual-answer is required, picker dismissal becomes upstream Pi work and the answering-authority design changes, shifting `shared-session-host-cutover`'s semantic-contract sweep rows; expensive to build speculatively, cheap to answer with one walkthrough.
+Disposition: promoted — owner frontier `shared-session-host-tracer`, re-entry trigger the A51-L colleague walkthrough. Cost/value: if dual-answer is required, picker dismissal becomes upstream Pi work and the answering-authority design changes, shifting `shared-session-host-cutover`'s semantic-contract sweep rows; expensive to build speculatively, cheap to answer with one walkthrough.
 
 Use future entries like:
 

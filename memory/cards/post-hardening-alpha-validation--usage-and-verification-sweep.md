@@ -63,73 +63,74 @@ One genuinely omitted capability may be added with a one-line justification. Mor
 | Print projection | `built` | ● | `proving` | FE-1348 | Source and freshly packed/isolated installed-package foreign-cwd `--mode print` both project a selected workspace without mutation; before/after canonical files are byte-stable. The installed leg uses exactly the reviewed `package.json.allowScripts` policy. Evidence: [`testing/walkthroughs/2026-08-10/print-projection-owned-gate.md`](../../testing/walkthroughs/2026-08-10/print-projection-owned-gate.md). |
 | Cross-surface graph/session settlement | `partial` | ● | `proving` | FE-1348; re-enter when an authorized successful journey retains canonical JSONL plus two fresh product projections of the same accepted effect | Retained Specify evidence proves 1 receipt / 1 LSN / 1 change-log row and exact canonical graph settlement for each of two accepted effects; current contract oracles pass. Normalized-equivalent fresh session projections cannot be proved because the disposable JSONL/workspace was cleaned and the record retained no serializable projections; UI/debug mirrors are non-authoritative. Owned gate: [`testing/walkthroughs/2026-08-10/cross-surface-graph-session-settlement-owned-gate.md`](../../testing/walkthroughs/2026-08-10/cross-surface-graph-session-settlement-owned-gate.md). |
 
-## Active row scope — Standalone-web driven session
+## Active row scope — Findings reconciliation
 
 ### Orientation
 
-- The containing seam is D132-L/D133-L standalone web: `src/app/brunch-web.ts` owns the cwd-scoped `LiveSessionHost`, while the React session route is a target-addressed projection/driver over production WebSocket Brunch RPC.
-- FE-1348 `post-hardening-alpha-validation` is the frontier and branch boundary; this proving row obtains or honestly gates evidence only. It does not implement a feature, repair a defect, or change the runtime contract.
-- No `HANDOFF.md` exists. The current branch must remain `ln/fe-1348-validate-current-brunch-usage-and-testing-paths`; record the exact commit and environment actually witnessed in the walkthrough.
-- Main risk: mistaking a browser-looking-alive or provider-invented transcript for proof. Browser claims require `agent-browser`; conduct uses production Brunch RPC; canonical comparison uses the active-branch JSONL projector rather than append-order inspection.
+- The containing seam is FE-1348's findings-ledger discipline: current walkthrough evidence lives under `testing/walkthroughs/2026-08-10/`, while `TESTING_FINDINGS.md` records only observations that need a durable fixed/promoted/retired disposition.
+- FE-1348 `post-hardening-alpha-validation` is the frontier and branch boundary. This row reconciles evidence already obtained; it does not rerun a product path, create fresh evidence, or implement a finding.
+- No `HANDOFF.md` exists. `TESTING_PLAN.md` is already stable current guidance and remains read-only unless the reconciliation finds a concrete contradiction.
+- Main risk: confusing row-local findings closure with product-path or frontier closure. The five parked product rows remain `partial`, and historical findings remain provenance rather than active FE-1348 work.
 
-Posture: proving (inherited from `post-hardening-alpha-validation`).
+Posture: earned (row fill inherited from the `Findings reconciliation` ledger row within proving frontier `post-hardening-alpha-validation`).
 
 ### Row preflight
 
-- **Boundary:** in — one source-launched standalone-web host, one durable `(specId, sessionId)`, the direct `/session/$specId/$sessionId` route, production `/rpc` `session.open` / `session.driveTurn` / `session.openAsks` / `session.answerExchange` / `session.presentation` / `session.close`, one React-answerable structured ask, settlement, reload, canonical active-branch comparison, and writer/listener cleanup. Out — TUI companion/A51-L, Execute re-entry, stdio re-entry, cross-surface settlement re-entry, provider-quality repetition, package smoke, feature/fix work, raw Pi RPC, private handler calls, and transcript/DB fabrication.
-- **Canonical owner:** standalone `LiveSessionHost` and its production WebSocket Brunch RPC boundary; SQLite remains graph truth, active-branch Pi JSONL remains session truth, and React remains a projection.
-- **Source-of-truth inputs:** a row-owned local workbench with an honestly product-created target; the source CLI's reported loopback URL; the exact target ids and canonical session file; production WebSocket request/results and semantic events; browser accessibility state; fresh `projectSessionPresentationFile` output over that JSONL; writer-owner path and process/listener liveness.
-- **Closure oracle:** a concise walkthrough at `testing/walkthroughs/2026-08-10/standalone-web-driven-session.md` binds every acceptance leaf below to the observed browser/RPC/artifact evidence. The ledger moves to `built` only if every leaf is met; otherwise it stays `partial` with the exact gate and a re-entry trigger.
-- **Classification:** evidence-gated. The entry points exist, but a production provider/model and a supported assistant-authored structured ask must be available during the bounded journey.
-- **Overlap test:** the only active FE-1348 scope artifact is this ledger. The walkthrough filename is row-unique; production paths are read-only; one write-capable delegate owns the row at a time.
+- **Boundary:** in — the current-status framing and active-observation portion of `TESTING_FINDINGS.md`; every retained FE-1348 walkthrough under `testing/walkthroughs/2026-08-10/`; the five parked product-row records only as evidence that their gates are owned rather than findings; SA1/SA2's existing owner, re-entry trigger, and cost/value statements. Out — product-path reruns, new evidence claims, production/config/fixture edits, A51-L human judgment, SA1/SA2 product decisions, historical finding normalization, and PLAN/SPEC changes absent a durable contradiction.
+- **Canonical owner:** `TESTING_FINDINGS.md` owns durable walkthrough observations and terminal dispositions; this sweep ledger owns row status and product evidence gates; `TESTING_PLAN.md` owns stable outer-loop orientation only.
+- **Source-of-truth inputs:** the complete retained `testing/walkthroughs/2026-08-10/*.md` set; this ledger's current row statuses, owner cells, and re-entry triggers; `TESTING_FINDINGS.md`; `TESTING_PLAN.md`; `docs/praxis/manual-testing.md` §Findings ledger discipline.
+- **Closure oracle:** a read-through table or equivalent concise reconciliation in `TESTING_FINDINGS.md` accounts for every current FE-1348 observation as fixed, promoted to a named owner with re-entry trigger, or retired with rationale; observations explicitly recorded by their walkthrough as non-findings remain cited as such rather than promoted into synthetic work.
+- **Classification:** buildable-now reconciliation inside an evidence-gated frontier. All required inputs already exist; no browser, provider, PTY, human, or product-state gate is needed to close this row.
+- **Inventory check:** no new capability or sub-seam is introduced. A newly discovered unresolved observation blocks this row at `partial` unless it can be terminally dispositioned from existing evidence; it does not authorize widening or implementation.
+- **Overlap test:** this section replaces the stale completed standalone-web row scope in the same sweep file. No sibling active scope declares `TESTING_FINDINGS.md` as a primary write path, so the row owns the reconciliation without creating a second scope file.
 
 ### Objective
 
-A real browser completes the standalone-web target lifecycle over production WebSocket Brunch RPC and, after settlement and reload, presents the same active-branch session meaning as canonical Pi JSONL with no writer or listener left after close.
+Current FE-1348 observations and findings-ledger framing agree on one terminal disposition vocabulary without reopening historical findings or parked product evidence gates.
 
-### Execution discipline and honest stop
+### Execution discipline
 
-1. Use `docs/praxis/manual-testing.md`: launch source Brunch with `npm run dev-cli -- --workspace <workbench> --mode web`, drive the direct target route with `agent-browser`, and use CDP only for WebSocket/console/network detail. Do not use a PTY merely to exchange text.
-2. Use a fresh row-owned workbench or a coordinator-approved existing one; never reset, delete, or overwrite pre-existing ignored `.brunch/` state. Keep the exercised workbench `.brunch/` local/ignored after the row.
-3. Establish the target only through a supported product path. If a fresh workbench has no target, a bounded public `npm run dev-cli -- rpc workspace.activate ...` prerequisite may create it before web launch; that setup supplies no evidence for and does not re-enter the separate stdio row. Do not author JSONL, SQLite rows, open-ask state, or provider output directly.
-4. Bound provider conduct to the smallest journey that can produce one React-answerable free-text or listed single/multi-choice `ask`; answer it through the browser's `session.answerExchange` path and wait for the production `agent_settled` boundary.
-5. If no model/provider resolves, `session.driveTurn` cannot produce a real turn, or no supported structured ask is authored within the bounded journey, stop. Record the exact RPC/browser/JSONL state and re-entry condition, leave the row `partial`, and do not substitute a faux transcript, test-only provider, private handler, raw Pi RPC, or direct state edit.
-6. Do not edit production code. A product contradiction becomes a dispositioned finding or a separately routed scope; it is not repaired during this row.
+1. Enumerate current observations from the retained 2026-08-10 walkthroughs before editing prose; do not infer an observation from a warning or failed evidence prerequisite when the walkthrough explicitly classifies it as baseline, non-finding, or owned product-row gate.
+2. Replace the stale post-PR-305 active framing in `TESTING_FINDINGS.md` with a short FE-1348 current-status section that points row execution/status to this sweep ledger and leaves the body below as historical provenance.
+3. Preserve SA1/SA2's substantive state: no human judgment, requirement decision, implementation route, new owner, or new trigger. Reconcile only the disposition vocabulary needed to express their already named owner/re-entry trigger as promotion under the pinned terminal-state protocol.
+4. Keep Execute mode interaction, TUI-companion semantic usefulness, standalone web, stdio public RPC, and cross-surface settlement `partial` with their existing owner/gate text. Their open evidence does not prevent this documentation-governance row from becoming `built`.
+5. Leave `TESTING_PLAN.md` unchanged unless an exact statement contradicts the retained walkthrough or ledger. A contradiction is stop-and-report evidence; it does not authorize speculative guidance churn.
+6. Do not change PLAN, SPEC, production code, tests, fixtures, walkthrough evidence, or ignored runtime state. Do not claim the frontier, A51-L, SA1, SA2, or any parked product row complete.
 
 ### Acceptance criteria
 
-- ✓ **Source/route observation** — the walkthrough records the exact source launch command and reported loopback URL, then an `agent-browser` observation of the direct `/session/$specId/$sessionId` route for the intended durable target.
-- ✓ **Production WebSocket lifecycle trace** — browser/CDP evidence names successful target-addressed `session.open`, `session.driveTurn`, `session.openAsks`, `session.answerExchange`, `session.presentation`, and `session.close` traffic on `/rpc`; no `/rpc/driver`, raw `brunch.sessionEvent`, raw Pi RPC, or targetless fallback participates.
-- ✓ **Ask and settlement observation** — the browser renders the real assistant-authored ask, submits the typed answer through its supported control, remains busy until `agent_settled`, then clears ephemeral overlay state and shows the settled terminal meaning.
-- ✓ **Canonical active-branch comparison** — after settlement, the ordered browser-visible user/assistant/ask meaning and production `session.presentation` equal a fresh `projectSessionPresentationFile` projection of the same target's active-branch Pi JSONL; abandoned/history append order and debug mirrors are not used as current truth.
-- ✓ **Reload convergence** — reloading the same direct target route reopens or reattaches through production `/rpc`, reconstructs the settled meaning from canonical JSONL without duplicates or stale overlay, and does not create a second session file or writer.
-- ✓ **Close/cleanup proof** — route close issues `session.close`; host shutdown closes the loopback listener; the Brunch process exits; the target writer-owner path is absent; and no row-owned browser/driver process remains. The workbench's durable `.brunch/` evidence remains local/ignored, not promoted or deleted.
-- ✓ **No implementation or manufactured success** — `git diff` shows no production/config/fixture change from the row, and any unmet provider/model/ask prerequisite is recorded as a `partial` owned gate rather than claimed as success.
+- ✓ **Current-observation accounting — retained walkthrough corpus + `TESTING_FINDINGS.md` reconciliation section:** every current FE-1348 observation is cited and terminates as fixed, promoted with named owner and re-entry trigger, or retired with rationale; walkthrough-declared non-findings are accounted for without becoming new findings.
+- ✓ **Active framing replacement — direct document inspection:** `TESTING_FINDINGS.md` no longer presents the post-PR-305 concern list as today's active checklist; it points current FE-1348 row status/evidence to this ledger and preserves older entries as provenance.
+- ✓ **SA1/SA2 boundary — direct diff against their existing entries:** their existing owner, A51-L re-entry trigger, evidence, and cost/value judgment remain intact; no product conclusion or new work is invented.
+- ✓ **Parked-row independence — sweep-ledger diff:** Execute mode interaction, TUI-companion semantic usefulness, standalone-web driven session, stdio public RPC, and cross-surface graph/session settlement remain `partial` and unchanged while `Findings reconciliation` may move to `built`.
+- ✓ **Guidance stability — `TESTING_PLAN.md` comparison:** no edit is made unless the reconciliation identifies and cites a durable contradiction; absent one, the existing guidance remains byte-unchanged.
+- ✓ **Authorized write boundary — `git diff --name-only`:** only this sweep ledger and `TESTING_FINDINGS.md` change; no rerun artifact, production path, PLAN, SPEC, test, fixture, or local runtime state is written.
+- ✓ **Row-only completion — direct ledger inspection:** only `Findings reconciliation` changes status; FE-1348 remains active and its aggregate DoD remains unmet while any required product row is `partial`.
 
 ### Verification approach
 
-- **Inner:** none — this row edits no production code and does not re-prove existing unit contracts.
-- **Middle:** production WebSocket RPC results/events plus a fresh active-branch `projectSessionPresentationFile` projection prove target identity, lifecycle, settlement, reload convergence, and JSONL equality.
-- **Outer:** `agent-browser` accessibility snapshots/interactions prove the browser route, ask control, settled presentation, and reload behavior; CDP supplies WebSocket and console/network detail where needed.
+- **Inner:** direct structured audit of retained walkthrough conclusions against the findings reconciliation; no product tests or reruns.
+- **Middle:** `git diff --check`, `npm run check:markdown-links`, and `git diff --name-only` prove document integrity, links, and the authorized write boundary.
+- **Outer:** none — this row reconciles already retained evidence and expressly does not make a fresh qualitative claim. A51-L/SA1/SA2 remain owned by the parked colleague walkthrough.
 
 ### Cross-cutting obligations
 
-- Preserve D142-L machine-first conduct and real-browser evidence for browser claims.
-- Preserve I64-L target-addressed single-writer authority and I65-L JSONL-derived semantic convergence.
-- Treat SQLite plus active-branch Pi JSONL as canonical; browser/debug/network observations remain projections or transport evidence.
-- Keep the later A51-L colleague walkthrough, Execute re-entry, stdio re-entry, and cross-surface settlement rows untouched.
-- Reconcile this ledger only to evidence actually obtained; findings use the manual-testing terminal dispositions and never trigger inline production edits.
+- Historical findings remain provenance and are not reopened merely because their old status vocabulary differs from the current protocol.
+- Findings close only as fixed, promoted to a named owner with a re-entry trigger, or retired with rationale; an unnamed deferral is not closure.
+- Product evidence gates stay in the sweep ledger rather than being laundered into findings or treated as closed by documentation.
+- No production fix, fresh evidence claim, PLAN/SPEC change, or frontier-completion claim is authorized.
 
 ### Expected touched paths (tentative)
 
 ```text
 memory/cards/
-└── post-hardening-alpha-validation--usage-and-verification-sweep.md  ~  # active row result only
-testing/walkthroughs/2026-08-10/
-└── standalone-web-driven-session.md                                 +
-TESTING_FINDINGS.md                                                   ?  # only for an actual observation, with terminal disposition or named owner/re-entry trigger
-.fixtures/workbenches/<row-owned-workbench>/.brunch/                  ~  # ignored local runtime evidence; retain, do not promote/delete
-src/                                                                  —  # read-only; no production edits
+└── post-hardening-alpha-validation--usage-and-verification-sweep.md  ~  # install/result this row only
+TESTING_FINDINGS.md                                                   ~  # current framing + current-observation reconciliation
+TESTING_PLAN.md                                                       —  # read-only; stable absent a cited contradiction
+testing/walkthroughs/2026-08-10/                                     —  # read-only retained evidence
+memory/PLAN.md                                                        —  # no frontier-status change
+memory/SPEC.md                                                        —  # no durable contradiction presently identified
+src/                                                                  —  # no production work
 ```
 
 ## Required developer and verification-path ledger
@@ -147,7 +148,7 @@ src/                                                                  —  # rea
 | Installed-package integrity | `built` | ● | `proving` | `scripts/check-release-pack.mjs`, package assets | `npm run check:release-pack` passes: tarball assets, isolated install, foreign-cwd boot/RPC, and SQLite native binding work without source-tree reachability. Evidence: [`testing/walkthroughs/2026-08-10/installed-package-integrity.md`](../../testing/walkthroughs/2026-08-10/installed-package-integrity.md). |
 | Installed interactive-mode boot | `built` | ● | `proving` | packaged CLI + TUI/web composition | A fresh packed isolated install using exactly the reviewed truthy `package.json.allowScripts` policy starts the installed authless TUI under the project-owned PTY fallback and installed standalone web from separate foreign cwd(s); the rendered pre-agent workspace chooser and served loopback HTML surface are observed before clean shutdown with no driver session, listener, or process residue. No provider turn or publication occurred. Evidence: [`testing/walkthroughs/2026-08-10/installed-interactive-mode-boot.md`](../../testing/walkthroughs/2026-08-10/installed-interactive-mode-boot.md). |
 | Current testing guidance | `built` | ● | `earned` | `TESTING_PLAN.md`, D142-L, manual/comparison/dev guidance | Canonical guidance now chooses machine, browser, or PTY control by the evidence claim; Herdr is the preferred PTY host, with overlay and headless fallbacks retained. The current prompt-level `interactive_shell` behavior and Brunch Execute process-move exception remain explicit and owned by `cli-mode-entry` / `comparison-machine-interface-cutover`; no unlanded cutover is claimed. `npm run check` passes with only pre-existing warnings. Evidence: [`TESTING_PLAN.md`](../../TESTING_PLAN.md), [`docs/praxis/manual-testing.md`](../../docs/praxis/manual-testing.md), [`docs/praxis/comparison-runs.md`](../../docs/praxis/comparison-runs.md), [`src/dev/README.md`](../../src/dev/README.md). |
-| Findings reconciliation | `partial` | ● | `earned` | `TESTING_FINDINGS.md` | Every observation from this sweep uses the pinned finding shape and terminates as fixed/promoted/retired; historical findings remain provenance rather than being reopened by default. |
+| Findings reconciliation | `built` | ● | `earned` | `TESTING_FINDINGS.md` | Every retained sweep observation is accounted for without converting owned product-evidence gates into findings; SA1/SA2 are promoted with their existing owner and A51-L trigger, and historical findings remain provenance. Evidence: [`TESTING_FINDINGS.md`](../../TESTING_FINDINGS.md). |
 
 ## Explicit deferred / tripwired rows
 
