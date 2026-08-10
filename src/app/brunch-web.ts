@@ -121,27 +121,28 @@ async function createStandaloneSessionRuntime(
         runtimeDisposed = true;
         unsubscribe();
         unsubscribeAsk();
-        try {
-          await createdRuntime.dispose();
-        } finally {
-          await writer.release();
-        }
+        await createdRuntime.dispose();
+        await writer.release();
       },
     };
   } catch (error) {
     const cleanupErrors: unknown[] = [];
+    let runtimeCleanupFailed = false;
     if (runtime && !runtimeDisposed) {
       runtimeDisposed = true;
       try {
         await runtime.dispose();
       } catch (cleanupError) {
+        runtimeCleanupFailed = true;
         cleanupErrors.push(cleanupError);
       }
     }
-    try {
-      await writer.release();
-    } catch (cleanupError) {
-      cleanupErrors.push(cleanupError);
+    if (!runtimeCleanupFailed) {
+      try {
+        await writer.release();
+      } catch (cleanupError) {
+        cleanupErrors.push(cleanupError);
+      }
     }
     if (cleanupErrors.length > 0) {
       throw new AggregateError(
