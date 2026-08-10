@@ -15,7 +15,7 @@
 
 - **Ship gate:** FE-1187 `walkthrough-remediation-2` is still the sole remaining ship-gate frontier. `remediation-4` landed the mixed-settlement review contract, populated-only Impact Ledger rendering, terminal-adaptive shell, persistent Specify elicitation style, deterministic menus, Ask mechanics, Continue-language cleanup, KA handoff, and the R6 terminal-status rail; extractor/oracle hardening and the fresh R8–R10 0/3 campaign remain paused at user direction. Execute evidence O7–O9 is still KA-owned.
 - **Session-runtime convergence:** FE-1200 proved the standalone web foundation. FE-1321 then falsified the stronger independent-host attachment premise against Pi 0.83.0: public `InteractiveMode.stop()` preserves the runtime but leaves `run()` and its input callback pending. The selected replacement converges contracts rather than forcing one process shape: normal TUI mode owns its real Pi runtime and exposes a Brunch-semantic React companion; standalone web owns its `LiveSessionHost`; both use the same runtime factory, semantic projections/RPC vocabulary, JSONL truth, and a per-target cross-process writer guard. Independent TUI-detach survival and remote terminal presentation are deferred until real demand.
-- **Comparison lanes:** the repo keeps two distinct evaluation doors: seed-based intra-product testing and mission-driven cross-product comparison. FE-1241 closed the brownfield comparison cases; FE-1215 landed the approachable operator workflow; FE-1320 structurally separated controller-private mission material from fresh external harness targets. The remaining operator residue is the later real Brunch+Claude saved-mission witness.
+- **Comparison lanes:** the repo keeps two distinct evaluation doors: seed-based intra-product testing and mission-driven cross-product comparison. FE-1241 closed the brownfield comparison cases; FE-1215 landed the approachable operator workflow; FE-1320 structurally separated controller-private mission material from fresh external harness targets. D142-L then exposed a control-topology gap: the prompts still use interactive shells even when rendering is not the claim, stdio Brunch RPC has no live session driver, and hosted web RPC cannot select an Execute process move. `cli-mode-entry` now owns terminal-independent mode activation; `comparison-machine-interface-cutover` then replaces eligible Brunch/Claude shell control before the real saved-mission witness.
 - **Executor / Execute evidence queue:** several KA fronts are implementation-merged but still carry explicit outer evidence: `host-landing`, `executor-plan-synthesis`, `execution-comparison-tracer`, `executor-plan-coherence`, `executor-slice-verification-repair`, and `greenfield-secure-drop-demo`.
 - **Current seams and discipline:** Brunch ships on `1.0.0-alpha.x`. D125-L's live ask registry is the structured-exchange headless surface; the transcript-backed pending projection remains compatibility-only. Sweep classification remains fail-closed on exchange-schema terminal names (D117-L); the larger capture-conditional watermark question remains A40-L. Co-located `src/**/TOPOLOGY.md` files own current topology; scratch evidence is not durable until promoted to `.fixtures/runs/`.
 - **Post-hardening validation:** FE-1348 freezes the current alpha boundary into a closed usage/verification-path inventory. It executes required paths through real entry points, absorbs A51-L's remaining colleague walkthrough, and records incidental simplification findings without widening into fixes. Existing provider campaigns, KA evidence, comparison witnesses, legacy-data migration, cross-platform rendering, and actual publication retain their current owners and gates.
@@ -50,7 +50,6 @@
 - `shared-session-host-tracer` ([FE-1321](https://linear.app/hash/issue/FE-1321/prove-shared-session-host-attachment-for-tui-and-react)) — **active:** writer authority, the TUI semantic adapter, production composition wiring, the semantic-only `/rpc` transport, and the deterministic PTY journey through the production normal-TUI `InteractiveMode` are built. Companion React semantic convergence over that PTY composition is now witnessed too, and so are the structured ask, the TUI-only product interaction, the rival standalone-web refusal under live TUI ownership, and the standalone-web takeover of the released target. PR review repairs enforce TUI adapter driver leases and standalone-runtime cleanup ordering; disposal failure now retains fail-closed writer authority rather than admitting a rival runtime. A51-L's colleague walkthrough is now a required FE-1348 validation-sweep row. Definition below.
 - `post-hardening-alpha-validation` ([FE-1348](https://linear.app/hash/issue/FE-1348/validate-current-brunch-usage-and-testing-paths)) — **active, evidence-gated coverage frontier:** validate the frozen current alpha entry/usage/verification inventory through real source, product, dev, comparison-gate, and installed-package paths; disposition incidental audit findings without implementing them in the sweep. Includes A51-L's remaining colleague walkthrough. Definition and active sweep ledger below.
 - `walkthrough-remediation-2` ([FE-1187](https://linear.app/hash/issue/FE-1187/walkthrough-remediation-sweep-2-wr18-follow-up-closure)) — **paused after `remediation-4` tie-off:** mixed-settlement review preservation and populated-group-only Impact Ledger rendering are built. Re-entry requires an explicit decision to resume extractor/oracle hardening, then restart R8–R10 from 0/3; A48-L, the separate web graph audit, and the consolidated outer checkpoint remain behind that gate. Execute O7–O9 stay KA-owned. Closing member of arc `deterministic-orientation`. Definition below.
-- `cli-mode-entry` — direct-mode CLI subcommands (`brunch specify [spec-id]` / `brunch execute <spec-id>`, reserving `develop`); admitted 2026-07-13, stacked after FE-1187's entry-surface work. Definition below.
 - **Alpha walkthrough lane** — historical runs A, C, and WR18 remain source evidence in `TESTING_FINDINGS.md`; FE-1348 now owns the frozen current-surface pass. `TESTING_PLAN.md` is reconciled as outer-loop guidance rather than retained as a parallel live plan.
 
 ### Recently Completed
@@ -66,7 +65,9 @@ Older completion history and archived completed frontier definitions live in [`d
 
 ### Next
 
-- `saved-mission-comparison-witness` — later operator-owned frontier: FE-1215 is landed, so the remaining work is scheduling the real Brunch + Claude `/compare-specs` witness, then revising/rerunning the saved mission to prove historical snapshots remain immutable. Definition below.
+- `cli-mode-entry` — next proving frontier after FE-1348: make `brunch specify [spec-id]` / `brunch execute <spec-id>` select operational mode before either TUI or hosted-web composition starts, so machine control does not need to synthesize a TUI-only process-move entry. D98-L/D109-L are materialized; the former FE-1187 implementation block is retired. Definition below.
+- `comparison-machine-interface-cutover` — replace eligible Brunch/Claude `interactive_shell` conduct with hosted Brunch JSON-RPC and Claude stream-JSON, reusing existing adapters; depends on `cli-mode-entry` for Brunch Execute. Definition below.
+- `saved-mission-comparison-witness` — operator-owned real Brunch + Claude `/compare-specs` witness after the machine-interface cutover, then mission revision/rerun proving historical snapshots remain immutable. Definition below.
 - `shared-session-host-cutover` — wait-gated on the reshaped tracer; close the enumerated shared-contract surface only after the tracer lands, then delete the raw sidecar relay and `/rpc/driver` without forcing physical host unification. Definition below.
 
 ### Parallel / Low-conflict
@@ -133,16 +134,33 @@ Legacy link target; see Horizon.
 
 ### cli-mode-entry
 
-- **Name:** Direct-mode CLI entry — `brunch specify [spec-id]` / `brunch execute <spec-id>`
+- **Name:** Direct operational-mode entry — `brunch specify [spec-id]` / `brunch execute <spec-id>`
 - **Linear:** unassigned (create at pickup, FE team / brunch project)
-- **Branch:** stacked after FE-1187's entry-surface work (shared workspace-dialog seam)
-- **Kind:** bounded feature — new CLI entry behavior over existing activation/orientation seams.
+- **Branch:** tbd at pickup; stack after FE-1348 because that frontier found and bounded the machine-control gap.
+- **Kind:** structural bounded feature — one presentation-neutral activation decision with CLI subcommands as its product-facing entry.
 - **Certainty:** proving.
-- **Blocked by:** `walkthrough-remediation-2` materializing revised D98-L/D109-L.
-- **Objective:** add `specify [spec-id]` (default new spec) and `execute <spec-id>` subcommands, reserve `develop`, pre-answer the workspace dialog through the injected decision seam, seed `operationalMode`, and then follow the revised style/process-move policy rather than synthesizing an obsolete generic orientation entry.
-- **Verification:** inner — argv→activation-decision mapping, spec-id validation, orientation-suppression and kick-composition regressions; outer — one manual walkthrough per subcommand.
-- **Why now / unlocks:** shares FE-1187's entry-friction motivation and reserves the `develop` name ahead of the later mode frontier. D142-L's Execute RPC spike makes this the candidate prerequisite for terminal-independent Execute comparison entry, but the planned slice must first decide whether operational-mode preselection reaches standalone web/RPC runtime activation; a TUI-only subcommand does not unlock machine-only comparison control.
-- **Traceability:** D98-L, D109-L, D101-L, D102-L.
+- **Status:** next; the revised D98-L/D109-L entry semantics are materialized, so the former FE-1187 implementation block is retired.
+- **Lights up:** terminal-independent Specify/Execute activation before TUI or hosted-web runtime composition.
+- **Objective:** add `specify [spec-id]` (default new spec) and `execute <spec-id>` subcommands, reserve `develop`, and apply one explicit workspace/spec/session/operational-mode activation decision before launching either TUI or hosted web. Preserve revised style/process-move policy without requiring a controller to append a TUI-only process-move entry. Do not add a second runtime or raw Pi transport.
+- **Acceptance:** source and installed CLIs validate spec ids and select the same canonical session/mode under TUI and `--mode web`; a hosted-web `execute <spec-id>` open reports Execute runtime state and can accept a public `session.driveTurn` without terminal input; ordinary bare `brunch` behavior is unchanged. This frontier establishes entry and one driven-turn proof only—it does not run a provider execution campaign or add a generic remote command API.
+- **Verification:** inner — argv→activation-decision mapping, mode/session persistence, invalid-id and unchanged-default rivals, orientation/kick composition, hosted-runtime state and driver contracts; outer — one bounded TUI entry observation and one machine-facing hosted-web entry/turn observation.
+- **Why now / unlocks:** D142-L's Execute RPC spike proved that stdio has no live session and hosted web has no process-move method. Pre-runtime mode selection is the smallest existing-seam path to machine-controlled Execute entry and unblocks the comparison adapter cutover without exposing TUI mechanics as product RPC.
+- **Traceability:** D98-L, D109-L, D101-L, D102-L, D132-L, D142-L; req 4, req 24, req 28.
+
+### comparison-machine-interface-cutover
+
+- **Name:** Comparison harness machine-interface cutover
+- **Linear:** unassigned (create at pickup, FE team / brunch project)
+- **Branch:** tbd at pickup; stack after `cli-mode-entry`.
+- **Kind:** structural developer-tooling cutover across the two current approachable comparison prompts; no product protocol expansion.
+- **Certainty:** proving.
+- **Depends on:** `cli-mode-entry` for Brunch Execute activation; existing hosted Brunch RPC, Claude stream-JSON execution adapter, and comparison artifact/isolation contracts are validated enough.
+- **Lights up:** text-native Brunch/Claude conduct and transcript capture without terminal rendering as an accidental control plane.
+- **Objective:** make `/compare-specs` and `/compare-execution` use target-native machine interfaces whenever rendering is not part of the claim: hosted public Brunch JSON-RPC for Brunch, Claude stream-JSON for Claude, and the existing controller-owned artifact/cleanup boundaries. Reuse `src/dev/end-to-end-comparison/claude-adapter.ts` behavior rather than authoring a second Claude launcher. Keep PTY/Herdr only as an explicitly selected visual/TUI evidence path.
+- **Acceptance:** both prompts and their tests name the structured adapters; Brunch Specify and Execute lanes retain exact target-visible messages, asks/answers, streamed outcomes, canonical JSONL, terminal state, and cleanup without reading private controller material; Claude lanes retain equivalent stream-JSON interaction evidence; no `interactive_shell` dependency remains in these Brunch/Claude nonvisual conduct paths. Existing target isolation, immutable packets, intervention ledgers, and no-winner boundaries remain unchanged. Codex, Cursor, and Pi roster migration is out until a scheduled witness selects them.
+- **Verification:** focused adapter protocol/cleanup tests with wrong-interface rivals; actual-entry-point prompt tests; one deterministic Brunch hosted-RPC conduct smoke and one Claude stream-JSON command-construction smoke. Real provider comparisons remain owned by their existing witness/campaign frontiers.
+- **Why now / unlocks:** D142-L selected machine-first verification, but the current prompts still prescribe interactive shells. This cutover removes that policy/runtime contradiction before the saved-mission witness and later execution-comparison reruns generate new evidence on the obsolete control path.
+- **Traceability:** D70-L, D132-L, D134-L, D142-L; req 24, req 28; I67-L.
 
 ### saved-mission-comparison-witness
 
@@ -154,9 +172,9 @@ Legacy link target; see Horizon.
 - **Classification:** wait-gated on operator availability.
 - **Status:** planned; FE-1215's D134-L remediation is landed. The retained failed run `minimal-petri-net-editor-20260717T132344Z` remains FE-1215 design evidence, not this frontier's witness.
 - **Objective:** prove that the corrected approachable saved-mission workflow works through its actual entry point and that mission revision affects future runs without rewriting historical evidence.
-- **Acceptance:** a stock Pi session runs the real `/compare-specs` prompt through ordinary-text approvals; the top-level session is the sole simulated-user actor and drives one direct Brunch shell then one direct Claude shell; the first run proves mission-consistent conduct, no mission leakage, honest outcomes/cleanup, unchanged target-authored documents, one aggregate notification, and a readable report; the operator then revises the mission and approves a second run whose edits do not rewrite the first run's retained snapshots.
+- **Acceptance:** a stock Pi session runs the real `/compare-specs` prompt through ordinary-text approvals; the top-level session is the sole simulated-user actor and drives one hosted Brunch JSON-RPC target then one Claude stream-JSON target through the cutover adapters; the first run proves mission-consistent conduct, no mission leakage, honest outcomes/cleanup, unchanged target-authored documents, one aggregate notification, and a readable report; the operator then revises the mission and approves a second run whose edits do not rewrite the first run's retained snapshots.
 - **Verification:** outer only — operator-led first run plus revision/rerun through the real stock-Pi prompt, with artifact inspection and snapshot fingerprints.
-- **Dependencies:** hard on operator scheduling; FE-1215 direct-control remediation and FE-1320 target-placement hardening are satisfied.
+- **Dependencies:** hard on `comparison-machine-interface-cutover` and operator scheduling; FE-1215 direct-control remediation and FE-1320 target-placement hardening are satisfied.
 - **Traceability:** req 24/A5-L; D70-L; D134-L/I67-L; FE-1210 evidence discipline; SPEC Verification Design `saved-mission-comparison-witness` gate.
 
 ### shared-session-host-tracer
@@ -575,10 +593,17 @@ active:
     closes_arc: deterministic-orientation
     blocked_reentry: extractor/oracle reconciliation -> fresh R8–R10 0/3 campaign -> A48-L -> consolidated outer checkpoint
     cross_stream: O7/O8/O9 + carved Execute beats stay KA-owned
-    -[stack]-> cli-mode-entry
 next:
+  cli-mode-entry
+    lights_up: presentation-neutral Specify/Execute activation -> TUI | hosted web RPC
+    unblocked_by: revised D98-L/D109-L entry semantics materialized
+    -[hard]-> comparison-machine-interface-cutover
+  comparison-machine-interface-cutover
+    lights_up: hosted Brunch RPC + Claude stream-JSON control for nonvisual comparison conduct
+    preserves: target isolation | immutable packets | transcript/intervention evidence | cleanup
+    -[hard]-> saved-mission-comparison-witness
   saved-mission-comparison-witness
-    gated_by: operator availability
+    gated_by: comparison-machine-interface-cutover | operator availability
     dependencies_satisfied: FE-1215 direct control | FE-1320 external target placement
   shared-session-host-cutover
     classification: wait-gated until tracer landing
