@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   assertExcludesPrefixes,
   installedBrunchBinPath,
+  releasePackInstallArgs,
   runtimeMarkdownAssetPaths,
 } from './check-release-pack.mjs';
 
@@ -12,6 +13,23 @@ describe('check-release-pack helpers', () => {
   it('uses the Windows npm prefix bin layout', () => {
     expect(installedBrunchBinPath('/tmp/prefix', 'win32')).toBe(join('/tmp/prefix', 'brunch.cmd'));
     expect(installedBrunchBinPath('/tmp/prefix', 'darwin')).toBe(join('/tmp/prefix', 'bin', 'brunch'));
+  });
+
+  it('passes the repository-reviewed lifecycle-script policy to the global install', () => {
+    expect(
+      releasePackInstallArgs('/tmp/brunch.tgz', '/tmp/prefix', {
+        'better-sqlite3@12.11.1': true,
+        '@google/genai': true,
+        ignored: false,
+      }),
+    ).toEqual([
+      'install',
+      '--global',
+      '--prefix',
+      '/tmp/prefix',
+      '--allow-scripts=better-sqlite3@12.11.1,@google/genai',
+      '/tmp/brunch.tgz',
+    ]);
   });
 
   it('rejects excluded package prefixes', () => {
