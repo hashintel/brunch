@@ -1,8 +1,5 @@
 {
   "packages": [
     "npm:pi-interactive-shell@0.13.0"
-  ],
-  "extensions": [
-    "-extensions/subagents/index.ts"
   ]
 }

@@ -52,7 +52,7 @@
 
 ### Recently Completed
 
-- 2026-08-05 `integrity-cleanup` (FE-1311) — **✓ complete:** the verified deletion/consolidation sweep and final five-row closure aligned the published package, probe topology, comparison public root, path-existence ownership, and DB test naming without reopening falsified deletion targets.
+- 2026-08-05 `integrity-cleanup` (FE-1311) — **✓ complete:** the verified deletion/consolidation sweep and final five-row closure aligned the published package, probe topology, comparison public root, path-existence ownership, DB test naming, and portable repo-root Pi extension discovery without reopening falsified deletion targets.
 - 2026-07-22 `brownfield-comparison-cases` (FE-1241) — **✓ complete, learning-first:** frozen Brunch and Petrinaut packets, pinned-source preparation, deterministic oracles, publication-compatible attempt evidence, and portable CI are built.
 - 2026-07-22 `comparison-publication-workflow` (FE-1251) — **✓ complete:** PR #364 landed immutable comparison provenance plus guarded, idempotent Comparison Reports publication and schema reconciliation.
 
