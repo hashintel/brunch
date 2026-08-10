@@ -119,14 +119,56 @@ Record evidence in `TESTING_FINDINGS.md`. Do not edit production code while exec
 5. Reconcile guidance and findings; rerun the final canonical gates.
 6. Update ledger statuses and canonical PLAN/SPEC only for evidence actually obtained.
 
-## Expected touched paths (tentative)
+## Active row scope: D142-L testing-guidance reconciliation
+
+Posture: earned (inherited from `post-hardening-alpha-validation`).
+
+### Objective
+
+Canonical operator guidance chooses the least indirect control surface that can prove the claim, while naming the current Brunch Execute machine-control gap without pretending it is closed.
+
+### Cold-start reads
+
+- `memory/SPEC.md` — D142-L and Verification Design
+- `memory/PLAN.md` — `post-hardening-alpha-validation`, `cli-mode-entry`, and `comparison-machine-interface-cutover`
+- `docs/praxis/manual-testing.md` — current TUI/browser protocol
+- `docs/praxis/comparison-runs.md` — current comparison recipes
+- `src/dev/README.md` — current dev-tool entry guidance
+- `.pi/prompts/compare-specs.md` and `.pi/prompts/compare-execution.md` — read-only current behavior; do not migrate either prompt in this row
+
+### Closure target
+
+- Canonicalize control selection by claim: Brunch public RPC, Pi RPC, or Claude stream-JSON/Agent SDK for represented machine-conduct claims; browser tools for browser claims; Herdr for terminal semantics or deliberate human observation; `pi-interactive-shell` as a non-Herdr overlay option; `tui-driver` as the headless PTY fallback.
+- Name the current exception: Brunch Execute comparison remains terminal-driven because neither stdio nor hosted RPC represents the complete process move; `cli-mode-entry` and `comparison-machine-interface-cutover` own closure.
+- Preserve current prompt truth: comparison docs must distinguish the present `interactive_shell` implementation from the planned machine-interface cutover.
+- Do not remove the pinned `pi-interactive-shell` package, alter `.pi/settings.json`, edit comparison prompts, add a harness, or claim a fresh provider witness.
+
+### Acceptance criteria
+
+- ✓ `rg` review of `docs/praxis/manual-testing.md`, `docs/praxis/comparison-runs.md`, and `src/dev/README.md` — no guidance presents PTY simulation as the default for nonvisual conduct; each retained PTY path states the claim that requires it.
+- ✓ `rg` review of comparison guidance — current `interactive_shell` prompt behavior and the planned D142-L cutover are both named without contradiction.
+- ✓ `npm run check:markdown-links` — all local links resolve.
+- ✓ `npm run check` — read-only repository policy remains green after the docs-only change.
+
+### Expected touched paths (this row)
+
+```text
+docs/praxis/
+├── manual-testing.md                                              ~
+└── comparison-runs.md                                             ~
+src/dev/README.md                                                   ~
+memory/cards/
+└── post-hardening-alpha-validation--usage-and-verification-sweep.md ~
+```
+
+## Expected touched paths (frontier, tentative)
 
 ```text
 memory/
 ├── PLAN.md                                                        ~
 ├── SPEC.md                                                        ?  # only if A51-L or another durable assumption changes
 └── cards/
-    └── post-hardening-alpha-validation--usage-and-verification-sweep.md  +
+    └── post-hardening-alpha-validation--usage-and-verification-sweep.md  ~
 TESTING_PLAN.md                                                     ~
 TESTING_FINDINGS.md                                                 ~
 testing/walkthroughs/2026-08-10/                                   +
