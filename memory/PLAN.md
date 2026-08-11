@@ -131,8 +131,9 @@ Legacy link target; see Horizon.
 - **Lights up:** the 0.84.x client/extension surface (`PiClient`/`RemoteSession`, markdown transformers, `tool_call` terminate, `shouldStopAfterTurn`, telemetry contracts) as seams later frontiers may aim from.
 - **Depends on:** FE-1348's closed usage/verification inventory (validated enough) as the differential regression set.
 - **Classification:** evidence-gated. The inventory is fully enumerable from the changelog crossed with brunch's import graph, but the decisive rows cannot be closed by type-checking — they need fresh witness evidence on the new baseline (see Verification).
-- **Boundary — in:** the three pinned packages (`pi-ai`, `pi-coding-agent`, `pi-tui`) plus lockfile; one required row per 0.84.0/0.84.1 breaking change crossed with its brunch consumer; typed-seam hardening wherever a load-bearing Pi seam is currently read through a structural cast; a disposition row per new-API area; re-run of the required FE-1348 subset and FE-1321's four slow witnesses; the `brace-expansion` 5.0.9 / `undici` 8.9.0 advisory clearance on `next`. **Out:** adopting `RemoteSession`/`PiClient` into production (that verdict belongs to `shared-session-host-cutover`), fullscreen TUI mode, any new product capability, changes to the Pi source-alias dev workflow, and `main`'s PR #422.
-- **Inventory authority:** create `memory/cards/pi-084-upgrade--change-surface-ledger.md` (`Mode: sweep`) at scope time, seeded from the findings below.
+- **Boundary — in:** the three pinned packages (`pi-ai`, `pi-coding-agent`, `pi-tui`) plus lockfile; one required row per brunch sub-seam that consumes a Pi symbol, enumerated from the import graph (**revised at scope time 2026-08-11** — the original changelog-driven framing was too narrow, see the scope note below); typed-seam hardening wherever a load-bearing Pi seam is currently read through a structural cast; a disposition row per new-API area; re-run of the required FE-1348 subset and FE-1321's four slow witnesses; the `brace-expansion` 5.0.9 / `undici` 8.9.0 advisory clearance on `next`. **Out:** adopting `RemoteSession`/`PiClient` into production (that verdict belongs to `shared-session-host-cutover`), fullscreen TUI mode, any new product capability, changes to the Pi source-alias dev workflow, and `main`'s PR #422.
+- **Inventory authority:** [`memory/cards/pi-084-upgrade--change-surface-ledger.md`](cards/pi-084-upgrade--change-surface-ledger.md) (`Mode: sweep`), authored 2026-08-11.
+- **Scope-time reconciliation (2026-08-11):** enumerating brunch's actual import surface (~110 distinct symbols across 210 files) widened the inventory beyond the changelog-derived rows below, and a `.d.ts` diff of 0.83.0 against 0.84.1 found a **hard breaking change absent from the published Breaking Changes list**: pi-tui's `TUI` moved from `export declare class TUI extends Container` to `export interface TUI extends Component`, with `TuiMainScreen`/`TuiAltScreen` as the concrete classes. brunch has 30 `new TUI(` sites across 13 files — two of them production (`src/.pi/components/workspace-dialog/preflight.ts:24`, `src/dev/component-preview.ts`) — and 14 value-imports that break at import rather than at type. The ledger therefore enumerates by consuming sub-seam (runtime/auth, event projection, pi-tui components, extension surface, test substrate, verified-no-impact, new-API disposition) rather than by changelog entry. This confirms rather than weakens the frontier's premise: **the changelog is necessary but not sufficient as an inventory.** The frontier's objective, boundary intent, dependencies, and posture are unchanged, so this is a reconciliation, not a re-plan.
 - **Change-surface findings (planning pass 2026-08-11, verified against the 0.84.1 and 0.83.0 type surfaces):**
 
   | Change area | brunch surface | Assessed |
@@ -567,7 +568,10 @@ active:
 next:
   pi-084-upgrade
     classification: evidence-gated coverage frontier
-    inventory: memory/cards/pi-084-upgrade--change-surface-ledger.md
+    inventory: memory/cards/pi-084-upgrade--change-surface-ledger.md (authored 2026-08-11)
+    scope_finding: pi-tui TUI class -> interface is breaking and UNLISTED in the changelog;
+                   30 `new TUI(` sites / 13 files / 2 production. Ledger enumerates by
+                   consuming sub-seam from the import graph, not by changelog entry.
     retires: A25-L (continuous-tracking safety, never tested across a 5-minor harness jump)
     depends_on: FE-1348 closed inventory (regression oracle) | FE-1321 slow witnesses (convergence oracle)
     gate: FE-1348's five open required rows — Execute mode interaction | TUI-companion A51-L |
