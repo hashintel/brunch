@@ -3,6 +3,12 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-08-11 FE-1321 shared session host tracer closeout
+
+`shared-session-host-tracer` ([FE-1321](https://linear.app/hash/issue/FE-1321/prove-shared-session-host-attachment-for-tui-and-react)) validated D141-L's two-composition contract without introducing an independent shared daemon. Production witnesses prove the real TUI and companion React converge through target-addressed semantic deltas and one canonical JSONL, structured asks retain TUI-only answer authority, rival runtimes fail closed before construction, and normal TUI shutdown permits standalone-web takeover of the same target.
+
+FE-1348's A51-L colleague walkthrough supplied the final product judgment: ordinary turns and observe-only asks remained useful, and the honest browser refusal of a TUI-owned answer was understandable. SA1's proposed ownership marker and SA2's dual-answer authority were retired without implementation. The `shared-session-host-convergence` arc remains active for `shared-session-host-cutover`, wait-gated on FE-1348's standalone-web and cross-surface settlement evidence.
+
 ## 2026-08-05 FE-1320 comparison mission isolation closeout
 
 `comparison-mission-isolation-hardening` ([FE-1320](https://linear.app/hash/issue/FE-1320/structural-private-mission-isolation-for-compare-specs)) closed the CS2 placement risk without introducing a controller runtime or generic sandbox. The prompt-owned `/compare-specs` procedure now allocates each harness a fresh system-temporary external target root outside controller checkout, scratch, and retained trees; Brunch still launches from the repository root and receives the target through `--workspace`.

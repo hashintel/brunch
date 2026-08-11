@@ -4,7 +4,7 @@
 
 Current row status, owners, evidence gates, and execution order live in the [FE-1348 sweep ledger](memory/cards/post-hardening-alpha-validation--usage-and-verification-sweep.md). This file records only walkthrough observations that need a durable fixed, promoted, or retired disposition. The older entries below remain provenance, not an active checklist.
 
-The A51-L colleague walkthrough is parked. Its product row and SA1/SA2 remain open; this reconciliation does not supply the missing human judgment or complete FE-1348.
+The A51-L colleague walkthrough completed on 2026-08-11. It retired SA1/SA2 without implementation and closed only the `TUI-companion semantic usefulness` row; four other product rows still keep FE-1348 open.
 
 ### 2026-08-10 retained-corpus reconciliation
 
@@ -15,6 +15,7 @@ The A51-L colleague walkthrough is parked. Its product row and SA1/SA2 remain op
 | [Specify session interaction](testing/walkthroughs/2026-08-10/specify-session-interaction.md) | No finding: the one invalid provider attempt was quiet, mutation-free, and immediately recovered under the already-settled R6 contract. |
 | [Execute mode interaction](testing/walkthroughs/2026-08-10/execute-mode-interaction-owned-gate.md) | Not a finding: retained as the ledger's owned `partial` product-evidence gate; no unsupported Compile/Execute state was manufactured. |
 | [Session resume and active-tree continuity](testing/walkthroughs/2026-08-10/session-resume-active-tree-continuity.md) | No finding: active-branch projections remained stable across relaunch and rejected the append-order rival. |
+| [TUI-companion semantic usefulness](testing/walkthroughs/2026-08-11/tui-companion-semantic-usefulness.md) | SA1/SA2 retired: the colleague found the companion useful and its honest TUI-owned ask refusal understandable; no ownership marker or dual-answer authority is currently warranted. |
 | [Cross-composition writer transfer](testing/walkthroughs/2026-08-10/cross-composition-writer-transfer.md) | No finding: refusal, release, reacquisition, continuity, and cleanup matched the single-writer contract. |
 | [Standalone-web driven session](testing/walkthroughs/2026-08-10/standalone-web-driven-session.md) | Not a finding: agent-browser startup prevented observation; the ledger retains the owned `partial` evidence gate and re-entry trigger. |
 | [Stdio public RPC](testing/walkthroughs/2026-08-10/stdio-public-rpc-owned-gate.md) | Not a finding: the launched runtime had no provider/model; the ledger retains the owned `partial` evidence gate and re-entry trigger. |
@@ -495,23 +496,23 @@ Disposition: logged — process-cleanup confirmation remains the operator/top-le
 
 ### 2026-08-07 FE-1321 shared-session-host-tracer — structured-ask companion questions
 
-Both entries are design questions raised by the structured-ask slice, not defects. The slice proved the correctness half automatically (`src/app/__tests__/session-runtime-contract-structured-ask.slow.test.ts`); the presentation half needs a human judgment the slice deliberately did not make. Owner frontier: `shared-session-host-tracer`. Re-entry trigger for both: A51-L's colleague walkthrough, which is a precondition of retiring A51-L.
+Both entries were design questions raised by the structured-ask slice, not defects. The slice proved the correctness half automatically (`src/app/__tests__/session-runtime-contract-structured-ask.slow.test.ts`); the 2026-08-11 A51-L colleague walkthrough supplied the presentation judgment and retired both questions.
 
-#### SA1 · consult menu / chrome carryover · medium · promoted design question
+#### SA1 · consult menu / chrome carryover · medium · retired
 
 Concern: under the normal-TUI composition the companion browser renders a TUI-owned ask with its ordinary answer form, but submitting it is refused as `ask_closed` and surfaces as a visible error.
 Evidence: `src/app/__tests__/session-runtime-contract-structured-ask.slow.test.ts` (single-answering-authority leaf); the refusal path is `src/session/tui-live-session-adapter.ts` `answerExchange` → `ask_closed`, rendered by the `Ask` form's error branch in `src/web/routes/session.tsx`.
 Observation: the refusal is honest and requires no contract change, but a colleague sees an inviting form that cannot succeed.
 Expected: a human judges whether that is confusing enough to warrant the deliberately excluded ownership marker on `OpenAsk` (e.g. `owner: 'tui'` / `answerable: false`) so the companion can render a TUI-owned ask read-only.
-Disposition: promoted — owner frontier `shared-session-host-tracer` (`memory/PLAN.md`), re-entry trigger the A51-L colleague walkthrough. Cost/value: the marker is a small field but ripples through `zOpenAsk`, the `SessionPresentationEntry` ask variant, the overlay reducer, and the `Ask` component — perhaps half a day — for a UX-polish gain the automated oracle does not require; cheap to defer because the correctness half is already guarded.
+Disposition: retired — the A51-L colleague deliberately attempted the visible companion form, saw `answer could not be submitted` followed by `ask closed`, and judged the result understandable. The TUI-owned ask remained open and accepted the sole successful answer. The marker's cross-contract cost has no demonstrated current value; re-enter only on a concrete confusion report. Evidence: [`testing/walkthroughs/2026-08-11/tui-companion-semantic-usefulness.md`](testing/walkthroughs/2026-08-11/tui-companion-semantic-usefulness.md).
 
-#### SA2 · consult menu / chrome carryover · medium · promoted design question
+#### SA2 · consult menu / chrome carryover · medium · retired
 
 Concern: whether observation-without-answering is sufficient companion value for structured asks.
 Evidence: the same witness — the companion observes the ask and converges at settlement, but the TUI is the sole answering authority (assumption A51-L in `memory/SPEC.md`).
 Observation: the slice chose observation over dual-answer because dismissing a TUI picker from outside is not reachable — the extension holds only Pi's tool-execution `AbortSignal`, and aborting it cancels the whole turn.
 Expected: a human judges whether a colleague watching an ask they cannot answer is useful, or whether dual-answer authority is a real product requirement.
-Disposition: promoted — owner frontier `shared-session-host-tracer`, re-entry trigger the A51-L colleague walkthrough. Cost/value: if dual-answer is required, picker dismissal becomes upstream Pi work and the answering-authority design changes, shifting `shared-session-host-cutover`'s semantic-contract sweep rows; expensive to build speculatively, cheap to answer with one walkthrough.
+Disposition: retired — the colleague found the companion useful while the TUI retained sole structured-ask answer authority; both presentations updated immediately and converged after the TUI answer. Dual-answer authority is not a current product requirement. Re-enter only if a future workflow requires a companion observer to answer a TUI-owned ask. Evidence: [`testing/walkthroughs/2026-08-11/tui-companion-semantic-usefulness.md`](testing/walkthroughs/2026-08-11/tui-companion-semantic-usefulness.md).
 
 Use future entries like:
 
