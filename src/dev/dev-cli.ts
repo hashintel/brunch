@@ -316,6 +316,7 @@ async function runLaunchCommand(args: readonly string[], options: DevCliOptions 
   return await (options.launchBrunch ?? runBrunchCli)({
     argv: ['--mode', flags.mode, ...(!openWeb ? ['--no-webui'] : [])],
     cwd: workspace,
+    ...(options.launchBrunch ? {} : { awaitWebTermination: true }),
     ...(options.stdin ? { stdin: options.stdin } : {}),
     ...(options.stdout ? { stdout: options.stdout } : {}),
     ...(flags.evaluationArm === 'ablated'

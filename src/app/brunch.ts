@@ -25,6 +25,8 @@ export interface BrunchCliOptions {
   debugMirror?: boolean;
   /** Programmatic dev/eval-only intervention; never parsed from product CLI argv. */
   evaluationDirectiveAblation?: 'warrant-before-commit';
+  /** Production entrypoints await signal-driven standalone-web host cleanup. */
+  awaitWebTermination?: boolean;
   launchTui?: typeof runBrunchTui;
   launchWeb?: (
     options: Omit<BrunchWebOptions, 'createRuntime'>,
@@ -76,6 +78,11 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
   if (mode === 'web') {
     const host = await (options.launchWeb ?? runBrunchWeb)({ cwd, coordinator });
     writeStdout(options.stdout, `Brunch web running at ${host.url}\n`);
+    if (options.awaitWebTermination) {
+      const signal = await closeWebHostOnTermination(host);
+      process.kill(process.pid, signal);
+      return gracefulTerminationExitCode[signal];
+    }
     return 0;
   }
 
@@ -185,7 +192,7 @@ function resolveCwdFlag(value: string | undefined): string | undefined {
 }
 
 async function main(): Promise<void> {
-  process.exitCode = await runBrunchCli();
+  process.exitCode = await runBrunchCli({ awaitWebTermination: true });
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -194,4 +201,43 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.stderr.write(`${message}\n`);
     process.exitCode = 1;
   });
+}
+
+type GracefulTerminationSignal = 'SIGINT' | 'SIGTERM';
+
+const gracefulTerminationExitCode: Readonly<Record<GracefulTerminationSignal, number>> = {
+  SIGINT: 130,
+  SIGTERM: 143,
+};
+
+async function closeWebHostOnTermination(
+  host: Awaited<ReturnType<typeof runBrunchWeb>>,
+): Promise<GracefulTerminationSignal> {
+  let closePromise: Promise<void> | undefined;
+  let requestedSignal: GracefulTerminationSignal | undefined;
+  let resolveTermination: ((signal: GracefulTerminationSignal) => void) | undefined;
+  let rejectTermination: ((error: unknown) => void) | undefined;
+  const termination = new Promise<GracefulTerminationSignal>((resolvePromise, rejectPromise) => {
+    resolveTermination = resolvePromise;
+    rejectTermination = rejectPromise;
+  });
+  const requestClose = (signal: GracefulTerminationSignal) => {
+    requestedSignal ??= signal;
+    closePromise ??= Promise.resolve().then(() => host.close());
+    void closePromise.then(
+      () => resolveTermination?.(requestedSignal ?? signal),
+      (error: unknown) => rejectTermination?.(error),
+    );
+  };
+  const onSigint = () => requestClose('SIGINT');
+  const onSigterm = () => requestClose('SIGTERM');
+
+  process.on('SIGINT', onSigint);
+  process.on('SIGTERM', onSigterm);
+  try {
+    return await termination;
+  } finally {
+    process.off('SIGINT', onSigint);
+    process.off('SIGTERM', onSigterm);
+  }
 }
