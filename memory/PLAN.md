@@ -18,6 +18,7 @@
 - **Comparison lanes:** the repo keeps two distinct evaluation doors: seed-based intra-product testing and mission-driven cross-product comparison. FE-1241 closed the brownfield comparison cases; FE-1215 landed the approachable operator workflow; FE-1320 structurally separated controller-private mission material from fresh external harness targets. D142-L then exposed a control-topology gap: the prompts still use interactive shells even when rendering is not the claim, stdio Brunch RPC has no live session driver, and hosted web RPC cannot select an Execute process move. `cli-mode-entry` now owns terminal-independent mode activation; `comparison-machine-interface-cutover` then replaces eligible Brunch/Claude shell control before the real saved-mission witness.
 - **Executor / Execute evidence queue:** several KA fronts are implementation-merged but still carry explicit outer evidence: `host-landing`, `executor-plan-synthesis`, `execution-comparison-tracer`, `executor-plan-coherence`, `executor-slice-verification-repair`, and `greenfield-secure-drop-demo`.
 - **Current seams and discipline:** Brunch ships on `1.0.0-alpha.x`. D125-L's live ask registry is the structured-exchange headless surface; the transcript-backed pending projection remains compatibility-only. Sweep classification remains fail-closed on exchange-schema terminal names (D117-L); the larger capture-conditional watermark question remains A40-L. Co-located `src/**/TOPOLOGY.md` files own current topology; scratch evidence is not durable until promoted to `.fixtures/runs/`.
+- **Harness baseline:** `next` is pinned to Pi `0.83.0` across `pi-ai` / `pi-coding-agent` / `pi-tui`. `main`'s PR #422 bumps only that trunk (0.79.8 → 0.84.1) and does not reach here; `next` still carries the `brace-expansion` and `undici` advisory families that bump clears. `pi-084-upgrade` owns the trunk that matters, using FE-1348's closed inventory as the differential regression oracle. Pi 0.84.0 removes the cumulative `message` field from **JSON/RPC** `message_update` only — the in-process extension event keeps it — so brunch's exposure is concentrated at the in-process/wire boundary, where structural casts currently hide it from the type checker.
 - **Post-hardening validation:** FE-1348 is complete. Its closed alpha inventory outer-witnessed every required product and verification path, including the final state-aware Execute mode-switch and explicit-consult journey against canonical plan/run authority. Optional provider campaigns, KA evidence, comparison witnesses, legacy-data migration, cross-platform rendering, and actual publication retain their existing owners and gates.
 
 ## Initiatives
@@ -34,6 +35,7 @@
 - **Members:** `shared-session-host-tracer` ✓ → FE-1348 `post-hardening-alpha-validation` A51-L, standalone-web, and cross-surface settlement rows ✓ (the frontier's other rows are product-wide) → `shared-session-host-cutover` (CS1/SW2/SW3 are fixed and outer-witnessed through one approval, receipt, and reload; the cutover itself remains unbuilt).
 - **Done-definition:** normal TUI and standalone web each own exactly one legitimate runtime composition; both use the same sealed runtime factory, target-addressed Brunch RPC/semantic projection contract, JSONL truth, and per-target cross-process writer exclusion; companion React remains useful beside the real TUI without raw Pi events; `SessionEventRelay`, `brunch.sessionEvent`, `/rpc/driver`, and duplicate browser semantics are deleted; `memory/SPEC.md`, `README.md`, `CONTRIBUTING.md`, `docs/design/WEB_UI_ARCHITECTURE.md`, and the app/session/rpc/web topology homes describe the two compositions and their shared contracts without claiming an independent shared daemon.
 - **Anchors:** A51-L; D39-L, D84-L (to retire), D132-L, D133-L, D141-L; I64-L, I65-L.
+- **Cross-cutting obligation (2026-08-11):** Pi 0.84.0 ships experimental remote-session client APIs — transport-neutral `PiClient`, a CBOR protocol, a Unix-socket transport, and a `@earendil-works/pi-coding-agent/client` `RemoteSession` controller (`open` / `create` / `submit` / `abort` / `setModel` / `setThinking` / `reconnect` / `dispose`) with transcript reducers. This does **not** by itself un-retire A47-L: it is a client for a remote session, still experimental, and says nothing about whether `InteractiveMode`'s `run()` can be released. But `shared-session-host-cutover` must evaluate it **before** deleting `SessionEventRelay` and `/rpc/driver`, so the arc does not hand-build a seam upstream now ships. Owner: `pi-084-upgrade` produces the evaluation as a required disposition row; the cutover consumes its verdict.
 - **Confirmation (2026-08-03):** an independent architecture review re-derived this arc unprompted as the top structural priority (split roots: `brunch-tui.ts` raw `SessionEventRelay` vs `LiveSessionHost`). Its separate observation about `workspace-session-coordinator.ts` breadth is not an obligation of this arc; re-enter decomposition only when concrete coordinator change pressure justifies it.
 
 ### deterministic-orientation — ◐ active
@@ -65,7 +67,8 @@ Older completion history and archived completed frontier definitions live in [`d
 
 ### Next
 
-- `cli-mode-entry` — next proving frontier: make `brunch specify [spec-id]` / `brunch execute <spec-id>` select operational mode before either TUI or hosted-web composition starts, so machine control does not need to synthesize a TUI-only process-move entry. D98-L/D109-L are materialized; the former FE-1187 implementation block is retired. Definition below.
+- `pi-084-upgrade` ([FE-1352](https://linear.app/hash/issue/FE-1352/upgrade-pi-to-084x-on-next-and-close-its-change-surface)) — **first after FE-1348, evidence-gated coverage frontier:** bring `next` from Pi 0.83.0 to 0.84.1, close every 0.80.8–0.84.1 change-area against brunch's real consuming surface, harden the seams where structural casts hide breakage from the type checker, and give every new API an adopt / promote / decline verdict. Takes sequencing precedence over `cli-mode-entry` because both later frontiers are Pi-surface work and doing them on 0.83.0 first doubles the adaptation. Definition below.
+- `cli-mode-entry` — proving frontier after `pi-084-upgrade`: make `brunch specify [spec-id]` / `brunch execute <spec-id>` select operational mode before either TUI or hosted-web composition starts, so machine control does not need to synthesize a TUI-only process-move entry. D98-L/D109-L are materialized; the former FE-1187 implementation block is retired. Definition below.
 - `comparison-machine-interface-cutover` — replace eligible Brunch/Claude `interactive_shell` conduct with hosted Brunch JSON-RPC and Claude stream-JSON, reusing existing adapters; depends on `cli-mode-entry` for Brunch Execute. Definition below.
 - `saved-mission-comparison-witness` — operator-owned real Brunch + Claude `/compare-specs` witness after the machine-interface cutover, then mission revision/rerun proving historical snapshots remain immutable. Definition below.
 - `shared-session-host-cutover` — tracer, A51-L, standalone-web, and cross-surface settlement evidence are complete; FE-1348's CS1/SW2/SW3 contracts are fixed and outer-witnessed. Cutover still closes the remaining enumerated shared-contract surface without forcing physical host unification; this evidence does not claim the cutover is implemented. Definition below.
@@ -77,6 +80,7 @@ Older completion history and archived completed frontier definitions live in [`d
 ### Horizon
 
 - **Mode / reviewer follow-ons:** `develop-mode` (flag-gated third operational mode with execute-tier authority), `reviewer-agent-mode` (reviewer remains a subagent, not a primary mode), and `review-commentary-widening` (TUI-realistic `#`-mention review comments over D116-L payloads).
+- `pi-084-api-adoption` — **trigger-gated:** holds only those 0.84.x adoptions that `pi-084-upgrade`'s disposition rows promote as needing real design rather than row-sized adaptation. Do not admit it until that disposition exists and names at least one promoted item; if everything is adopted or declined in place, this entry retires unused.
 - **Cleanups:** `named-inline-extension-identity`, `web-driver-streaming-residue`, and `test-tmpdir-hygiene` remain independent small follow-ons.
 - **Integrity follow-ons (trigger-gated, not admitted):** exact FE-1311 audit evidence remains in git history. Re-enter `src/utils/strings.ts` / `.npmcheckrc` only through a future repository-hygiene frontier; the `source-policy.ts` readability-vs-existence divergence only when populated-plan acceptance changes or fails; TOON only through the D83-L product call; and a production-dependency-closure oracle on the next `dependencies` edit. Do not fold these into the active closure ledger.
 - **Release automation later:** FE-1050 closed the reviewed Changesets alpha path on `next` → npm `alpha`; the still-intended `main`/`latest` stable-release automation remains a separate deferred promotion follow-on rather than part of the current alpha automation. Pointer: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#recently-completed-entries-archived-from-live-plan).
@@ -114,6 +118,40 @@ Legacy link target; see Horizon.
 - **Dependencies:** closes `deterministic-orientation` jointly with the KA-carved Execute evidence; `cli-mode-entry` remains stacked after this frontier.
 - **Verification:** one normalized 17-node/11-edge semantic fixture; compact text and live/persisted render equivalence with visible per-node/per-edge settlement; exact local/RPC preservation in one atomic effect; three fresh controlled provider runs; a normal-width human walkthrough on question materiality, settlement honesty, proposition cohesion, inspectability, and fatigue; Ask matrix coverage; lexical negative-space audit rejecting live misuse of “continue”; both-theme human outer evidence. See SPEC §Verification Design.
 - **Traceability:** WR18 closure record in `TESTING_FINDINGS.md`; evidence at `testing/walkthroughs/2026-07-10/WR18-manual.md`; D98-L, D109-L, D119-L, D120-L, I62-L; D113-L–D115-L; D99-L; TESTING_PLAN concerns 1/3/4/6/7.
+
+### pi-084-upgrade
+
+- **Name:** Pi 0.84.x upgrade — change-surface closure and new-API disposition
+- **Linear:** [FE-1352](https://linear.app/hash/issue/FE-1352/upgrade-pi-to-084x-on-next-and-close-its-change-surface)
+- **Branch:** `ln/fe-1352-pi-084-upgrade`; stacked after FE-1348 so the frozen alpha inventory exists as a regression oracle before the baseline moves. Do not start building until FE-1348's five remaining required rows close — the dependency is on its *evidence*, not just its branch position.
+- **Kind:** coverage-shaped dependency-seam upgrade over the closed Pi 0.80.8→0.84.1 change surface. Adaptation is required; adoption is dispositioned, not assumed.
+- **Certainty:** proving.
+- **Retires:** A25-L — "tracking the latest `pi-coding-agent` release continuously keeps Brunch adaptable without routinely destabilizing it" is `partially validated` and has never been tested across a five-minor jump that spans a harness rewrite. This frontier either validates it or falsifies it into a pinned-baseline policy.
+- **Stabilizes:** the Pi consumption seam itself — I64-L/I65-L semantic convergence and the D19-L stream↔transcript differential must still hold on a moved baseline.
+- **Lights up:** the 0.84.x client/extension surface (`PiClient`/`RemoteSession`, markdown transformers, `tool_call` terminate, `shouldStopAfterTurn`, telemetry contracts) as seams later frontiers may aim from.
+- **Depends on:** FE-1348's closed usage/verification inventory (validated enough) as the differential regression set.
+- **Classification:** evidence-gated. The inventory is fully enumerable from the changelog crossed with brunch's import graph, but the decisive rows cannot be closed by type-checking — they need fresh witness evidence on the new baseline (see Verification).
+- **Boundary — in:** the three pinned packages (`pi-ai`, `pi-coding-agent`, `pi-tui`) plus lockfile; one required row per 0.84.0/0.84.1 breaking change crossed with its brunch consumer; typed-seam hardening wherever a load-bearing Pi seam is currently read through a structural cast; a disposition row per new-API area; re-run of the required FE-1348 subset and FE-1321's four slow witnesses; the `brace-expansion` 5.0.9 / `undici` 8.9.0 advisory clearance on `next`. **Out:** adopting `RemoteSession`/`PiClient` into production (that verdict belongs to `shared-session-host-cutover`), fullscreen TUI mode, any new product capability, changes to the Pi source-alias dev workflow, and `main`'s PR #422.
+- **Inventory authority:** create `memory/cards/pi-084-upgrade--change-surface-ledger.md` (`Mode: sweep`) at scope time, seeded from the findings below.
+- **Change-surface findings (planning pass 2026-08-11, verified against the 0.84.1 and 0.83.0 type surfaces):**
+
+  | Change area | brunch surface | Assessed |
+  | --- | --- | --- |
+  | `message_update` drops cumulative `message`/`partial` — **JSON/RPC wire only**; in-process `MessageUpdateEvent` keeps `message: AgentMessage` | `src/projections/session/live-session-events.ts` (in-process, reconstructs deltas by prefix-diffing the cumulative snapshot), `src/.pi/extensions/subagents/session.ts:509` (fully untyped `asRecord`), `src/dev/__tests__/web-driver-streaming*.ts` (wire-side), D19-L differential in `src/rpc/TOPOLOGY.md:400` | **Required, highest risk.** In-process path likely survives, but both consumers read `message` through structural casts, so a shape change fails silently at runtime rather than at the type checker. brunch never calls `toJsonEvent`, so its own semantic projection is what crosses the wire — this must be confirmed, not assumed. |
+  | `ModelRegistry.getApiKeyAndHeaders()` → `ProviderHeaders` with `string \| null`, preserving null deletion markers | `src/.pi/extensions/compaction/registrar.ts:24`, forwarded through `compact()` into `provider.streamSimple` | Required. Pass-through is the sanctioned pattern; confirm no null-stripping en route. |
+  | `refresh()` → `ModelsRefreshOptions` / returns `ModelsRefreshResult` | `src/probes/faux-provider.ts:35`, `src/probes/executor-agent-runner-witness.ts:99` | Low risk — `allowNetwork` survives in `ModelsRefreshOptions`. Both sites discard the new result; surfacing its `errors` map is a cheap adopt-now. |
+  | Provider `refreshModels` context: `store` → `stored` + generation-checked `publish()` | `src/probes/faux-provider.ts` uses the config-form `registerProvider(id, ProviderConfig)` | Likely no-op — config-form callbacks that only return models are explicitly unchanged. Confirm no `context.store` use. |
+  | `setRuntimeApiKey()` third arg: catalog-refresh → auth-cancellation options | no `next` call sites | No impact on this trunk (it is what `main`'s PR #422 migrates). |
+  | pi-agent-core v4 lane-based `Session`/`SessionStorage`/`SessionRepo`; legacy JSONL + in-memory repos removed; `FileSystem.renameFile()` now required | no `AgentHarness`, `SessionRepo`, or custom `FileSystem` implementations anywhere in `src/` | No impact — verified by grep, and the single largest item in the changelog. |
+  | `ModelsStreamTransforms` → `ModelsRequestTransforms` | no call sites | No impact. |
+  | `RemoteSession.sessions` summaries → durable `SessionMetadata` | no call sites | No impact; relevant only if the client surface is later adopted. |
+
+- **New-API disposition rows (each needs an adopt / promote / decline verdict with rationale):** `PiClient`/`RemoteSession`/CBOR/Unix-socket transport (verdict feeds `shared-session-host-cutover` — see the arc obligation); consuming `assistantMessageEvent` deltas directly instead of prefix-diffing cumulative snapshots (upstream removed the cumulative field precisely because it grew quadratically, so brunch's re-derivation now works against the grain); `pi.registerMarkdownTransformer()`; `tool_call` `terminate`; `AGENTS.override.md` per-directory context; `pi auth check`; `AgentOptions.shouldStopAfterTurn`; vendor-neutral telemetry contracts (relevant to Horizon `mechanism-trace` / `agent-tracing`); `samplingParams`. Adopt-now is limited to verdicts that remove an existing brunch workaround or are required for parity; everything else promotes or declines.
+- **Aggregate DoD:** no required row remains `spec` / `new` / `partial`; `npm run check` and `npm run verify:full` pass on 0.84.1; FE-1321's four slow session-runtime-contract witnesses and the required FE-1348 subset re-pass on the new baseline; every new-API area carries a recorded verdict; no required row's closure rests on an untyped structural cast; A25-L is updated to validated or falsified with evidence.
+- **Promotion / disposal:** the sweep adapts, it does not redesign. Adaptation exceeding row size promotes to its owning frontier (`shared-session-host-cutover`, `cli-mode-entry`, executor, comparison); new-API adoptions needing real design promote to `pi-084-api-adoption` (Horizon) or their owning frontier. Delete the ledger only after every required row and every promoted required-row dependency closes.
+- **Why now / unlocks:** four reasons converge. `next` still carries advisory families that `main` is clearing. FE-1348's frozen inventory is the cheapest and most complete regression oracle brunch will ever have for a harness bump, and it is closing right now — take the bump while that evidence is fresh rather than re-deriving it later. `cli-mode-entry` and `shared-session-host-cutover` are both Pi-surface work, so bumping after them doubles the adaptation. And 0.84.0's remote-session client may reshape the cutover's delete list, which must be known before deletion, not after.
+- **Verification:** **type-checking is necessary but explicitly not sufficient** — the two highest-risk consumers read Pi events through structural casts that no type-aware lint can see through, which is the central hazard of this frontier and the reason it is evidence-gated rather than buildable-now. Per-row: the existing focused tests for each named consumer. Differential: re-run `session-runtime-contract-{tracer,companion,structured-ask,authority}.slow.test.ts` — these are the semantic-convergence oracles that would actually catch a silent delta regression — plus the required FE-1348 rows and `npm run check:release-pack`. Where a row's only current guard is a structural cast, the row closes by converting the seam to a typed import per [`docs/praxis/pi-types.md`](../docs/praxis/pi-types.md), so the *next* bump fails loudly.
+- **Traceability:** A25-L (retires), A1-L, D1-L, D67-L; D19-L; D125-L, D141-L; I64-L, I65-L; [`src/rpc/TOPOLOGY.md`](../src/rpc/TOPOLOGY.md), [`docs/praxis/pi-types.md`](../docs/praxis/pi-types.md); SPEC §Verification Design.
 
 ### cli-mode-entry
 
@@ -527,9 +565,27 @@ active:
     blocked_reentry: extractor/oracle reconciliation -> fresh R8–R10 0/3 campaign -> A48-L -> consolidated outer checkpoint
     cross_stream: O7/O8/O9 + carved Execute beats stay KA-owned
 next:
+  pi-084-upgrade
+    classification: evidence-gated coverage frontier
+    inventory: memory/cards/pi-084-upgrade--change-surface-ledger.md
+    retires: A25-L (continuous-tracking safety, never tested across a 5-minor harness jump)
+    depends_on: FE-1348 closed inventory (regression oracle) | FE-1321 slow witnesses (convergence oracle)
+    gate: FE-1348's five open required rows — Execute mode interaction | TUI-companion A51-L |
+          standalone-web driven session | stdio public RPC | cross-surface settlement.
+          Branch exists and is stacked; building waits on that evidence, not the branch.
+    highest_risk: message_update cumulative-field removal is JSON/RPC-only, but brunch's two
+                  consumers read it through structural casts -> silent runtime failure, not a
+                  type error (live-session-events.ts, subagents/session.ts)
+    no_impact_verified: agent-core v4 Session/SessionRepo | custom FileSystem.renameFile |
+                        ModelsStreamTransforms rename | setRuntimeApiKey signature
+    also_closes: brace-expansion + undici advisory families still open on next
+    -[hard]-> cli-mode-entry
+    -[hard]-> shared-session-host-cutover
+    -[informs]-> shared-session-host-convergence (RemoteSession/PiClient verdict before deletion)
   cli-mode-entry
     lights_up: presentation-neutral Specify/Execute activation -> TUI | hosted web RPC
     unblocked_by: revised D98-L/D109-L entry semantics materialized
+    gated_by: pi-084-upgrade (both are Pi-surface work; bumping after doubles adaptation)
     -[hard]-> comparison-machine-interface-cutover
   comparison-machine-interface-cutover
     lights_up: hosted Brunch RPC + Claude stream-JSON control for nonvisual comparison conduct
@@ -539,7 +595,13 @@ next:
     gated_by: comparison-machine-interface-cutover | operator availability
     dependencies_satisfied: FE-1215 direct control | FE-1320 external target placement
   shared-session-host-cutover
+<<<<<<< HEAD
     classification: FE-1348 CS1/SW2/SW3 repairs fixed and outer-witnessed; remaining cutover surface unbuilt
+=======
+    classification: FE-1348 CS1/SW2 repairs fixed -> consumed final witness found remaining React settled-review/continuation semantic contradiction before approval
+    new_gate: consume pi-084-upgrade's RemoteSession/PiClient verdict before deleting
+              SessionEventRelay and /rpc/driver — 0.84.0 may ship the seam this arc hand-builds
+>>>>>>> ac6428e49 (FE-1352: Admit Pi 0.84.x upgrade frontier to PLAN)
     closes: raw-event/driver divergence across legitimate TUI-owned and standalone-web runtime compositions
     deletes: SessionEventRelay | brunch.sessionEvent | /rpc/driver | sidecar handle wiring
 
