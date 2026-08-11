@@ -1,6 +1,6 @@
 # Standalone-web driven session — owned gate
 
-Date: 2026-08-10
+Date: 2026-08-10; rerun 2026-08-11
 
 Commit under test: `2bb1fbd0b76183051a2dc4421a45b195dc0e2736`
 
@@ -12,9 +12,59 @@ Environment: Node `v24.19.0`, npm `12.0.2`, Pi `0.84.1`, agent-browser `0.33.2`,
 
 ## Disposition
 
-**Owned outer-evidence gate; row remains `partial`.** The source standalone host launched successfully, but the required real-browser observer could not start. Both a named and default agent-browser launch failed before navigation with `Auto-launch failed: CDP response channel closed`; fresh namespaces failed with `Daemon process exited during startup with no error output`, including a `--debug` retry. Because no browser reached the direct route, no production WebSocket lifecycle or browser claim was made. Provider/model/assistant-authored-ask availability was not tested after this earlier honest stop.
+**Owned product defect; row remains `partial`.** The 2026-08-11 rerun cleared the earlier browser/provider gates and completed a real standalone-web structured exchange, but a normal browser reload twice rendered `Session transcript cannot be displayed.` The terminated host also left its writer owner file behind after its process and listener were gone. The row cannot close until reload and bounded shutdown cleanup succeed without manual state repair.
 
-Owner: FE-1348 `Standalone-web driven session` row. Re-entry trigger: rerun the bounded journey when agent-browser can launch/connect to Chrome in the execution host; the same run must then also have a production provider/model capable of authoring one supported structured ask. Cost/value: one browser journey can close route, RPC, ask, projection, reload, and cleanup evidence; substituting curl, a test browser, or manufactured transcript state would invalidate D142-L.
+Owner: FE-1348 `Standalone-web driven session` row. Re-entry trigger: fix the reload/cleanup defect in a separate row-sized scope, then rerun this same bounded browser journey. Cost/value: reload is a basic supported-session expectation and the stale owner blocks honest reacquisition; both are required before this path can carry product confidence.
+
+## 2026-08-11 real-browser rerun
+
+Commit under test: `2b217b865`.
+
+Environment: Brunch `v1.0.0-alpha.13`, Anthropic `claude-opus-5`, agent-browser with the required `--no-sandbox,--ignore-certificate-errors` launch arguments, Darwin `25.6.0 arm64`.
+
+The existing row-owned workbench started through the source standalone entry point at `http://127.0.0.1:50343`. Agent-browser reached the target-addressed route and observed the production React session UI over the production WebSocket transport:
+
+```text
+http://127.0.0.1:50343/session/1/019fec48-522f-7524-9272-f21395a84004
+```
+
+The production provider authored an opening free-text `ask`. The browser answered it, and canonical JSONL recorded the assistant tool call, exactly one successful tool result containing the browser answer, and the provider's follow-up digest/ask sequence. `session.runtimeState` returned `ready` in Specify mode and `graph.overview` agreed that no graph effect had yet been accepted (`lsn: 1`, empty nodes/edges).
+
+The initial ordinary-message probe raced the already-open ask and failed honestly with `Turn failed. Please retry.` After the answer settled, the old form reported `ask closed`; canonical JSONL shows the answer had succeeded and the provider had advanced to the next prompt.
+
+### Reload defect
+
+A normal browser reload, followed by network-idle settlement, rendered only:
+
+```text
+Session transcript cannot be displayed.
+```
+
+A second reload after a three-second disconnect interval produced the same result. The document and static assets all returned HTTP 200; no browser console or page error was emitted. The failure therefore occurred in session attachment/presentation rather than document serving.
+
+### Cleanup defect
+
+Agent-browser closed normally. Terminating the row-owned standalone host stopped the listener, and `kill -0` confirmed the writer-owner PID no longer existed, but the writer owner file remained:
+
+```text
+.brunch/writer-locks/1-MDE5ZmVjNDgtNTIyZi03NTI0LTkyNzItZjIxMzk1YTg0MDA0.lock/owner.json
+```
+
+The file was retained unchanged as evidence; no manual cleanup, JSONL edit, database write, or product-state repair was used to manufacture success.
+
+### Rerun leaf disposition
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| Source/route observation | met | Real agent-browser reached the production target-addressed route. |
+| Production WebSocket lifecycle trace | met-with-divergence | Initial open and live updates worked; reload attachment failed. |
+| Ask and settlement observation | met | Provider-authored ask answered through React; canonical JSONL contains one successful result and follow-up. |
+| Canonical active-branch comparison | met | JSONL, `session.runtimeState`, and `graph.overview` agreed with the observed settled state. |
+| Reload convergence | dropped | Two normal reloads rendered `Session transcript cannot be displayed.` |
+| Close/cleanup proof | dropped | Listener and process ended, but the writer owner file remained. |
+| No implementation or manufactured success | met | No production/config/fixture content or canonical state was edited. |
+
+Skipped-test-count delta versus parent: `0` (no test or test policy changed).
 
 ## Supported target setup
 

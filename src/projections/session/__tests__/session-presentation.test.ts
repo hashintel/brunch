@@ -653,4 +653,33 @@ describe('session presentation', () => {
       ]),
     ).toEqual({ status: 'malformed_detail', entryId: 'bad', family: 'ask' });
   });
+
+  it('ignores an ask input-validation failure without collapsing surrounding transcript projection', () => {
+    expect(
+      projectSessionPresentation(target, [
+        entry('u1', { role: 'user', content: 'Begin.', timestamp: 0 }),
+        entry('invalid-ask', {
+          role: 'toolResult',
+          toolName: 'ask',
+          content: [{ type: 'text', text: '# TOOL_INPUT_INVALID' }],
+          details: {
+            status: 'validation_failed',
+            tool: 'ask',
+            diagnostics: [{ field: 'question.body', message: 'Expected string.' }],
+          },
+        }),
+        entry('a1', { role: 'assistant', content: 'Recovered.', timestamp: 1 }),
+      ]),
+    ).toEqual({
+      status: 'ready',
+      presentation: {
+        target,
+        cursor: '2:a1',
+        entries: [
+          { id: 'u1', cursor: '0:u1', kind: 'message', role: 'user', text: 'Begin.' },
+          { id: 'a1', cursor: '2:a1', kind: 'message', role: 'assistant', text: 'Recovered.' },
+        ],
+      },
+    });
+  });
 });

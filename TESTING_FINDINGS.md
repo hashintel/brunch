@@ -17,7 +17,7 @@ The A51-L colleague walkthrough completed on 2026-08-11. It retired SA1/SA2 with
 | [Session resume and active-tree continuity](testing/walkthroughs/2026-08-10/session-resume-active-tree-continuity.md) | No finding: active-branch projections remained stable across relaunch and rejected the append-order rival. |
 | [TUI-companion semantic usefulness](testing/walkthroughs/2026-08-11/tui-companion-semantic-usefulness.md) | SA1/SA2 retired: the colleague found the companion useful and its honest TUI-owned ask refusal understandable; no ownership marker or dual-answer authority is currently warranted. |
 | [Cross-composition writer transfer](testing/walkthroughs/2026-08-10/cross-composition-writer-transfer.md) | No finding: refusal, release, reacquisition, continuity, and cleanup matched the single-writer contract. |
-| [Standalone-web driven session](testing/walkthroughs/2026-08-10/standalone-web-driven-session.md) | Not a finding: agent-browser startup prevented observation; the ledger retains the owned `partial` evidence gate and re-entry trigger. |
+| [Standalone-web driven session](testing/walkthroughs/2026-08-10/standalone-web-driven-session.md) | SW1 promoted: the browser/provider gates cleared, but normal reload could not display the transcript and host termination left a stale writer owner. |
 | [Stdio public RPC](testing/walkthroughs/2026-08-10/stdio-public-rpc-owned-gate.md) | Not a finding: the launched runtime had no provider/model; the ledger retains the owned `partial` evidence gate and re-entry trigger. |
 | [Print projection](testing/walkthroughs/2026-08-10/print-projection-owned-gate.md) | No finding: source and installed foreign-cwd projections were byte-stable. |
 | [Cross-surface graph/session settlement](testing/walkthroughs/2026-08-10/cross-surface-graph-session-settlement-owned-gate.md) | Not a finding: retained evidence lacked two fresh comparable session projections; the ledger retains the owned `partial` evidence gate and re-entry trigger. |
@@ -31,6 +31,16 @@ The A51-L colleague walkthrough completed on 2026-08-11. It retired SA1/SA2 with
 | [Conditional CI lane selection](testing/walkthroughs/2026-08-10/conditional-ci-lane-selection.md) | No finding: selector, workflow, and SPEC policy agreed with no omitted capability. |
 | [Installed-package integrity](testing/walkthroughs/2026-08-10/installed-package-integrity.md) | No finding: dependency deprecation warnings did not contradict install, foreign-cwd execution, or SQLite activation. |
 | [Installed interactive-mode boot](testing/walkthroughs/2026-08-10/installed-interactive-mode-boot.md) | No finding: both installed startup surfaces and cleanup passed without provider or publication claims. |
+
+### 2026-08-11 standalone-web rerun
+
+#### SW1 · reload attachment and writer cleanup · product-critical · promoted defect
+
+Concern: a supported standalone-web session must survive browser reload and release target authority when its bounded host exits.
+Evidence: [`testing/walkthroughs/2026-08-10/standalone-web-driven-session.md`](testing/walkthroughs/2026-08-10/standalone-web-driven-session.md), rerun at commit `2b217b865`.
+Observation: real React, WebSocket transport, and a production-provider structured ask worked and settled into canonical JSONL. Two normal reloads then rendered `Session transcript cannot be displayed` despite HTTP 200 document/assets and no browser console error. After browser close and host termination, the listener and owner PID were gone but `owner.json` remained.
+Expected: reload reattaches to the existing standalone runtime and projects the same active branch; bounded shutdown releases the writer owner without manual state repair.
+Disposition: promoted to a separate FE-1348 row-sized defect scope before this product row is rerun. Owner: standalone host/session attachment and writer-cleanup seams. Re-entry trigger: a regression oracle fails on reload/cleanup, the minimum root-cause fix lands, then the same real-browser journey passes. Cost/value: this is required product continuity and authority hygiene, not optional polish.
 
 ### 2026-07-28 Secure Drop pilot — greenfield elicitation → plan synthesis
 

@@ -263,6 +263,7 @@ export function projectSessionPresentation(
     if (message.toolName !== 'ask') continue;
     const parsed = zAskDetails.safeParse(message.details);
     if (!parsed.success) {
+      if (isAskValidationFailureDetails(message.details)) continue;
       const reviewSet = zRequestReviewSetDetails.safeParse(message.details);
       if (reviewSet.success) {
         const details = reviewSet.data;
@@ -390,4 +391,19 @@ function messageText(content: unknown): string | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function isAskValidationFailureDetails(value: unknown): boolean {
+  if (!isRecord(value) || Array.isArray(value)) return false;
+  if (Object.keys(value).some((key) => !['status', 'tool', 'diagnostics'].includes(key))) return false;
+  if (value.status !== 'validation_failed' || value.tool !== 'ask' || !Array.isArray(value.diagnostics))
+    return false;
+  return value.diagnostics.every(
+    (diagnostic) =>
+      isRecord(diagnostic) &&
+      !Array.isArray(diagnostic) &&
+      Object.keys(diagnostic).every((key) => key === 'field' || key === 'message') &&
+      typeof diagnostic.field === 'string' &&
+      typeof diagnostic.message === 'string',
+  );
 }
