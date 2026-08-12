@@ -1,6 +1,6 @@
 # React settled-review semantics repair
 
-Frontier: shared-session-host-cutover
+Frontier: post-hardening-alpha-validation
 Status:   active
 Mode:     single
 Created:  2026-08-12
@@ -8,11 +8,11 @@ Created:  2026-08-12
 ## Orientation
 
 - The containing seam is D133-L/I65-L's shared JSONL-derived session presentation rendered by `src/web/routes/session.tsx`; the canonical review-set projection already preserves per-item settlement and its declared continuation.
-- The containing PLAN frontier is `shared-session-host-cutover` (earned). PLAN and `TESTING_FINDINGS.md` assign SW3 here; this repair is a hard prerequisite to re-enter FE-1348's `Cross-surface graph/session settlement` row, not a claim that the row or cutover is complete.
+- The containing PLAN frontier is FE-1348 `post-hardening-alpha-validation` (proving). Its required `Cross-surface graph/session settlement` witness discovered SW3, and this narrow prerequisite repair is owned and implemented on the current FE-1348 branch because it directly blocks closing that row.
 - No `HANDOFF.md` exists. The retained SW3 witness is the volatile evidence boundary: one successful settled review set and one unresolved `approve` / `request_changes` / `reject` continuation, with no approval or graph effect.
 - Main risk: fixing presentation by adding another decoder or control state. The repair must correlate the existing canonical offer and live open ask by exchange id, not create another store, RPC shape, or review vocabulary.
 
-Posture: earned (inherited from `shared-session-host-cutover`).
+Posture: proving (inherited from `post-hardening-alpha-validation`).
 
 Weight: light — this is a bounded React adapter defect inside the settled D116-L/D125-L/D133-L projection and answering seams; it changes no requirement, decision, or authority boundary.
 
@@ -27,7 +27,7 @@ A fresh builder must read these exact sources before editing:
 - `AGENTS.md` — development posture, file safety, topology ownership, and verification policy.
 - `memory/POSTURE.md` — prototype/high-stakes boundary posture.
 - `memory/SPEC.md` — requirements 12, 17, 23, and 32; decisions D27-L, D106-L, D116-L, D125-L, D132-L, D133-L, and D141-L; invariants I52-L, I64-L, and I65-L.
-- `memory/PLAN.md` — `shared-session-host-cutover`; FE-1348 cross-surface dependency and re-entry gate.
+- `memory/PLAN.md` — `post-hardening-alpha-validation`; FE-1348 cross-surface row and re-entry gate; downstream `shared-session-host-cutover` semantic-contract inheritance only.
 - `memory/cards/post-hardening-alpha-validation--usage-and-verification-sweep.md` — `Cross-surface graph/session settlement` row only.
 - `TESTING_FINDINGS.md` — SW3 only.
 - `testing/walkthroughs/2026-08-12/cross-surface-graph-session-settlement-witness/walkthrough.md` — stop condition and claim boundary.
@@ -54,7 +54,7 @@ A fresh builder must read these exact sources before editing:
 - Consume the projected `present_review_set.reviewSet` and declared `continuation` already returned by `session.presentation`; use the live open ask only to establish that the matching exchange is currently actionable.
 - Correlate offer and open control by canonical `exchangeId`. Do not copy the review vocabulary into a new store, invent a React-only exchange model, scan JSONL in the browser, or widen RPC.
 - Keep the control inside the existing route/`session.answerExchange` path. A dedicated Request-changes rationale is not a generic continuation answer field; it exists only when that canonical decision requires it.
-- Do not redesign candidate, digest, questionnaire, transcript, or global visual systems. Do not implement raw-relay cutover/deletion work in this slice.
+- Do not redesign candidate, digest, questionnaire, transcript, or global visual systems. Do not implement any `shared-session-host-cutover` raw-relay cutover/deletion work in this slice.
 
 ## Invariants preserved
 
@@ -75,7 +75,8 @@ A fresh builder must read these exact sources before editing:
 
 - Preserve target-addressed D141-L session RPC/events and I64-L single answering authority; this is semantic presentation repair, not runtime-host work.
 - Preserve I65-L convergence: after settlement/reconnect, React must still equal a fresh canonical session projection modulo declared ephemeral progress.
-- This card closes only SW3's production prerequisite. It does not close FE-1348's row, authorize approval, or claim graph-effect/receipt/reload evidence.
+- This FE-1348 card closes only SW3's production prerequisite. It does not close the sweep row, authorize approval, or claim graph-effect/receipt/reload evidence.
+- The later `shared-session-host-cutover` frontier inherits this settled-review semantic contract when it consolidates the broader shared surface; it is not the issue or implementation branch for this repair, and this card authorizes none of its cutover/deletion work.
 
 ## Assumption dependency
 
