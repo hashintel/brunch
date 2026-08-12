@@ -103,7 +103,7 @@ plus the coordination logic for workspace/spec/session lifecycle.
   point over a private `structured-exchange-loop/` subtree split by purpose:
   `pending-exchange.ts` (read-path reconstruction + schema), `accepted-response.ts`
   (response toolResult materialization), and `synthetic-tool-call.ts` (the
-  provider-legality toolCall pair); external callers import only the root. The pending shape distinguishes `present_review_set` review decisions from `present_digest` conversational feedback. Review-set approval may commit graph drafts; digest feedback cannot. A later runtime-resolved digest questionnaire/confirmation mints the sole accepted-abstract carrier for downstream capture.
+  provider-legality toolCall pair); external callers import only the root. The pending read also recovers one unambiguous, validated provider-authored standalone `ask` call from the active branch. Its provider `toolCallId` remains private correlation metadata: direct settlement appends only the matching terminal result, while offer-derived compatibility responses retain the synthetic call+result pair. Questionnaire calls and ambiguous/malformed/already-resolved calls fail closed. The pending shape distinguishes `present_review_set` review decisions from `present_digest` conversational feedback. Review-set approval may commit graph drafts; digest feedback cannot. A later runtime-resolved digest questionnaire/confirmation mints the sole accepted-abstract carrier for downstream capture.
 
 - **Workspace coordination** — boot flow and spec/session selection over the
   workspace-owned `.brunch/workspace.json` state store. The

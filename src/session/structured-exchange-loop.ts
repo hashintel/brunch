@@ -18,6 +18,7 @@ export {
   PendingStructuredExchangeSchema,
   pendingExchangeFromEnvelope,
   projectPendingStructuredExchange,
+  providerToolCallIdForPending,
   zPendingStructuredExchange,
   type PendingStructuredExchange,
 } from './structured-exchange-loop/pending-exchange.js';

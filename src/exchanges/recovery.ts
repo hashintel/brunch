@@ -1,5 +1,6 @@
-import type { PresentDetails, RequestDetails } from './schemas/index.js';
+import type { PresentDetails, RequestDetails, StandaloneAskParams } from './schemas/index.js';
 import {
+  parseAskParams,
   zAskDetails,
   zPresentDetails,
   zPresentDigestDetails,
@@ -46,8 +47,67 @@ export interface EntryLike {
   type?: unknown;
   message?: {
     role?: unknown;
+    content?: unknown;
+    toolCallId?: unknown;
+    toolName?: unknown;
     details?: unknown;
   };
+}
+
+export interface UnresolvedStandaloneAsk {
+  entry: EntryLike;
+  toolCallId: string;
+  params: StandaloneAskParams;
+}
+
+/** Recover only an unambiguous, provider-authored standalone ask on the supplied active branch. */
+export function findProviderStandaloneAskCalls(entries: readonly EntryLike[]): UnresolvedStandaloneAsk[] {
+  const calls: UnresolvedStandaloneAsk[] = [];
+
+  for (const entry of entries) {
+    const message = entry.type === 'message' ? entry.message : undefined;
+    if (message?.role === 'assistant' && Array.isArray(message.content)) {
+      for (const block of message.content) {
+        if (
+          !isRecord(block) ||
+          block.type !== 'toolCall' ||
+          block.name !== 'ask' ||
+          typeof block.id !== 'string'
+        )
+          continue;
+        const parsed = parseAskParams(block.arguments);
+        if (!parsed.success || 'continues' in parsed.data || parsed.data.questions !== undefined) continue;
+        calls.push({ entry, toolCallId: block.id, params: parsed.data });
+      }
+    }
+  }
+  return calls;
+}
+
+export function findUnresolvedStandaloneAsk(
+  entries: readonly EntryLike[],
+): UnresolvedStandaloneAsk | undefined {
+  const calls = findProviderStandaloneAskCalls(entries);
+  const resultCallIds = new Set(
+    entries.flatMap((entry) => {
+      const message = entry.type === 'message' ? entry.message : undefined;
+      return message?.role === 'toolResult' &&
+        message.toolName === 'ask' &&
+        typeof message.toolCallId === 'string'
+        ? [message.toolCallId]
+        : [];
+    }),
+  );
+  const unresolved = calls.filter((call) => !resultCallIds.has(call.toolCallId));
+  if (unresolved.length !== 1) return undefined;
+  const [candidate] = unresolved;
+  if (calls.some((call) => call !== candidate && call.params.exchangeId === candidate!.params.exchangeId))
+    return undefined;
+  return candidate;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 function toolResultDetails(entry: EntryLike): unknown {

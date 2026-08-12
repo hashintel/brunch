@@ -6,6 +6,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 import {
+  findProviderStandaloneAskCalls,
   isStructuredExchangePresentDetails,
   isStructuredExchangeRequestDetails,
 } from '../exchanges/recovery.js';
@@ -144,9 +145,27 @@ export function projectSessionExchanges(entries: readonly unknown[]): SessionExc
   let promptIds: string[] = [];
   let responseIds: string[] = [];
   let openStructuredExchange: PresentDetails | undefined;
+  let openProviderAsk: { exchangeId: string; toolCallId: string } | undefined;
+  const providerAskCalls = findProviderStandaloneAskCalls(entries as readonly never[]);
+  const unambiguousProviderAsks = providerAskCalls.filter(
+    (call) =>
+      providerAskCalls.filter((candidate) => candidate.params.exchangeId === call.params.exchangeId)
+        .length === 1,
+  );
 
   for (const entry of entries) {
     if (!isTranscriptEntry(entry)) {
+      continue;
+    }
+
+    const providerAsk = unambiguousProviderAsks.find((call) => call.entry === entry);
+    if (providerAsk) {
+      flushResponse();
+      promptIds.push(entry.id);
+      openProviderAsk = {
+        exchangeId: providerAsk.params.exchangeId,
+        toolCallId: providerAsk.toolCallId,
+      };
       continue;
     }
 
@@ -162,8 +181,12 @@ export function projectSessionExchanges(entries: readonly unknown[]): SessionExc
     if (requestDetails) {
       if (
         promptIds.length > 0 &&
-        openStructuredExchange !== undefined &&
-        requestClosesPresent(requestDetails, openStructuredExchange)
+        ((openStructuredExchange !== undefined &&
+          requestClosesPresent(requestDetails, openStructuredExchange)) ||
+          (openProviderAsk !== undefined &&
+            requestDetails.exchange_id === openProviderAsk.exchangeId &&
+            ((entry as SessionMessageEntry).message as { toolCallId?: unknown }).toolCallId ===
+              openProviderAsk.toolCallId))
       ) {
         responseIds.push(entry.id);
       }
@@ -214,6 +237,7 @@ export function projectSessionExchanges(entries: readonly unknown[]): SessionExc
     promptIds = [];
     responseIds = [];
     openStructuredExchange = undefined;
+    openProviderAsk = undefined;
   }
 }
 

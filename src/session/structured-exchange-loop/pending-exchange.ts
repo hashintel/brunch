@@ -1,6 +1,6 @@
 import * as z from 'zod';
 
-import { isStructuredExchangePresentDetails } from '../../exchanges/recovery.js';
+import { findUnresolvedStandaloneAsk, isStructuredExchangePresentDetails } from '../../exchanges/recovery.js';
 import type { PresentDetails } from '../../exchanges/schemas/index.js';
 import type { BrunchSessionEnvelope } from '../brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from '../exchange-projection.js';
@@ -39,6 +39,13 @@ export const PendingStructuredExchangeSchema = z.toJSONSchema(zPendingStructured
 });
 
 export type PendingStructuredExchange = z.infer<typeof zPendingStructuredExchange>;
+
+const providerToolCallId = Symbol('providerToolCallId');
+type ProviderCorrelatedPending = PendingStructuredExchange & { [providerToolCallId]?: string };
+
+export function providerToolCallIdForPending(pending: PendingStructuredExchange): string | undefined {
+  return (pending as ProviderCorrelatedPending)[providerToolCallId];
+}
 
 export interface PendingChoice {
   id: string;
@@ -79,7 +86,25 @@ export function pendingExchangeFromEnvelope(
     if (pending) return pending;
   }
 
-  return null;
+  const recovered = findUnresolvedStandaloneAsk(envelope.entries);
+  if (!recovered) return null;
+  const options = (recovered.params.options ?? []).map((option) => ({
+    id: option.id,
+    label: option.label,
+    content: option.label,
+    ...(option.description !== undefined ? { rationale: option.description } : {}),
+  }));
+  const pending: ProviderCorrelatedPending = {
+    exchangeId: recovered.params.exchangeId,
+    lens: 'intent',
+    mode: options.length === 0 ? 'text' : recovered.params.multiple ? 'multi-select' : 'single-select',
+    prompt: recovered.params.body,
+    ...(recovered.params.commentPrompt ? { details: recovered.params.commentPrompt } : {}),
+    options,
+    note: { allowed: recovered.params.commentPrompt !== undefined },
+  };
+  Object.defineProperty(pending, providerToolCallId, { value: recovered.toolCallId });
+  return pending;
 }
 
 export function projectPendingStructuredExchange(
