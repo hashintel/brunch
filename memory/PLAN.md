@@ -123,7 +123,7 @@ Legacy link target; see Horizon.
 
 - **Name:** Pi 0.84.x upgrade — change-surface closure and new-API disposition
 - **Linear:** [FE-1352](https://linear.app/hash/issue/FE-1352/upgrade-pi-to-084x-on-next-and-close-its-change-surface)
-- **Branch:** `ln/fe-1352-pi-084-upgrade`; stacked after FE-1348 so the frozen alpha inventory exists as a regression oracle before the baseline moves. Do not start building until FE-1348's five remaining required rows close — the dependency is on its *evidence*, not just its branch position.
+- **Branch:** `ln/fe-1352-pi-084-upgrade`; stacked after FE-1348 so the frozen alpha inventory exists as a regression oracle before the baseline moves. Do not start building until FE-1348's two remaining required rows close — Execute evidence and cross-surface settlement — because the dependency is on its *evidence*, not its branch position. A51-L, TUI-companion usefulness, standalone-web driven session, and stdio public RPC closed on 2026-08-12; the cross-surface row is additionally gated on `shared-session-host-cutover` repairing the React settled-review/continuation projection.
 - **Kind:** coverage-shaped dependency-seam upgrade over the closed Pi 0.80.8→0.84.1 change surface. Adaptation is required; adoption is dispositioned, not assumed.
 - **Certainty:** proving.
 - **Retires:** A25-L — "tracking the latest `pi-coding-agent` release continuously keeps Brunch adaptable without routinely destabilizing it" is `partially validated` and has never been tested across a five-minor jump that spans a harness rewrite. This frontier either validates it or falsifies it into a pinned-baseline policy.
@@ -574,8 +574,9 @@ next:
                    consuming sub-seam from the import graph, not by changelog entry.
     retires: A25-L (continuous-tracking safety, never tested across a 5-minor harness jump)
     depends_on: FE-1348 closed inventory (regression oracle) | FE-1321 slow witnesses (convergence oracle)
-    gate: FE-1348's five open required rows — Execute mode interaction | TUI-companion A51-L |
-          standalone-web driven session | stdio public RPC | cross-surface settlement.
+    gate: FE-1348's two open required rows (2026-08-12) — Execute evidence | cross-surface settlement.
+          A51-L, TUI-companion, standalone-web driven session, and stdio public RPC closed;
+          cross-surface additionally waits on shared-session-host-cutover's React repair.
           Branch exists and is stacked; building waits on that evidence, not the branch.
     highest_risk: message_update cumulative-field removal is JSON/RPC-only, but brunch's two
                   consumers read it through structural casts -> silent runtime failure, not a
