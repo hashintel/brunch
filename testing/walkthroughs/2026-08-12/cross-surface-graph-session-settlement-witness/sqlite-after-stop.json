@@ -1,0 +1,25 @@
+{
+  "audit": {
+    "mode": "readonly",
+    "fileMustExist": true,
+    "path": "/tmp/brunch-fe1348-settlement-final.L0wZG7/.brunch/brunch-v1.db"
+  },
+  "specId": 1,
+  "graphClock": [
+    {
+      "specId": 1,
+      "lsn": 1
+    }
+  ],
+  "nodes": [],
+  "edges": [],
+  "changeLog": [
+    {
+      "specId": 1,
+      "lsn": 1,
+      "operation": "create_spec",
+      "payload": "{\"specId\":1,\"name\":\"FE-1348 settlement final witness\",\"slug\":\"fe-1348-settlement-final-witness\",\"kind\":\"product\",\"origin\":null,\"relatesToSpecId\":null}",
+      "createdAt": "2026-08-12 17:41:40"
+    }
+  ]
+}
