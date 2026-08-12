@@ -122,6 +122,46 @@ describe('review-set graph payload translation', () => {
     });
   });
 
+  it('translates a one-node zero-edge review set without mutation', () => {
+    const db = createDb(':memory:');
+    const executor = new CommandExecutor(db);
+    const specId = seedSpec(db);
+    const entityDraft = validPayload().entityDrafts[0]!;
+
+    const result = translateReviewSetPayloadToMutateGraph({
+      db,
+      specId,
+      payload: validPayload({ entityDrafts: [entityDraft], edgeDrafts: [] }),
+    });
+
+    expect(result).toMatchObject({
+      status: 'success',
+      payload: { entityDrafts: [entityDraft], edgeDrafts: [] },
+      command: { specId, createBasis: 'explicit', ops: [{ op: 'create_node', ref: entityDraft.draftId }] },
+    });
+    if (result.status !== 'success') throw new Error('unreachable');
+    expect(executor.dryRunMutateGraph(result.command)).toEqual({ status: 'success' });
+    expect(queryGraph(db, specId)).toMatchObject({ nodes: [], edges: [], lsn: 1 });
+  });
+
+  it('requires entity drafts and an edge-draft array for review sets', () => {
+    const db = createDb(':memory:');
+    const specId = seedSpec(db);
+    const payload = validPayload();
+    const rivals = [
+      { ...payload, entityDrafts: undefined },
+      { ...payload, entityDrafts: [], edgeDrafts: [] },
+      { ...payload, edgeDrafts: undefined },
+      { ...payload, edgeDrafts: 'not-an-array' },
+    ];
+
+    for (const rival of rivals) {
+      expect(translateReviewSetPayloadToMutateGraph({ db, specId, payload: rival })).toMatchObject({
+        status: 'structural_illegal',
+      });
+    }
+  });
+
   it('turns dry-run-valid review payloads into explicit-basis command input without graph mutation', () => {
     const db = createDb(':memory:');
     const executor = new CommandExecutor(db);

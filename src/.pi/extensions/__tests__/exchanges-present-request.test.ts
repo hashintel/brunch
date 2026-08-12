@@ -8,6 +8,7 @@ import {
   isStructuredExchangeRequestDetails,
 } from '../../../exchanges/recovery.js';
 import { CommandExecutor } from '../../../graph/command-executor.js';
+import { queryGraph } from '../../../graph/queries.js';
 import { VirtualTerminal } from '../../__tests__/support/virtual-terminal.js';
 import {
   ASK_TOOL,
@@ -80,7 +81,7 @@ function reviewDeps() {
   const commandExecutor = new CommandExecutor(db);
   const spec = commandExecutor.createSpec({ name: 'Review Spec', slug: 'review-spec' });
   if (spec.status !== 'success') throw new Error('Unable to create review spec');
-  return { specId: spec.specId, commandExecutor };
+  return { db, specId: spec.specId, commandExecutor };
 }
 
 interface TestPickerComponent {
@@ -1045,6 +1046,35 @@ describe('structured exchange ask tools', () => {
     expect(richRendered).not.toContain('**Core bet:**');
     expect(fallbackRendered).toContain('Fallback content');
     expect(fallbackRendered).toContain('Use the canonical content record.');
+  });
+
+  it('dry-runs and presents one node with zero edges', async () => {
+    const deps = reviewDeps();
+    const tool = registeredTools({ review: deps }).get(PRESENT_REVIEW_SET_TOOL);
+    if (!tool) throw new Error('present_review_set was not registered');
+    const entityDraft = validReviewPayload().entityDrafts[0]!;
+
+    const result = await tool.execute(
+      'review-node-only',
+      {
+        exchangeId: 'review-node-only',
+        payload: { ...validReviewPayload(), entityDrafts: [entityDraft], edgeDrafts: [] },
+      },
+      undefined,
+      undefined,
+      {},
+    );
+
+    expect(result.details).toMatchObject({
+      exchange_id: 'review-node-only',
+      review_set: { nodes: [expect.objectContaining({ title: entityDraft.title })], edges: [] },
+      continuation: expect.any(Object),
+    });
+    expect(queryGraph(deps.db, deps.specId)).toMatchObject({
+      nodes: [],
+      edges: [],
+      lsn: 1,
+    });
   });
 
   it('renders present_review_set from validated details and falls back for malformed or structural-illegal details', async () => {

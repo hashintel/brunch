@@ -471,8 +471,8 @@ function readNextNodeKindOrdinal(
 }
 
 function validateEdgeDrafts(value: unknown, diagnostics: Diagnostic[]): void {
-  if (!Array.isArray(value) || value.length === 0) {
-    diagnostics.push({ field: 'edgeDrafts', message: 'edgeDrafts must be non-empty' });
+  if (!Array.isArray(value)) {
+    diagnostics.push({ field: 'edgeDrafts', message: 'edgeDrafts must be an array' });
     return;
   }
 
