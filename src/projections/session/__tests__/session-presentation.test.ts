@@ -618,6 +618,54 @@ describe('session presentation', () => {
     });
   });
 
+  it('keeps a persisted offer-derived Brunch synthetic ask pair out of provider recovery', () => {
+    const digest = projectPresentDigest({
+      exchangeId: 'synthetic-offer',
+      heading: 'Review source digest',
+      body: 'Confirm before capture.',
+      digest: { abstract: 'Persist one canonical answer.' },
+    }).details;
+    const review = projectRequestReview({
+      exchangeId: 'synthetic-offer',
+      status: 'answered',
+      review: 'approve',
+      acceptedAbstract: digest.digest.abstract,
+      respondsToPresentTool: 'present_digest',
+    });
+
+    const result = projectSessionPresentation(target, [
+      entry('offer', { role: 'toolResult', toolName: 'present_digest', details: digest }),
+      entry('synthetic-call', {
+        role: 'assistant',
+        provider: 'brunch',
+        content: [
+          {
+            type: 'toolCall',
+            id: 'synthetic-offer__ask',
+            name: 'ask',
+            arguments: { exchangeId: 'synthetic-offer', body: 'Digest review' },
+          },
+        ],
+      }),
+      entry('answer', {
+        role: 'toolResult',
+        toolName: 'ask',
+        toolCallId: 'synthetic-offer__ask',
+        details: review,
+      }),
+    ]);
+
+    expect(result).toMatchObject({
+      status: 'ready',
+      presentation: {
+        entries: [
+          { id: 'offer', kind: 'present_digest', exchangeId: 'synthetic-offer' },
+          { id: 'answer', kind: 'ask', exchangeId: 'synthetic-offer', terminal: { status: 'answered' } },
+        ],
+      },
+    });
+  });
+
   it('classifies malformed digest details instead of leaking them', () => {
     expect(
       projectSessionPresentation(target, [
@@ -643,9 +691,10 @@ describe('session presentation', () => {
   });
 
   it('projects only one globally unresolved validated provider ask and correlates terminals by both identities', () => {
-    const call = (id: string, exchangeId: string) =>
+    const call = (id: string, exchangeId: string, provider?: string) =>
       entry(`entry-${id}`, {
         role: 'assistant',
+        ...(provider === undefined ? {} : { provider }),
         content: [
           { type: 'text', text: `Ask ${exchangeId}.` },
           { type: 'toolCall', id, name: 'ask', arguments: { exchangeId, body: `Question ${exchangeId}?` } },
@@ -672,11 +721,14 @@ describe('session presentation', () => {
 
     expect(asks([call('call-a', 'a'), call('call-b', 'b')])).toEqual([]);
     expect(
-      projectSessionPresentation(target, [call('call-a', 'a'), terminal('wrong', 'call-a', 'other')]),
+      projectSessionPresentation(target, [
+        call('call-a', 'a', 'anthropic'),
+        terminal('wrong', 'call-a', 'other'),
+      ]),
     ).toEqual({ status: 'malformed_detail', entryId: 'wrong', family: 'ask' });
     expect(
       projectSessionPresentation(target, [
-        call('call-a', 'a'),
+        call('call-a', 'a', 'anthropic'),
         terminal('malformed', 'call-a', 'a', { raw: 'pi' }),
       ]),
     ).toEqual({ status: 'malformed_detail', entryId: 'malformed', family: 'ask' });

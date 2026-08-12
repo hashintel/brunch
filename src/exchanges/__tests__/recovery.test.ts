@@ -12,10 +12,11 @@ import {
 } from '../schemas/index.js';
 
 describe('classifyProviderStandaloneAskOccupancy', () => {
-  const call = (toolCallId: string, exchangeId: string): EntryLike => ({
+  const call = (toolCallId: string, exchangeId: string, provider?: string): EntryLike => ({
     type: 'message',
     message: {
       role: 'assistant',
+      ...(provider === undefined ? {} : { provider }),
       content: [
         { type: 'toolCall', id: toolCallId, name: 'ask', arguments: { exchangeId, body: 'Choose?' } },
       ],
@@ -38,6 +39,19 @@ describe('classifyProviderStandaloneAskOccupancy', () => {
     },
   });
 
+  it('excludes Brunch synthetic asks while retaining provider and metadata-absent calls', () => {
+    expect(
+      classifyProviderStandaloneAskOccupancy([
+        call('synthetic', 'offer', 'brunch'),
+        call('provider', 'real', 'anthropic'),
+        call('historical', 'legacy'),
+      ]),
+    ).toMatchObject([
+      { status: 'unresolved', call: { toolCallId: 'provider' } },
+      { status: 'unresolved', call: { toolCallId: 'historical' } },
+    ]);
+  });
+
   it('classifies unresolved, resolved, and complete-set protocol-invalid occupancy', () => {
     expect(classifyProviderStandaloneAskOccupancy([call('open', 'open-exchange')])).toMatchObject([
       { status: 'unresolved', call: { toolCallId: 'open' } },
@@ -50,9 +64,9 @@ describe('classifyProviderStandaloneAskOccupancy', () => {
     ).toMatchObject([{ status: 'resolved', call: { toolCallId: 'closed' } }]);
 
     for (const invalid of [result('bad', 'bad-exchange', { raw: 'pi' }), result('bad', 'other')]) {
-      expect(classifyProviderStandaloneAskOccupancy([call('bad', 'bad-exchange'), invalid])).toMatchObject([
-        { status: 'protocol_invalid', call: { toolCallId: 'bad' }, invalidResult: invalid },
-      ]);
+      expect(
+        classifyProviderStandaloneAskOccupancy([call('bad', 'bad-exchange', 'anthropic'), invalid]),
+      ).toMatchObject([{ status: 'protocol_invalid', call: { toolCallId: 'bad' }, invalidResult: invalid }]);
     }
 
     expect(

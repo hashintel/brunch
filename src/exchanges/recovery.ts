@@ -47,6 +47,7 @@ export interface EntryLike {
   type?: unknown;
   message?: {
     role?: unknown;
+    provider?: unknown;
     content?: unknown;
     toolCallId?: unknown;
     toolName?: unknown;
@@ -71,7 +72,7 @@ export function findProviderStandaloneAskCalls(entries: readonly EntryLike[]): U
 
   for (const entry of entries) {
     const message = entry.type === 'message' ? entry.message : undefined;
-    if (message?.role === 'assistant' && Array.isArray(message.content)) {
+    if (message?.role === 'assistant' && message.provider !== 'brunch' && Array.isArray(message.content)) {
       for (const block of message.content) {
         if (
           !isRecord(block) ||

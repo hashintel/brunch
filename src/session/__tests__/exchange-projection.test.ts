@@ -758,12 +758,50 @@ describe('session exchange projection', () => {
     expect(JSON.stringify(activeEntries)).not.toContain('Abandoned follow-up ask');
   });
 
+  it('closes a persisted offer-derived Brunch synthetic ask pair without reopening the offer', () => {
+    const syntheticCall = {
+      id: 'synthetic-call',
+      type: 'message',
+      parentId: 'present-digest-1',
+      message: {
+        role: 'assistant',
+        provider: 'brunch',
+        content: [
+          {
+            type: 'toolCall',
+            id: 'digest-cycle__ask',
+            name: 'ask',
+            arguments: { exchangeId: 'digest-cycle', body: 'Digest review' },
+          },
+        ],
+      },
+    };
+    const syntheticResult = {
+      ...requestDigestReviewToolResult,
+      message: { ...requestDigestReviewToolResult.message, toolCallId: 'digest-cycle__ask' },
+    };
+
+    expect(projectSessionExchanges([presentDigestToolResult, syntheticCall, syntheticResult])).toEqual({
+      status: 'ready',
+      exchanges: [
+        {
+          promptRange: { start: 'present-digest-1', end: 'synthetic-call' },
+          responseRange: { start: 'request-digest-review-1', end: 'request-digest-review-1' },
+          promptEntryIds: ['present-digest-1', 'synthetic-call'],
+          responseEntryIds: ['request-digest-review-1'],
+        },
+      ],
+      openPrompt: null,
+    });
+  });
+
   it('projects standalone provider asks only when globally unambiguous and validates both terminal identities', () => {
-    const call = (id: string, exchangeId: string) => ({
+    const call = (id: string, exchangeId: string, provider?: string) => ({
       id: `entry-${id}`,
       type: 'message',
       message: {
         role: 'assistant',
+        ...(provider === undefined ? {} : { provider }),
         content: [
           { type: 'text', text: `Ask ${exchangeId}.` },
           { type: 'toolCall', id, name: 'ask', arguments: { exchangeId, body: `Question ${exchangeId}?` } },
@@ -793,13 +831,18 @@ describe('session exchange projection', () => {
       exchanges: [],
       openPrompt: { promptEntryIds: ['entry-call-a', 'entry-call-b'] },
     });
-    expect(projectSessionExchanges([call('call-a', 'a'), terminal('wrong', 'call-a', 'other')])).toEqual({
+    expect(
+      projectSessionExchanges([call('call-a', 'a', 'anthropic'), terminal('wrong', 'call-a', 'other')]),
+    ).toEqual({
       status: 'empty',
       exchanges: [],
       openPrompt: null,
     });
     expect(
-      projectSessionExchanges([call('call-a', 'a'), terminal('malformed', 'call-a', 'a', { raw: 'pi' })]),
+      projectSessionExchanges([
+        call('call-a', 'a', 'anthropic'),
+        terminal('malformed', 'call-a', 'a', { raw: 'pi' }),
+      ]),
     ).toEqual({ status: 'empty', exchanges: [], openPrompt: null });
     expect(projectSessionExchanges([call('call-a', 'a')])).toMatchObject({
       status: 'open_prompt',
