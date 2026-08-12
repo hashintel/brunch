@@ -1,9 +1,12 @@
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { createRoute } from '@tanstack/react-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { QuestionnaireAnswer, QuestionnaireQuestion } from '../../exchanges/schemas/questionnaire.js';
-import type { SessionPresentationEntry } from '../../projections/session/session-presentation.js';
+import type {
+  SessionPresentationEntry,
+  SessionPresentationResult,
+} from '../../projections/session/session-presentation.js';
 import { openAsksResultSchema } from '../../rpc/live-session-contract.js';
 import type { LiveSessionEvent, LiveSessionHostResult } from '../../session/live-session-host.js';
 import {
@@ -56,8 +59,9 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
   const queryClient = useQueryClient();
   const { data: result } = useSuspenseQuery(sessionPresentationQueryOptions(rpcClient, target));
   const [overlay, setOverlay] = useState<SessionPresentationEntry[]>([]);
-  const [closed, setClosed] = useState<Set<string>>(() => new Set());
   const [protocolError, setProtocolError] = useState(false);
+  const reconciliationEpoch = useRef(0);
+  const attachmentClosed = useRef(false);
   const [prompt, setPrompt] = useState('');
   const [busy, setBusy] = useState(false);
   const [turnError, setTurnError] = useState<string>();
@@ -65,6 +69,30 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
   const driverId = useMemo(browserDriverId, []);
 
   useEffect(() => {
+    let active = true;
+    const generation = ++reconciliationEpoch.current;
+    const reconcileOpenAsks = async () => {
+      const epoch = reconciliationEpoch.current;
+      const value = await rpcClient.request('session.openAsks', target);
+      if (!active || generation !== reconciliationEpoch.current || epoch !== reconciliationEpoch.current)
+        return;
+      const parsed = openAsksResultSchema.safeParse(value);
+      if (!parsed.success) throw new Error('Malformed session.openAsks response');
+      setOverlay((entries) => {
+        const terminals = entries.filter((entry) => entry.kind === 'ask' && entry.terminal);
+        return parsed.data.openAsks.reduce<SessionPresentationEntry[]>(
+          (current, ask) => [
+            ...reduceLiveSessionOverlay(current, {
+              target,
+              seq: 0,
+              delta: { type: 'ask_opened', ask },
+            }),
+          ],
+          terminals,
+        );
+      });
+      return parsed.data.openAsks;
+    };
     const unsubscribe = rpcClient.subscribeSessionEvents(
       target,
       (event: LiveSessionEvent) => {
@@ -77,9 +105,10 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
           // presentation is ready when a paused turn never settles. Drop the
           // superseded overlay before refetching, but retain this ask across the
           // asynchronous canonical refresh so it remains answerable.
+          reconciliationEpoch.current++;
           setOverlay((entries) => [
             ...reduceLiveSessionOverlay(
-              entries.filter((entry) => entry.kind === 'ask'),
+              entries.filter((entry) => entry.kind === 'ask' && entry.terminal),
               event,
             ),
           ]);
@@ -87,6 +116,7 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
           void queryClient.invalidateQueries({ queryKey: queryKeys.session.presentation(target) });
         }
         if (delta.type === 'agent_settled') {
+          reconciliationEpoch.current++;
           setBusy(false);
           setAssistantResponding(false);
           setOverlay([]);
@@ -99,32 +129,20 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
         },
       },
     );
-    // Subscribe first, then close the attachment race with a monotonic snapshot.
-    void rpcClient.request('session.openAsks', target).then((value) => {
-      const parsed = openAsksResultSchema.safeParse(value);
-      if (!parsed.success) {
+    // Subscribe first, then close the attachment race with an authoritative snapshot.
+    void reconcileOpenAsks().catch(() => {
+      if (active && generation === reconciliationEpoch.current) {
         setProtocolError(true);
-        void rpcClient.request('session.close', target);
-        return;
+        attachmentClosed.current = true;
+        void rpcClient.request('session.close', target).catch(() => {});
       }
-      setOverlay((entries) =>
-        parsed.data.openAsks.reduce<SessionPresentationEntry[]>((current, ask) => {
-          if (current.some((entry) => entry.kind === 'ask' && entry.exchangeId === ask.exchangeId))
-            return current;
-          return [
-            ...reduceLiveSessionOverlay(current, {
-              target,
-              seq: 0,
-              delta: { type: 'ask_opened', ask },
-            }),
-          ];
-        }, entries),
-      );
     });
     return () => {
+      active = false;
+      reconciliationEpoch.current++;
       unsubscribe();
       try {
-        void rpcClient.request('session.close', target).catch(() => {});
+        if (!attachmentClosed.current) void rpcClient.request('session.close', target).catch(() => {});
       } catch {
         // Best-effort release must not block route cleanup.
       }
@@ -133,7 +151,7 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
 
   if (protocolError) return <main role="alert">Session protocol load failed.</main>;
   if (result.status !== 'ready') return <main role="alert">Session transcript cannot be displayed.</main>;
-  const entries = mergeSessionPresentation(result.presentation.entries, overlay, closed);
+  const entries = mergeSessionPresentation(result.presentation.entries, overlay);
   return (
     <main className="session-page" aria-busy={busy}>
       <h1>Session {target.sessionId}</h1>
@@ -179,16 +197,51 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
                     });
                   }
                   if (outcome.status === 'ask_closed') {
-                    setClosed((current) => new Set(current).add(entry.exchangeId));
-                    setOverlay((entries) =>
-                      entries.filter(
-                        (candidate) => candidate.kind !== 'ask' || candidate.exchangeId !== entry.exchangeId,
-                      ),
-                    );
-                    void rpcClient.request('session.openAsks', target);
-                    void queryClient.invalidateQueries({
-                      queryKey: queryKeys.session.presentation(target),
-                    });
+                    const epoch = reconciliationEpoch.current;
+                    try {
+                      const [openValue, canonical] = await Promise.all([
+                        rpcClient.request('session.openAsks', target),
+                        rpcClient
+                          .request<SessionPresentationResult>('session.presentation', target)
+                          .then((fresh) => {
+                            queryClient.setQueryData(queryKeys.session.presentation(target), fresh);
+                            return fresh;
+                          }),
+                      ]);
+                      if (epoch !== reconciliationEpoch.current) return outcome;
+                      const parsed = openAsksResultSchema.safeParse(openValue);
+                      if (!parsed.success || canonical.status !== 'ready')
+                        throw new Error('Ask reconciliation failed');
+                      const stillOpen = parsed.data.openAsks.find(
+                        (ask) => ask.exchangeId === entry.exchangeId,
+                      );
+                      const canonicalTerminal = canonical.presentation.entries.some(
+                        (candidate) =>
+                          candidate.kind === 'ask' &&
+                          candidate.exchangeId === entry.exchangeId &&
+                          candidate.terminal,
+                      );
+                      setOverlay((entries) => {
+                        const retained = entries.filter(
+                          (candidate) =>
+                            candidate.kind === 'ask' &&
+                            candidate.terminal &&
+                            candidate.exchangeId !== entry.exchangeId,
+                        );
+                        return stillOpen
+                          ? [
+                              ...reduceLiveSessionOverlay(retained, {
+                                target,
+                                seq: 0,
+                                delta: { type: 'ask_opened', ask: stillOpen },
+                              }),
+                            ]
+                          : retained;
+                      });
+                      if (stillOpen && !canonicalTerminal) return { status: 'invalid_answer' };
+                    } catch {
+                      return { status: 'invalid_answer' };
+                    }
                   }
                   return outcome;
                 }}

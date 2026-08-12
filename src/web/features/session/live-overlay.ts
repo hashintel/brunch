@@ -12,6 +12,7 @@ export function settleConfirmedAnswer(
       const option = entry.options?.find((candidate) => candidate.id === id);
       return option ? [{ kind: 'listed' as const, id: option.id, label: option.label }] : [];
     });
+    if (entry.options && selected.length !== answer.split(',').length) return entry;
     const value = !entry.options
       ? { text: answer }
       : entry.mode === 'multi-select'
@@ -43,20 +44,22 @@ export function mergeSessionPresentation(
   const canonicalAsks = new Map(
     canonical.flatMap((entry) => (entry.kind === 'ask' ? [[entry.exchangeId, entry] as const] : [])),
   );
-  const localTerminals = new Set(
-    overlay.flatMap((entry) => (entry.kind === 'ask' && entry.terminal ? [entry.exchangeId] : [])),
-  );
-  return [
-    ...canonical.filter(
-      (entry) =>
-        entry.kind !== 'ask' ||
-        entry.terminal ||
-        (!closed.has(entry.exchangeId) && !localTerminals.has(entry.exchangeId)),
+  const localTerminalEntries = new Map(
+    overlay.flatMap((entry) =>
+      entry.kind === 'ask' && entry.terminal ? ([[entry.exchangeId, entry]] as const) : [],
     ),
+  );
+  const mergedCanonical = canonical.flatMap((entry) => {
+    if (entry.kind !== 'ask' || entry.terminal) return [entry];
+    if (closed.has(entry.exchangeId)) return [];
+    return [localTerminalEntries.get(entry.exchangeId) ?? entry];
+  });
+  return [
+    ...mergedCanonical,
     ...overlay.filter((entry) => {
       if (entry.kind !== 'ask') return true;
       const durable = canonicalAsks.get(entry.exchangeId);
-      return !closed.has(entry.exchangeId) && (!durable || (!durable.terminal && entry.terminal));
+      return !closed.has(entry.exchangeId) && !durable;
     }),
   ];
 }

@@ -24,6 +24,7 @@ function fixture(
     driveTurn?: unknown;
     answerExchange?: unknown;
     presentationAfterRefresh?: readonly SessionPresentationEntry[];
+    openAsksAfterAnswer?: readonly unknown[];
   } = {},
 ) {
   const listeners = new Set<WebSocketRpcNotificationListener>();
@@ -32,7 +33,10 @@ function fixture(
   const client = {
     async request<T>(method: string, params?: unknown): Promise<T> {
       calls.push({ method, params });
-      if (method === 'session.openAsks') return { openAsks } as T;
+      if (method === 'session.openAsks') {
+        const answered = calls.some(({ method: called }) => called === 'session.answerExchange');
+        return { openAsks: answered ? (outcomes.openAsksAfterAnswer ?? openAsks) : openAsks } as T;
+      }
       if (method === 'workspace.state') {
         return {
           status: 'ready',
@@ -256,6 +260,7 @@ describe('session route', () => {
     window.history.pushState(null, '', '/session/1/s1');
     const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
       answerExchange: { status: 'ask_closed' },
+      openAsksAfterAnswer: [],
     });
     render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
     fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
