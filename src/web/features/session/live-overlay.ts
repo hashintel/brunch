@@ -54,14 +54,35 @@ export function mergeSessionPresentation(
     if (closed.has(entry.exchangeId)) return [];
     return [localTerminalEntries.get(entry.exchangeId) ?? entry];
   });
-  return [
-    ...mergedCanonical,
-    ...overlay.filter((entry) => {
-      if (entry.kind !== 'ask') return true;
+  const unmatchedCanonical = canonical
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => entry.kind !== 'ask');
+  const unmatchedOverlay = overlay.filter((entry) => {
+    if (entry.kind === 'ask') {
       const durable = canonicalAsks.get(entry.exchangeId);
       return !closed.has(entry.exchangeId) && !durable;
-    }),
-  ];
+    }
+    const match = unmatchedCanonical.findIndex(({ entry: candidate }) =>
+      presentationEntriesMatch(candidate, entry),
+    );
+    if (match < 0) return true;
+    unmatchedCanonical.splice(match, 1);
+    return false;
+  });
+  return [...mergedCanonical, ...unmatchedOverlay];
+}
+
+function presentationEntriesMatch(
+  canonical: SessionPresentationEntry,
+  overlay: SessionPresentationEntry,
+): boolean {
+  if (canonical.kind !== overlay.kind) return false;
+  if (canonical.id === overlay.id || canonical.cursor === overlay.cursor) return true;
+  if (canonical.kind === 'message' && overlay.kind === 'message') {
+    return canonical.role === overlay.role && canonical.text === overlay.text;
+  }
+  const omitIdentity = ({ id: _id, cursor: _cursor, ...content }: SessionPresentationEntry) => content;
+  return JSON.stringify(omitIdentity(canonical)) === JSON.stringify(omitIdentity(overlay));
 }
 
 export function reduceLiveSessionOverlay(

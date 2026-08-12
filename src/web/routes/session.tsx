@@ -201,14 +201,10 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
                     try {
                       const [openValue, canonical] = await Promise.all([
                         rpcClient.request('session.openAsks', target),
-                        rpcClient
-                          .request<SessionPresentationResult>('session.presentation', target)
-                          .then((fresh) => {
-                            queryClient.setQueryData(queryKeys.session.presentation(target), fresh);
-                            return fresh;
-                          }),
+                        rpcClient.request<SessionPresentationResult>('session.presentation', target),
                       ]);
                       if (epoch !== reconciliationEpoch.current) return outcome;
+                      queryClient.setQueryData(queryKeys.session.presentation(target), canonical);
                       const parsed = openAsksResultSchema.safeParse(openValue);
                       if (!parsed.success || canonical.status !== 'ready')
                         throw new Error('Ask reconciliation failed');
@@ -493,6 +489,7 @@ function Ask({
   const [values, setValues] = useState<string[]>([]);
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   if (entry.terminal) {
     const terminal = entry.terminal;
     return (
@@ -592,16 +589,19 @@ function Ask({
       onSubmit={(event) => {
         event.preventDefault();
         const answerValue = entry.mode === 'multi-select' ? values.join(',') : value;
-        if (!answerValue.trim() || submitting) return;
+        if (!answerValue.trim() || submittingRef.current) return;
+        submittingRef.current = true;
         setSubmitting(true);
         setError(undefined);
         void answer(answerValue)
           .then((outcome) => {
             if (outcome.status === 'completed' || outcome.status === 'ask_closed') return;
+            submittingRef.current = false;
             setSubmitting(false);
             setError(`Answer could not be submitted (${outcome.status.replaceAll('_', ' ')}).`);
           })
           .catch(() => {
+            submittingRef.current = false;
             setSubmitting(false);
             setError('Answer failed. Please retry.');
           });

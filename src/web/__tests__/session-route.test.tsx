@@ -25,6 +25,9 @@ function fixture(
     answerExchange?: unknown;
     presentationAfterRefresh?: readonly SessionPresentationEntry[];
     openAsksAfterAnswer?: readonly unknown[];
+    initialOpenAsks?: Promise<{ openAsks: readonly unknown[] }>;
+    afterAnswerOpenAsksResult?: Promise<{ openAsks: readonly unknown[] }>;
+    presentationAfterRefreshResult?: Promise<SessionPresentationResult>;
   } = {},
 ) {
   const listeners = new Set<WebSocketRpcNotificationListener>();
@@ -35,6 +38,9 @@ function fixture(
       calls.push({ method, params });
       if (method === 'session.openAsks') {
         const answered = calls.some(({ method: called }) => called === 'session.answerExchange');
+        if (!answered && outcomes.initialOpenAsks) return (await outcomes.initialOpenAsks) as T;
+        if (answered && outcomes.afterAnswerOpenAsksResult)
+          return (await outcomes.afterAnswerOpenAsksResult) as T;
         return { openAsks: answered ? (outcomes.openAsksAfterAnswer ?? openAsks) : openAsks } as T;
       }
       if (method === 'workspace.state') {
@@ -55,6 +61,8 @@ function fixture(
       }
       if (method === 'session.presentation') {
         reads += 1;
+        if (reads > 1 && outcomes.presentationAfterRefreshResult)
+          return (await outcomes.presentationAfterRefreshResult) as T;
         return {
           status: 'ready',
           presentation: {
@@ -255,6 +263,83 @@ describe('session route', () => {
       );
     },
   );
+
+  it('submits exactly one answer RPC for two immediate clicks', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    let resolveAnswer!: (value: { status: 'completed' }) => void;
+    const answer = new Promise<{ status: 'completed' }>((resolve) => {
+      resolveAnswer = resolve;
+    });
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      answerExchange: answer,
+    });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    const button = screen.getByRole('button', { name: 'Answer' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toHaveLength(1);
+    resolveAnswer({ status: 'completed' });
+    await act(async () => answer);
+  });
+
+  it('performs no stale ask_closed presentation write after a newer event', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    let resolveOpen!: (value: { openAsks: readonly unknown[] }) => void;
+    let resolvePresentation!: (value: SessionPresentationResult) => void;
+    const afterAnswerOpenAsksResult = new Promise<{ openAsks: readonly unknown[] }>((resolve) => {
+      resolveOpen = resolve;
+    });
+    const presentationAfterRefreshResult = new Promise<SessionPresentationResult>((resolve) => {
+      resolvePresentation = resolve;
+    });
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      answerExchange: { status: 'ask_closed' },
+      afterAnswerOpenAsksResult,
+      presentationAfterRefreshResult,
+    });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+    await waitFor(() => expect(f.reads()).toBe(2));
+
+    await act(async () => {
+      f.emit({
+        target: { specId: 1, sessionId: 's1' },
+        seq: 2,
+        delta: {
+          type: 'ask_opened',
+          ask: { exchangeId: 'new', mode: 'text', question: { body: 'New ask?' } },
+        },
+      });
+      resolveOpen({ openAsks: [] });
+      resolvePresentation({
+        status: 'ready',
+        presentation: {
+          target: { specId: 1, sessionId: 's1' },
+          cursor: 'stale',
+          entries: [
+            {
+              id: 'stale',
+              cursor: 'stale',
+              kind: 'message',
+              role: 'assistant',
+              text: 'Stale canonical',
+            },
+          ],
+        },
+      });
+      await Promise.all([afterAnswerOpenAsksResult, presentationAfterRefreshResult]);
+    });
+
+    expect(screen.getByRole('textbox', { name: 'New ask?' })).toBeTruthy();
+    expect(screen.queryByText('Stale canonical')).toBeNull();
+  });
 
   it('converges ask_closed without retrying the stale control', async () => {
     window.history.pushState(null, '', '/session/1/s1');
@@ -898,6 +983,54 @@ describe('session route', () => {
 
     expect(await screen.findByText('Answered: Done')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
+  });
+
+  it('does not let a deferred initial open-ask snapshot overwrite a newer ask event', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    let resolveSnapshot!: (value: { openAsks: readonly unknown[] }) => void;
+    const initialOpenAsks = new Promise<{ openAsks: readonly unknown[] }>((resolve) => {
+      resolveSnapshot = resolve;
+    });
+    const f = fixture([], [], { initialOpenAsks });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    await screen.findByText(/History/u);
+    await act(async () => {
+      f.emit({
+        target: { specId: 1, sessionId: 's1' },
+        seq: 1,
+        delta: {
+          type: 'ask_opened',
+          ask: { exchangeId: 'new', mode: 'text', question: { body: 'New ask?' } },
+        },
+      });
+      resolveSnapshot({
+        openAsks: [{ exchangeId: 'old', mode: 'text', question: { body: 'Old ask?' } }],
+      });
+      await initialOpenAsks;
+    });
+
+    expect(screen.getByRole('textbox', { name: 'New ask?' })).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: 'Old ask?' })).toBeNull();
+  });
+
+  it('does not resurrect a deferred initial open ask after settlement', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    let resolveSnapshot!: (value: { openAsks: readonly unknown[] }) => void;
+    const initialOpenAsks = new Promise<{ openAsks: readonly unknown[] }>((resolve) => {
+      resolveSnapshot = resolve;
+    });
+    const f = fixture([], [], { initialOpenAsks });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    await screen.findByText(/History/u);
+    await act(async () => {
+      f.emit({ target: { specId: 1, sessionId: 's1' }, seq: 1, delta: { type: 'agent_settled' } });
+      resolveSnapshot({
+        openAsks: [{ exchangeId: 'old', mode: 'text', question: { body: 'Old ask?' } }],
+      });
+      await initialOpenAsks;
+    });
+
+    expect(screen.queryByRole('textbox', { name: 'Old ask?' })).toBeNull();
   });
 
   it('hydrates an already-open ask on load so a reconnecting client can answer it', async () => {

@@ -44,4 +44,22 @@ describe('live ask reconciliation', () => {
   it('does not construct a malformed single-choice terminal for an unknown option', () => {
     expect(settleConfirmedAnswer([ask()], 'choice', 'unknown')).toEqual([ask()]);
   });
+
+  it('suppresses canonical/live non-ask overlap occurrence-by-occurrence', () => {
+    const canonical = [message('canonical:1', 'Repeated'), message('canonical:2', 'Repeated')];
+    const exactLive = message('live:1', 'Repeated');
+    const partialLive = message('live:2', 'Repeat');
+
+    expect(mergeSessionPresentation(canonical, [exactLive, exactLive, partialLive])).toEqual([
+      ...canonical,
+      partialLive,
+    ]);
+  });
+
+  it('matches non-ask overlap by stable identity before semantic content', () => {
+    const canonical = message('shared', 'Canonical complete text');
+    const live = message('shared', 'Streaming partial text');
+
+    expect(mergeSessionPresentation([canonical], [live])).toEqual([canonical]);
+  });
 });
