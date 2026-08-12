@@ -159,23 +159,98 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
   const entries = mergeSessionPresentation(result.presentation.entries, overlay).filter(
     (entry) => entry.kind !== 'ask' || entry.terminal || !locallyClosedAsks.has(entry.exchangeId),
   );
-  const actionableReviewExchangeIds = new Set(
+  const actionableReviewAsks = new Map(
     entries.flatMap((entry) =>
-      entry.kind === 'present_review_set' &&
-      entry.continuation &&
-      entries.some(
-        (candidate) =>
-          candidate.kind === 'ask' && candidate.exchangeId === entry.exchangeId && !candidate.terminal,
-      )
-        ? [entry.exchangeId]
+      entry.kind === 'present_review_set' && entry.continuation
+        ? entries.flatMap((candidate) =>
+            candidate.kind === 'ask' && candidate.exchangeId === entry.exchangeId && !candidate.terminal
+              ? [[entry.exchangeId, candidate] as const]
+              : [],
+          )
         : [],
     ),
   );
+  const visibleEntries = entries.filter(
+    (entry) => entry.kind !== 'ask' || entry.terminal || !actionableReviewAsks.has(entry.exchangeId),
+  );
+  const answerExchange = async (
+    entry: Extract<SessionPresentationEntry, { kind: 'ask' }>,
+    answer: string,
+  ): Promise<LiveSessionHostResult> => {
+    const answerEpoch = reconciliationEpoch.current;
+    const outcome = await rpcClient.request<LiveSessionHostResult>('session.answerExchange', {
+      ...target,
+      driverId,
+      exchangeId: entry.exchangeId,
+      answer,
+    });
+    if (!routeActive.current || answerEpoch !== reconciliationEpoch.current) return outcome;
+    if (outcome.status === 'completed') {
+      setOverlay((entries) => [
+        ...settleConfirmedAnswer(
+          entries.some((candidate) => candidate.kind === 'ask' && candidate.exchangeId === entry.exchangeId)
+            ? entries
+            : [...entries, entry],
+          entry.exchangeId,
+          answer,
+        ),
+      ]);
+      setAssistantResponding(true);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.session.presentation(target) });
+    }
+    if (outcome.status === 'ask_closed') {
+      try {
+        const [openValue, canonical] = await Promise.all([
+          rpcClient.request('session.openAsks', target),
+          rpcClient.request<SessionPresentationResult>('session.presentation', target),
+        ]);
+        if (!routeActive.current || answerEpoch !== reconciliationEpoch.current) return outcome;
+        const parsed = openAsksResultSchema.safeParse(openValue);
+        if (!parsed.success || canonical.status !== 'ready') throw new Error('Ask reconciliation failed');
+        const stillOpen = parsed.data.openAsks.find((ask) => ask.exchangeId === entry.exchangeId);
+        const canonicalIsStale =
+          !stillOpen &&
+          canonical.presentation.entries.some(
+            (candidate) =>
+              candidate.kind === 'ask' && candidate.exchangeId === entry.exchangeId && !candidate.terminal,
+          );
+        if (!canonicalIsStale) queryClient.setQueryData(queryKeys.session.presentation(target), canonical);
+        if (!routeActive.current || answerEpoch !== reconciliationEpoch.current) return outcome;
+        setOverlay((entries) => {
+          const retained = entries.filter(
+            (candidate) =>
+              candidate.kind === 'ask' && candidate.terminal && candidate.exchangeId !== entry.exchangeId,
+          );
+          return stillOpen
+            ? [
+                ...reduceLiveSessionOverlay(retained, {
+                  target,
+                  seq: 0,
+                  delta: { type: 'ask_opened', ask: stillOpen },
+                }),
+              ]
+            : retained;
+        });
+        setLocallyClosedAsks((closed) => {
+          const next = new Set(closed);
+          if (stillOpen) next.delete(entry.exchangeId);
+          else next.add(entry.exchangeId);
+          return next;
+        });
+        if (canonicalIsStale)
+          void queryClient.invalidateQueries({ queryKey: queryKeys.session.presentation(target) });
+        if (stillOpen) return { status: 'invalid_answer' };
+      } catch {
+        return { status: 'invalid_answer' };
+      }
+    }
+    return outcome;
+  };
   return (
     <main className="session-page" aria-busy={busy}>
       <h1>Session {target.sessionId}</h1>
       <ol aria-label="Session transcript">
-        {entries.map((entry) => (
+        {visibleEntries.map((entry) => (
           <li key={entry.cursor}>
             {entry.kind === 'message' ? (
               <p>
@@ -186,110 +261,17 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
             ) : entry.kind === 'present_review_set' ? (
               <ReviewSetOffer
                 entry={entry}
-                {...(actionableReviewExchangeIds.has(entry.exchangeId)
+                {...(actionableReviewAsks.get(entry.exchangeId)
                   ? {
                       answer: (answer: string) =>
-                        rpcClient.request<LiveSessionHostResult>('session.answerExchange', {
-                          ...target,
-                          driverId,
-                          exchangeId: entry.exchangeId,
-                          answer,
-                        }),
+                        answerExchange(actionableReviewAsks.get(entry.exchangeId)!, answer),
                     }
                   : {})}
               />
             ) : entry.kind === 'present_digest' ? (
               <DigestOffer entry={entry} />
-            ) : actionableReviewExchangeIds.has(entry.exchangeId) && !entry.terminal ? null : (
-              <Ask
-                entry={entry}
-                answer={async (answer) => {
-                  const answerEpoch = reconciliationEpoch.current;
-                  const outcome = await rpcClient.request<LiveSessionHostResult>('session.answerExchange', {
-                    ...target,
-                    driverId,
-                    exchangeId: entry.exchangeId,
-                    answer,
-                  });
-                  if (!routeActive.current || answerEpoch !== reconciliationEpoch.current) return outcome;
-                  if (outcome.status === 'completed') {
-                    setOverlay((entries) => [
-                      ...settleConfirmedAnswer(
-                        entries.some(
-                          (candidate) =>
-                            candidate.kind === 'ask' && candidate.exchangeId === entry.exchangeId,
-                        )
-                          ? entries
-                          : [...entries, entry],
-                        entry.exchangeId,
-                        answer,
-                      ),
-                    ]);
-                    setAssistantResponding(true);
-                    void queryClient.invalidateQueries({
-                      queryKey: queryKeys.session.presentation(target),
-                    });
-                  }
-                  if (outcome.status === 'ask_closed') {
-                    try {
-                      const [openValue, canonical] = await Promise.all([
-                        rpcClient.request('session.openAsks', target),
-                        rpcClient.request<SessionPresentationResult>('session.presentation', target),
-                      ]);
-                      if (!routeActive.current || answerEpoch !== reconciliationEpoch.current) return outcome;
-                      const parsed = openAsksResultSchema.safeParse(openValue);
-                      if (!parsed.success || canonical.status !== 'ready')
-                        throw new Error('Ask reconciliation failed');
-                      const stillOpen = parsed.data.openAsks.find(
-                        (ask) => ask.exchangeId === entry.exchangeId,
-                      );
-                      const canonicalIsStale =
-                        !stillOpen &&
-                        canonical.presentation.entries.some(
-                          (candidate) =>
-                            candidate.kind === 'ask' &&
-                            candidate.exchangeId === entry.exchangeId &&
-                            !candidate.terminal,
-                        );
-                      if (!canonicalIsStale)
-                        queryClient.setQueryData(queryKeys.session.presentation(target), canonical);
-                      if (!routeActive.current || answerEpoch !== reconciliationEpoch.current) return outcome;
-                      setOverlay((entries) => {
-                        const retained = entries.filter(
-                          (candidate) =>
-                            candidate.kind === 'ask' &&
-                            candidate.terminal &&
-                            candidate.exchangeId !== entry.exchangeId,
-                        );
-                        return stillOpen
-                          ? [
-                              ...reduceLiveSessionOverlay(retained, {
-                                target,
-                                seq: 0,
-                                delta: { type: 'ask_opened', ask: stillOpen },
-                              }),
-                            ]
-                          : retained;
-                      });
-                      setLocallyClosedAsks((closed) => {
-                        const next = new Set(closed);
-                        if (stillOpen) next.delete(entry.exchangeId);
-                        else next.add(entry.exchangeId);
-                        return next;
-                      });
-                      if (canonicalIsStale) {
-                        void queryClient.invalidateQueries({
-                          queryKey: queryKeys.session.presentation(target),
-                        });
-                      }
-                      if (stillOpen) return { status: 'invalid_answer' };
-                    } catch {
-                      return { status: 'invalid_answer' };
-                    }
-                  }
-                  return outcome;
-                }}
-              />
+            ) : (
+              <Ask entry={entry} answer={(answer) => answerExchange(entry, answer)} />
             )}
           </li>
         ))}
@@ -475,15 +457,26 @@ function ReviewDecision({
   const [requestingChanges, setRequestingChanges] = useState(false);
   const [comment, setComment] = useState('');
   const [error, setError] = useState<string>();
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   const submit = (value: string) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
     setError(undefined);
     void answer(value)
       .then((outcome) => {
-        if (outcome.status !== 'completed' && outcome.status !== 'ask_closed')
-          setError(`Review could not be submitted (${outcome.status.replaceAll('_', ' ')}).`);
+        if (outcome.status === 'completed' || outcome.status === 'ask_closed') return;
+        submittingRef.current = false;
+        setSubmitting(false);
+        setError(`Review could not be submitted (${outcome.status.replaceAll('_', ' ')}).`);
       })
-      .catch(() => setError('Review failed. Please retry.'));
+      .catch(() => {
+        submittingRef.current = false;
+        setSubmitting(false);
+        setError('Review failed. Please retry.');
+      });
   };
 
   return (
@@ -493,7 +486,9 @@ function ReviewDecision({
         <button
           key={option.id}
           type="button"
+          disabled={submitting}
           onClick={() => {
+            if (submittingRef.current) return;
             if (option.id === 'request_changes') {
               setRequestingChanges(true);
               return;
@@ -513,9 +508,14 @@ function ReviewDecision({
         >
           <label>
             {commentPrompt ?? 'Required change request'}
-            <input value={comment} onChange={(event) => setComment(event.target.value)} required />
+            <input
+              value={comment}
+              onChange={(event) => setComment(event.target.value)}
+              disabled={submitting}
+              required
+            />
           </label>
-          <button disabled={!comment.trim()}>Submit change request</button>
+          <button disabled={submitting || !comment.trim()}>Submit change request</button>
         </form>
       ) : null}
       {error ? <p role="alert">{error}</p> : null}

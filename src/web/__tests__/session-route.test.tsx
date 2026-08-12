@@ -123,6 +123,48 @@ function fixture(
   return { client, calls, emit, emitNotification, reads: () => reads };
 }
 
+function reviewEntry(): SessionPresentationEntry {
+  return {
+    id: 'review-offer',
+    cursor: 'durable:review-offer',
+    kind: 'present_review_set',
+    exchangeId: 'review-set',
+    heading: 'Offline note requirement',
+    body: 'One settled requirement with no additional items.',
+    reviewSet: {
+      nodes: [
+        {
+          draft_id: 'req',
+          proposed_code: 'REQ1',
+          settlement: 'settled',
+          plane: 'intent',
+          kind: 'requirement',
+          title: 'Save one note offline',
+        },
+      ],
+      edges: [],
+    },
+    continuation: {
+      tool: 'ask',
+      params: {
+        body: 'Offline note requirement',
+        options: [
+          { id: 'approve', label: 'Approve' },
+          { id: 'request_changes', label: 'Request changes' },
+          { id: 'reject', label: 'Reject' },
+        ],
+        commentPrompt: 'Required change request',
+      },
+    },
+  };
+}
+
+const reviewAsk = {
+  exchangeId: 'review-set',
+  mode: 'review',
+  question: { body: 'One settled requirement with no additional items.' },
+} as const;
+
 describe('session route', () => {
   it.each(['0', '01', 'not-a-number'])('rejects invalid spec token %s before session RPC', async (token) => {
     window.history.pushState(null, '', `/session/${token}/s1`);
@@ -847,17 +889,6 @@ describe('session route', () => {
     expect(screen.queryByRole('textbox', { name: narrative })).toBeNull();
     expect(screen.getByRole('textbox', { name: 'Message' })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
-    expect(f.calls).toContainEqual({
-      method: 'session.answerExchange',
-      params: expect.objectContaining({ exchangeId: 'review-set', answer: 'approve' }),
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
-    expect(f.calls).toContainEqual({
-      method: 'session.answerExchange',
-      params: expect.objectContaining({ exchangeId: 'review-set', answer: 'reject' }),
-    });
     fireEvent.click(screen.getByRole('button', { name: 'Request changes' }));
     const changes = screen.getByRole('textbox', { name: 'Required change request' });
     fireEvent.change(changes, { target: { value: 'Clarify offline behavior.' } });
@@ -869,6 +900,64 @@ describe('session route', () => {
         answer: 'request_changes:Clarify offline behavior.',
       }),
     });
+  });
+
+  it.each([
+    ['Approve', 'approve'],
+    ['Reject', 'reject'],
+  ] as const)('encodes the %s review decision independently', async (label, answer) => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([reviewEntry()], [reviewAsk]);
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: label }));
+
+    expect(f.calls).toContainEqual({
+      method: 'session.answerExchange',
+      params: expect.objectContaining({ exchangeId: 'review-set', answer }),
+    });
+  });
+
+  it.each(['completed', 'ask_closed'] as const)(
+    'makes a review locally non-actionable after %s and emits one RPC despite conflicting clicks',
+    async (status) => {
+      window.history.pushState(null, '', '/session/1/s1');
+      let resolveAnswer!: (value: { status: typeof status }) => void;
+      const answerExchange = new Promise<{ status: typeof status }>((resolve) => {
+        resolveAnswer = resolve;
+      });
+      const f = fixture([reviewEntry()], [reviewAsk], {
+        answerExchange,
+        ...(status === 'ask_closed' ? { openAsksAfterAnswer: [] } : {}),
+      });
+      render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+      const approve = await screen.findByRole('button', { name: 'Approve' });
+      fireEvent.click(approve);
+      fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Request changes' }));
+
+      expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toHaveLength(1);
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Approve' }).disabled).toBe(true);
+
+      await act(async () => {
+        resolveAnswer({ status });
+        await answerExchange;
+      });
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull());
+      expect(screen.queryByRole('region', { name: 'Review choices' })).toBeNull();
+    },
+  );
+
+  it('does not render a blank transcript item for the correlated review ask', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([reviewEntry()], [reviewAsk]);
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    await screen.findByRole('button', { name: 'Approve' });
+    const items = screen.getByRole('list', { name: 'Session transcript' }).querySelectorAll(':scope > li');
+    expect(items).toHaveLength(2);
+    expect([...items].every((item) => item.textContent?.trim())).toBe(true);
   });
 
   it('renders a proposition-first review set and exact approved receipt without acceptance controls', async () => {
