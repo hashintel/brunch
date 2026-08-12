@@ -791,6 +791,86 @@ describe('session route', () => {
     });
   });
 
+  it('renders a settled review and its open continuation as one explicit review interaction', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const narrative = 'One settled requirement with no additional items.';
+    const f = fixture(
+      [
+        {
+          id: 'review-offer',
+          cursor: 'durable:review-offer',
+          kind: 'present_review_set',
+          exchangeId: 'review-set',
+          heading: 'Offline note requirement',
+          body: narrative,
+          reviewSet: {
+            nodes: [
+              {
+                draft_id: 'req',
+                proposed_code: 'REQ1',
+                settlement: 'settled' as const,
+                plane: 'intent',
+                kind: 'requirement',
+                title: 'Save one note offline',
+              },
+            ],
+            edges: [],
+          },
+          continuation: {
+            tool: 'ask',
+            params: {
+              body: `Offline note requirement\n\n${narrative}`,
+              options: [
+                { id: 'approve', label: 'Approve' },
+                { id: 'request_changes', label: 'Request changes' },
+                { id: 'reject', label: 'Reject' },
+              ],
+              commentPrompt: 'Required change request',
+            },
+          },
+        },
+      ],
+      [{ exchangeId: 'review-set', mode: 'review', question: { body: narrative } }],
+    );
+
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    expect(await screen.findByRole('region', { name: 'Offline note requirement' })).toBeTruthy();
+    expect(screen.getByRole('article', { name: 'REQ1 Save one note offline' }).textContent).toContain(
+      'Settlementsettled',
+    );
+    expect(screen.getAllByText(narrative)).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Approve' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Request changes' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Reject' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: narrative })).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Message' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    expect(f.calls).toContainEqual({
+      method: 'session.answerExchange',
+      params: expect.objectContaining({ exchangeId: 'review-set', answer: 'approve' }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
+    expect(f.calls).toContainEqual({
+      method: 'session.answerExchange',
+      params: expect.objectContaining({ exchangeId: 'review-set', answer: 'reject' }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Request changes' }));
+    const changes = screen.getByRole('textbox', { name: 'Required change request' });
+    fireEvent.change(changes, { target: { value: 'Clarify offline behavior.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit change request' }));
+    expect(f.calls).toContainEqual({
+      method: 'session.answerExchange',
+      params: expect.objectContaining({
+        exchangeId: 'review-set',
+        answer: 'request_changes:Clarify offline behavior.',
+      }),
+    });
+  });
+
   it('renders a proposition-first review set and exact approved receipt without acceptance controls', async () => {
     window.history.pushState(null, '', '/session/1/s1');
     const f = fixture([
@@ -869,8 +949,14 @@ describe('session route', () => {
       'G1 Clear outcome',
       'REQ1 Atomic approval',
     ]);
+    expect(screen.getByRole('article', { name: 'G1 Clear outcome' }).textContent).toContain(
+      'Settlementsettled',
+    );
+    expect(screen.getByRole('article', { name: 'REQ1 Atomic approval' }).textContent).toContain(
+      'Settlementsettled',
+    );
     expect(screen.getByRole('region', { name: 'Proposed consequences' }).textContent).toContain(
-      'dependency — Requirement serves goal.',
+      'dependency [settled] — Requirement serves goal.',
     );
     expect(screen.getByText('Decision: Approve')).toBeTruthy();
     expect(screen.getByLabelText('Graph commit receipt').textContent).toContain('LSN7');

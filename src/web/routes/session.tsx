@@ -159,6 +159,18 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
   const entries = mergeSessionPresentation(result.presentation.entries, overlay).filter(
     (entry) => entry.kind !== 'ask' || entry.terminal || !locallyClosedAsks.has(entry.exchangeId),
   );
+  const actionableReviewExchangeIds = new Set(
+    entries.flatMap((entry) =>
+      entry.kind === 'present_review_set' &&
+      entry.continuation &&
+      entries.some(
+        (candidate) =>
+          candidate.kind === 'ask' && candidate.exchangeId === entry.exchangeId && !candidate.terminal,
+      )
+        ? [entry.exchangeId]
+        : [],
+    ),
+  );
   return (
     <main className="session-page" aria-busy={busy}>
       <h1>Session {target.sessionId}</h1>
@@ -172,10 +184,23 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
             ) : entry.kind === 'present_candidates' ? (
               <CandidateOffer entry={entry} />
             ) : entry.kind === 'present_review_set' ? (
-              <ReviewSetOffer entry={entry} />
+              <ReviewSetOffer
+                entry={entry}
+                {...(actionableReviewExchangeIds.has(entry.exchangeId)
+                  ? {
+                      answer: (answer: string) =>
+                        rpcClient.request<LiveSessionHostResult>('session.answerExchange', {
+                          ...target,
+                          driverId,
+                          exchangeId: entry.exchangeId,
+                          answer,
+                        }),
+                    }
+                  : {})}
+              />
             ) : entry.kind === 'present_digest' ? (
               <DigestOffer entry={entry} />
-            ) : (
+            ) : actionableReviewExchangeIds.has(entry.exchangeId) && !entry.terminal ? null : (
               <Ask
                 entry={entry}
                 answer={async (answer) => {
@@ -376,8 +401,10 @@ function CandidateOffer({
 
 function ReviewSetOffer({
   entry,
+  answer,
 }: {
   entry: Extract<SessionPresentationEntry, { kind: 'present_review_set' }>;
+  answer?: (value: string) => Promise<LiveSessionHostResult>;
 }) {
   return (
     <section aria-label={entry.heading}>
@@ -393,6 +420,8 @@ function ReviewSetOffer({
             <dd>{node.plane}</dd>
             <dt>Kind</dt>
             <dd>{node.kind}</dd>
+            <dt>Settlement</dt>
+            <dd>{node.settlement}</dd>
             {node.body ? (
               <>
                 <dt>Body</dt>
@@ -409,6 +438,15 @@ function ReviewSetOffer({
           <ReviewSetConsequences draftId={node.draft_id} entry={entry} />
         </article>
       ))}
+      {answer && entry.continuation ? (
+        <ReviewDecision
+          options={entry.continuation.params.options}
+          {...(entry.continuation.params.commentPrompt
+            ? { commentPrompt: entry.continuation.params.commentPrompt }
+            : {})}
+          answer={answer}
+        />
+      ) : null}
       {entry.reviewSet.edges.filter((edge) => !edgeHostDraftId(edge)).length > 0 ? (
         <section aria-label="Other proposed consequences">
           <h3>Other proposed consequences</h3>
@@ -421,6 +459,66 @@ function ReviewSetOffer({
           </ul>
         </section>
       ) : null}
+    </section>
+  );
+}
+
+function ReviewDecision({
+  options,
+  commentPrompt,
+  answer,
+}: {
+  options: readonly { readonly id: string; readonly label: string }[];
+  commentPrompt?: string;
+  answer: (value: string) => Promise<LiveSessionHostResult>;
+}) {
+  const [requestingChanges, setRequestingChanges] = useState(false);
+  const [comment, setComment] = useState('');
+  const [error, setError] = useState<string>();
+
+  const submit = (value: string) => {
+    setError(undefined);
+    void answer(value)
+      .then((outcome) => {
+        if (outcome.status !== 'completed' && outcome.status !== 'ask_closed')
+          setError(`Review could not be submitted (${outcome.status.replaceAll('_', ' ')}).`);
+      })
+      .catch(() => setError('Review failed. Please retry.'));
+  };
+
+  return (
+    <section aria-label="Review choices">
+      <h3>Review</h3>
+      {options.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          onClick={() => {
+            if (option.id === 'request_changes') {
+              setRequestingChanges(true);
+              return;
+            }
+            submit(option.id);
+          }}
+        >
+          {option.label}
+        </button>
+      ))}
+      {requestingChanges ? (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (comment.trim()) submit(`request_changes:${comment.trim()}`);
+          }}
+        >
+          <label>
+            {commentPrompt ?? 'Required change request'}
+            <input value={comment} onChange={(event) => setComment(event.target.value)} required />
+          </label>
+          <button disabled={!comment.trim()}>Submit change request</button>
+        </form>
+      ) : null}
+      {error ? <p role="alert">{error}</p> : null}
     </section>
   );
 }
@@ -470,7 +568,7 @@ function edgeHostDraftId(
 function reviewEdgeText(
   edge: Extract<SessionPresentationEntry, { kind: 'present_review_set' }>['reviewSet']['edges'][number],
 ): string {
-  return `${edge.category.replaceAll('_', ' ')}${edge.rationale ? ` — ${edge.rationale}` : ''}`;
+  return `${edge.category.replaceAll('_', ' ')} [${edge.settlement}]${edge.rationale ? ` — ${edge.rationale}` : ''}`;
 }
 
 function digestDecisionLabel(decision: 'approve' | 'request_changes' | 'reject'): string {
