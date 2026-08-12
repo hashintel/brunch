@@ -286,6 +286,85 @@ describe('session route', () => {
     await act(async () => answer);
   });
 
+  it('does not let deferred open-ask hydration erase newer assistant text', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    let resolveSnapshot!: (value: { openAsks: readonly unknown[] }) => void;
+    const initialOpenAsks = new Promise<{ openAsks: readonly unknown[] }>((resolve) => {
+      resolveSnapshot = resolve;
+    });
+    const f = fixture([], [], { initialOpenAsks });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    await screen.findByText(/History/u);
+
+    await act(async () => {
+      f.emit({
+        target: { specId: 1, sessionId: 's1' },
+        seq: 1,
+        delta: { type: 'assistant_text_delta', runId: 'run-1', text: 'New live text' },
+      });
+      resolveSnapshot({ openAsks: [] });
+      await initialOpenAsks;
+    });
+
+    expect(screen.getByText(/New live text/u)).toBeTruthy();
+  });
+
+  it('does not start stale ask_closed reconciliation after newer assistant text', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    let resolveAnswer!: (value: { status: 'ask_closed' }) => void;
+    const answerExchange = new Promise<{ status: 'ask_closed' }>((resolve) => {
+      resolveAnswer = resolve;
+    });
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      answerExchange,
+    });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+
+    await act(async () => {
+      f.emit({
+        target: { specId: 1, sessionId: 's1' },
+        seq: 1,
+        delta: { type: 'assistant_text_delta', runId: 'run-1', text: 'New live text' },
+      });
+      resolveAnswer({ status: 'ask_closed' });
+      await answerExchange;
+    });
+
+    expect(f.calls.filter(({ method }) => method === 'session.openAsks')).toHaveLength(1);
+    expect(f.reads()).toBe(1);
+    expect(screen.getByText(/New live text/u)).toBeTruthy();
+  });
+
+  it('does not reconcile a deferred ask_closed result after unmount', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    let resolveAnswer!: (value: { status: 'ask_closed' }) => void;
+    const answerExchange = new Promise<{ status: 'ask_closed' }>((resolve) => {
+      resolveAnswer = resolve;
+    });
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      answerExchange,
+    });
+    const view = render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+    view.unmount();
+
+    await act(async () => {
+      resolveAnswer({ status: 'ask_closed' });
+      await answerExchange;
+    });
+
+    expect(f.calls.filter(({ method }) => method === 'session.openAsks')).toHaveLength(1);
+    expect(f.reads()).toBe(1);
+    expect(f.calls.filter(({ method }) => method === 'session.close')).toHaveLength(1);
+  });
+
   it('performs no stale ask_closed presentation write after a newer event', async () => {
     window.history.pushState(null, '', '/session/1/s1');
     let resolveOpen!: (value: { openAsks: readonly unknown[] }) => void;
@@ -339,6 +418,77 @@ describe('session route', () => {
 
     expect(screen.getByRole('textbox', { name: 'New ask?' })).toBeTruthy();
     expect(screen.queryByText('Stale canonical')).toBeNull();
+  });
+
+  it('does not cache malformed ask_closed presentation and keeps the ask retryable', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      answerExchange: { status: 'ask_closed' },
+      openAsksAfterAnswer: [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }],
+      presentationAfterRefreshResult: Promise.resolve({
+        status: 'malformed_detail',
+        entryId: 'bad',
+        family: 'ask',
+      }),
+    });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/invalid answer/i);
+    expect(screen.getByText(/History/u)).toBeTruthy();
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Answer' }).disabled).toBe(false);
+  });
+
+  it('suppresses a canonically stale ask when openAsks says it is closed', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const unresolved: SessionPresentationEntry = {
+      id: 'pending',
+      cursor: 'pending',
+      kind: 'ask',
+      exchangeId: 'pending',
+      question: 'Proceed?',
+    };
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      answerExchange: { status: 'ask_closed' },
+      openAsksAfterAnswer: [],
+      presentationAfterRefreshResult: Promise.resolve({
+        status: 'ready',
+        presentation: {
+          target: { specId: 1, sessionId: 's1' },
+          cursor: 'stale',
+          entries: [unresolved],
+        },
+      }),
+    });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull());
+    expect(f.reads()).toBeGreaterThan(2);
+  });
+
+  it('keeps a truly open ask actionable with its reconciliation error', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const ask = { exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } };
+    const f = fixture([], [ask], {
+      answerExchange: { status: 'ask_closed' },
+      openAsksAfterAnswer: [ask],
+    });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/invalid answer/i);
+    expect(screen.getAllByRole('button', { name: 'Answer' })).toHaveLength(1);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Answer' }).disabled).toBe(false);
   });
 
   it('converges ask_closed without retrying the stale control', async () => {

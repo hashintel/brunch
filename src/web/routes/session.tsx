@@ -61,7 +61,9 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
   const [overlay, setOverlay] = useState<SessionPresentationEntry[]>([]);
   const [protocolError, setProtocolError] = useState(false);
   const reconciliationEpoch = useRef(0);
+  const routeActive = useRef(true);
   const attachmentClosed = useRef(false);
+  const [locallyClosedAsks, setLocallyClosedAsks] = useState<ReadonlySet<string>>(() => new Set());
   const [prompt, setPrompt] = useState('');
   const [busy, setBusy] = useState(false);
   const [turnError, setTurnError] = useState<string>();
@@ -70,6 +72,7 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
 
   useEffect(() => {
     let active = true;
+    routeActive.current = true;
     const generation = ++reconciliationEpoch.current;
     const reconcileOpenAsks = async () => {
       const epoch = reconciliationEpoch.current;
@@ -98,6 +101,7 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
       (event: LiveSessionEvent) => {
         const delta = event.delta;
         if (delta.type === 'assistant_text_delta') {
+          reconciliationEpoch.current++;
           setOverlay((entries) => [...reduceLiveSessionOverlay(entries, event)]);
         }
         if (delta.type === 'ask_opened') {
@@ -139,6 +143,7 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
     });
     return () => {
       active = false;
+      routeActive.current = false;
       reconciliationEpoch.current++;
       unsubscribe();
       try {
@@ -151,7 +156,9 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
 
   if (protocolError) return <main role="alert">Session protocol load failed.</main>;
   if (result.status !== 'ready') return <main role="alert">Session transcript cannot be displayed.</main>;
-  const entries = mergeSessionPresentation(result.presentation.entries, overlay);
+  const entries = mergeSessionPresentation(result.presentation.entries, overlay).filter(
+    (entry) => entry.kind !== 'ask' || entry.terminal || !locallyClosedAsks.has(entry.exchangeId),
+  );
   return (
     <main className="session-page" aria-busy={busy}>
       <h1>Session {target.sessionId}</h1>
@@ -172,12 +179,14 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
               <Ask
                 entry={entry}
                 answer={async (answer) => {
+                  const answerEpoch = reconciliationEpoch.current;
                   const outcome = await rpcClient.request<LiveSessionHostResult>('session.answerExchange', {
                     ...target,
                     driverId,
                     exchangeId: entry.exchangeId,
                     answer,
                   });
+                  if (!routeActive.current || answerEpoch !== reconciliationEpoch.current) return outcome;
                   if (outcome.status === 'completed') {
                     setOverlay((entries) => [
                       ...settleConfirmedAnswer(
@@ -197,26 +206,29 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
                     });
                   }
                   if (outcome.status === 'ask_closed') {
-                    const epoch = reconciliationEpoch.current;
                     try {
                       const [openValue, canonical] = await Promise.all([
                         rpcClient.request('session.openAsks', target),
                         rpcClient.request<SessionPresentationResult>('session.presentation', target),
                       ]);
-                      if (epoch !== reconciliationEpoch.current) return outcome;
-                      queryClient.setQueryData(queryKeys.session.presentation(target), canonical);
+                      if (!routeActive.current || answerEpoch !== reconciliationEpoch.current) return outcome;
                       const parsed = openAsksResultSchema.safeParse(openValue);
                       if (!parsed.success || canonical.status !== 'ready')
                         throw new Error('Ask reconciliation failed');
                       const stillOpen = parsed.data.openAsks.find(
                         (ask) => ask.exchangeId === entry.exchangeId,
                       );
-                      const canonicalTerminal = canonical.presentation.entries.some(
-                        (candidate) =>
-                          candidate.kind === 'ask' &&
-                          candidate.exchangeId === entry.exchangeId &&
-                          candidate.terminal,
-                      );
+                      const canonicalIsStale =
+                        !stillOpen &&
+                        canonical.presentation.entries.some(
+                          (candidate) =>
+                            candidate.kind === 'ask' &&
+                            candidate.exchangeId === entry.exchangeId &&
+                            !candidate.terminal,
+                        );
+                      if (!canonicalIsStale)
+                        queryClient.setQueryData(queryKeys.session.presentation(target), canonical);
+                      if (!routeActive.current || answerEpoch !== reconciliationEpoch.current) return outcome;
                       setOverlay((entries) => {
                         const retained = entries.filter(
                           (candidate) =>
@@ -234,7 +246,18 @@ function ReadySessionPage({ target }: { target: { specId: number; sessionId: str
                             ]
                           : retained;
                       });
-                      if (stillOpen && !canonicalTerminal) return { status: 'invalid_answer' };
+                      setLocallyClosedAsks((closed) => {
+                        const next = new Set(closed);
+                        if (stillOpen) next.delete(entry.exchangeId);
+                        else next.add(entry.exchangeId);
+                        return next;
+                      });
+                      if (canonicalIsStale) {
+                        void queryClient.invalidateQueries({
+                          queryKey: queryKeys.session.presentation(target),
+                        });
+                      }
+                      if (stillOpen) return { status: 'invalid_answer' };
                     } catch {
                       return { status: 'invalid_answer' };
                     }
