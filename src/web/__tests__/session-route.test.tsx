@@ -23,6 +23,7 @@ function fixture(
   outcomes: {
     driveTurn?: unknown;
     answerExchange?: unknown;
+    presentationAfterRefresh?: readonly SessionPresentationEntry[];
   } = {},
 ) {
   const listeners = new Set<WebSocketRpcNotificationListener>();
@@ -58,7 +59,7 @@ function fixture(
               { id: 'u1', cursor: 'durable:user', kind: 'message', role: 'user', text: 'History' },
               ...terminalEntries,
               ...(reads > 1
-                ? [
+                ? (outcomes.presentationAfterRefresh ?? [
                     {
                       id: 'a1',
                       cursor: 'durable:assistant',
@@ -66,7 +67,7 @@ function fixture(
                       role: 'assistant' as const,
                       text: 'Hello',
                     },
-                  ]
+                  ])
                 : []),
             ],
           },
@@ -163,23 +164,69 @@ describe('session route', () => {
     },
   );
 
-  it('keeps a successfully answered live ask disabled until settlement', async () => {
+  it('reconciles durable presentation at the next ask while keeping only that ask live', async () => {
     window.history.pushState(null, '', '/session/1/s1');
-    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }]);
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      presentationAfterRefresh: [
+        {
+          id: 'a1',
+          cursor: 'durable:assistant',
+          kind: 'message',
+          role: 'assistant',
+          text: 'Durable explanation',
+        },
+        {
+          id: 'digest',
+          cursor: 'durable:digest',
+          kind: 'present_digest',
+          exchangeId: 'digest-1',
+          heading: 'Durable digest',
+          digest: { abstract: 'Persisted before the next ask.' },
+        },
+      ],
+    });
     render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
-    const input = await screen.findByRole('textbox', { name: 'Proceed?' });
-    fireEvent.change(input, { target: { value: 'Yes' } });
-    const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Answer' });
-    fireEvent.click(button);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
 
-    await waitFor(() =>
-      expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toHaveLength(1),
-    );
-    await act(async () => {});
-    expect(button.disabled).toBe(true);
-    fireEvent.click(button);
-    expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toHaveLength(1);
-    expect(screen.queryByRole('alert')).toBeNull();
+    expect(await screen.findByText('Answered: Yes')).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: 'Proceed?' })).toBeNull();
+    expect(screen.getByRole('status').textContent).toMatch(/assistant.*responding/i);
+
+    await act(async () => {
+      f.emit({
+        target: { specId: 1, sessionId: 's1' },
+        seq: 1,
+        delta: { type: 'assistant_text_delta', runId: 'run-1', text: 'Durable explanation' },
+      });
+      f.emit({
+        target: { specId: 1, sessionId: 's1' },
+        seq: 2,
+        delta: {
+          type: 'ask_opened',
+          ask: { exchangeId: 'next', mode: 'text', question: { body: 'Anything else?' } },
+        },
+      });
+    });
+    await waitFor(() => expect(f.reads()).toBeGreaterThan(1));
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByText('Durable digest')).toBeTruthy();
+    expect(
+      screen.getByRole('list', { name: 'Session transcript' }).textContent?.match(/Durable explanation/gu),
+    ).toHaveLength(1);
+    expect(screen.getByRole('textbox', { name: 'Anything else?' })).toBeTruthy();
+    expect(screen.queryByText('Answered: Yes')).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Proceed?' })).toBeNull();
+
+    const askBoundaryReads = f.reads();
+    await act(async () => {
+      f.emit({ target: { specId: 1, sessionId: 's1' }, seq: 3, delta: { type: 'agent_settled' } });
+    });
+    await waitFor(() => expect(f.reads()).toBeGreaterThan(askBoundaryReads));
+    expect(screen.queryByText('Answered: Yes')).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Anything else?' })).toBeNull();
   });
 
   it.each(['driver_conflict', 'busy', 'not_open', 'ask_closed', 'invalid_answer'] as const)(

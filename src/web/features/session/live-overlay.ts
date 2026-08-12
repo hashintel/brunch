@@ -1,6 +1,18 @@
 import type { SessionPresentationEntry } from '../../../projections/session/session-presentation.js';
 import type { LiveSessionEvent } from '../../../session/live-session-host.js';
 
+export function settleConfirmedTextAnswer(
+  entries: readonly SessionPresentationEntry[],
+  exchangeId: string,
+  answer: string,
+): readonly SessionPresentationEntry[] {
+  return entries.map((entry) =>
+    entry.kind === 'ask' && entry.exchangeId === exchangeId
+      ? { ...entry, terminal: { status: 'answered' as const, value: { text: answer } } }
+      : entry,
+  );
+}
+
 export function reduceLiveSessionOverlay(
   entries: readonly SessionPresentationEntry[],
   event: LiveSessionEvent,

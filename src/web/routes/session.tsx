@@ -6,7 +6,7 @@ import type { QuestionnaireAnswer, QuestionnaireQuestion } from '../../exchanges
 import type { SessionPresentationEntry } from '../../projections/session/session-presentation.js';
 import { openAsksResultSchema } from '../../rpc/live-session-contract.js';
 import type { LiveSessionEvent, LiveSessionHostResult } from '../../session/live-session-host.js';
-import { reduceLiveSessionOverlay } from '../features/session/live-overlay.js';
+import { reduceLiveSessionOverlay, settleConfirmedTextAnswer } from '../features/session/live-overlay.js';
 import { sessionPresentationQueryOptions } from '../queries/session-presentation.js';
 import { queryKeys } from '../query-keys.js';
 import { parseSpecId } from '../spec-id.js';
@@ -78,6 +78,7 @@ function ReadySessionPage({
   const [prompt, setPrompt] = useState('');
   const [busy, setBusy] = useState(false);
   const [turnError, setTurnError] = useState<string>();
+  const [assistantResponding, setAssistantResponding] = useState(false);
   const driverId = useMemo(browserDriverId, []);
 
   useEffect(() => {
@@ -85,11 +86,21 @@ function ReadySessionPage({
       target,
       (event: LiveSessionEvent) => {
         const delta = event.delta;
-        if (delta.type === 'assistant_text_delta' || delta.type === 'ask_opened') {
+        if (delta.type === 'assistant_text_delta') {
           setOverlay((entries) => [...reduceLiveSessionOverlay(entries, event)]);
+        }
+        if (delta.type === 'ask_opened') {
+          // The ask boundary is the only live signal that durable intermediate
+          // presentation is ready when a paused turn never settles. Drop the
+          // superseded overlay before refetching, but retain this ask across the
+          // asynchronous canonical refresh so it remains answerable.
+          setOverlay(() => [...reduceLiveSessionOverlay([], event)]);
+          setAssistantResponding(false);
+          void queryClient.invalidateQueries({ queryKey: queryKeys.session.presentation(target) });
         }
         if (delta.type === 'agent_settled') {
           setBusy(false);
+          setAssistantResponding(false);
           setOverlay([]);
           void queryClient.invalidateQueries({ queryKey: queryKeys.session.presentation(target) });
         }
@@ -131,19 +142,27 @@ function ReadySessionPage({
             ) : (
               <Ask
                 entry={entry}
-                answer={(answer) =>
-                  rpcClient.request<LiveSessionHostResult>('session.answerExchange', {
+                answer={async (answer) => {
+                  const outcome = await rpcClient.request<LiveSessionHostResult>('session.answerExchange', {
                     ...target,
                     driverId,
                     exchangeId: entry.exchangeId,
                     answer,
-                  })
-                }
+                  });
+                  if (outcome.status === 'completed' && !entry.options) {
+                    setOverlay((entries) => [
+                      ...settleConfirmedTextAnswer(entries, entry.exchangeId, answer),
+                    ]);
+                    setAssistantResponding(true);
+                  }
+                  return outcome;
+                }}
               />
             )}
           </li>
         ))}
       </ol>
+      {assistantResponding ? <p role="status">Assistant is responding…</p> : null}
       <form
         onSubmit={(event) => {
           event.preventDefault();
