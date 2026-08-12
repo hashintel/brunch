@@ -4,7 +4,7 @@
 
 Current row status, owners, evidence gates, and execution order live in the [FE-1348 sweep ledger](memory/cards/post-hardening-alpha-validation--usage-and-verification-sweep.md). This file records only walkthrough observations that need a durable fixed, promoted, or retired disposition. The older entries below remain provenance, not an active checklist.
 
-The A51-L colleague walkthrough completed on 2026-08-11. It retired SA1/SA2 without implementation and closed the `TUI-companion semantic usefulness` row. The successful 2026-08-12 standalone-web witness fixed SW1 and closed that row; exactly three product rows still keep FE-1348 open: `Execute mode interaction`, `Stdio public RPC`, and `Cross-surface graph/session settlement`.
+The A51-L colleague walkthrough completed on 2026-08-11. It retired SA1/SA2 without implementation and closed the `TUI-companion semantic usefulness` row. The successful 2026-08-12 standalone-web witness fixed SW1 and closed that row; the final same-workspace public stdio witness fixed its prior recovery defect and closed `Stdio public RPC`. Exactly two product rows still keep FE-1348 open: `Execute mode interaction` and `Cross-surface graph/session settlement`.
 
 ### 2026-08-10 retained-corpus reconciliation
 
@@ -18,7 +18,7 @@ The A51-L colleague walkthrough completed on 2026-08-11. It retired SA1/SA2 with
 | [TUI-companion semantic usefulness](testing/walkthroughs/2026-08-11/tui-companion-semantic-usefulness.md) | SA1/SA2 retired: the colleague found the companion useful and its honest TUI-owned ask refusal understandable; no ownership marker or dual-answer authority is currently warranted. |
 | [Cross-composition writer transfer](testing/walkthroughs/2026-08-10/cross-composition-writer-transfer.md) | No finding: refusal, release, reacquisition, continuity, and cleanup matched the single-writer contract. |
 | [Standalone-web driven session](testing/walkthroughs/2026-08-10/standalone-web-driven-session.md) | SW1 fixed by `b1fa177f8`, `d632ff82a`, `b2df18f8e`, and `08c7f2b87`, focused regressions, and the successful final live/reload/cleanup witness. No graph effect was accepted, so cross-surface settlement remains open. |
-| [Stdio public RPC](testing/walkthroughs/2026-08-10/stdio-public-rpc-owned-gate.md) | Not a finding: the launched runtime had no provider/model; the ledger retains the owned `partial` evidence gate and re-entry trigger. |
+| [Stdio public RPC](testing/walkthroughs/2026-08-10/stdio-public-rpc-owned-gate.md) | Prior recovery defect fixed by `f6053d605`, `f741f94df`, `bd77c277f`, and `3cddae4eb`, then proved through the fresh [final same-workspace witness](testing/walkthroughs/2026-08-10/stdio-public-rpc-final/walkthrough.md). The separate duplicate React question rendering is promoted as SW2. |
 | [Print projection](testing/walkthroughs/2026-08-10/print-projection-owned-gate.md) | No finding: source and installed foreign-cwd projections were byte-stable. |
 | [Cross-surface graph/session settlement](testing/walkthroughs/2026-08-10/cross-surface-graph-session-settlement-owned-gate.md) | Not a finding: retained evidence lacked two fresh comparable session projections; the ledger retains the owned `partial` evidence gate and re-entry trigger. |
 | [Seeded workbench and fixture validation](testing/walkthroughs/2026-08-10/seeded-workbench-and-fixture-validation.md) | No finding: validator, seed CLI, public reads, and runtime-state disposal agreed. |
@@ -41,6 +41,14 @@ Evidence: [`testing/walkthroughs/2026-08-10/standalone-web-driven-session.md`](t
 Observation: the retained 2026-08-11 run proved the defect: reload failed and graceful shutdown left `owner.json`. Repairs landed as `b1fa177f8`, `d632ff82a`, `b2df18f8e`, and `08c7f2b87`. On 2026-08-12, the user reported the requested live/reload flow looked correct; coordinator inspection of the two named screenshots found the same first assistant turn, one answered first ask, assistant follow-up, and second live ask in order, with no stale form or duplicate. The exact 13-entry canonical JSONL preserves one `validation_failed` intermediate ask result that structured React correctly omits, and contains no accepted graph effect. SIGTERM cleanup for PID `88536` stopped the process/listener and removed the target writer owner on bounded attempt 2 without manual repair.
 Expected: reload reattaches to the existing standalone runtime and projects the same active branch; bounded shutdown releases the writer owner without manual state repair.
 Disposition: fixed by the four named repair commits, their focused regressions, and the successful final outer witness. This closes SW1 and the standalone-web row only; `Cross-surface graph/session settlement` remains `partial` under its existing owner/re-entry trigger because no graph effect was accepted.
+
+#### SW2 · duplicate standalone React question rendering · presentation · promoted
+
+Concern: standalone React must render one canonical provider ask once.
+Evidence: the user-observed screenshot named in [`stdio-public-rpc-final/handoff.json`](testing/walkthroughs/2026-08-10/stdio-public-rpc-final/handoff.json), plus the final [`session.jsonl`](testing/walkthroughs/2026-08-10/stdio-public-rpc-final/session.jsonl) and public stdio projections.
+Observation: React visually rendered the same unanswered question twice, while canonical active-branch audit and the repaired public projections prove exactly one provider-authored ask and one exchange id. The stdio lifecycle itself passed without duplicate recovery or settlement.
+Expected: standalone/web presentation renders each canonical ask once while preserving one shared semantic projection across live overlay and JSONL hydration.
+Disposition: promoted to `shared-session-host-cutover`'s standalone/web presentation seam. Re-enter when that frontier audits live-overlay versus canonical-hydration deduplication. Cost/value: the duplicate is confusing presentation noise, but canonical state and answer authority remain singular; fixing it inline would improperly widen the stdio evidence row.
 
 ### 2026-07-28 Secure Drop pilot — greenfield elicitation → plan synthesis
 

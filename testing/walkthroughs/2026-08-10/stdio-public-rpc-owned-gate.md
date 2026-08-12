@@ -10,9 +10,13 @@ Branch: `ln/fe-1348-validate-current-brunch-usage-and-testing-paths`
 
 Workspace: `.fixtures/scratch/fe-1348-stdio-public-rpc` (fresh, ignored, removed after capture)
 
-## Disposition
+## Final disposition
 
-**Owned product-level gate; row remains `partial`.** A 2026-08-12 bounded re-entry used the retained standalone provider-authored pending ask only through a byte-for-byte disposable clone. The first true public-boundary failure was `workspace.activate`: it returned `status: needs_human` and `Selected session is not available for the selected spec.` The copied canonical JSONL retained its original-workspace cwd and was not rewritten. No response was submitted and no repair was attempted.
+**Fixed and superseded as the active gate.** Repairs `f6053d605`, `f741f94df`, `bd77c277f`, and `3cddae4eb` were followed by one successful fresh same-workspace public witness. Exact activation, trigger, pending, exchanges, one direct submit, post-submit projections, append-only JSONL delta, and cleanup are retained in [`stdio-public-rpc-final/`](stdio-public-rpc-final/). The sweep now marks only `Stdio public RPC` built; Execute and cross-surface settlement remain partial. The user-observed duplicate React question is separately promoted as SW2 under `shared-session-host-cutover` and does not revise this historical conduct.
+
+## Historical disposition
+
+**Owned product-level gate; row remained `partial`.** A 2026-08-12 bounded re-entry used the retained standalone provider-authored pending ask only through a byte-for-byte disposable clone. The first true public-boundary failure was `workspace.activate`: it returned `status: needs_human` and `Selected session is not available for the selected spec.` The copied canonical JSONL retained its original-workspace cwd and was not rewritten. No response was submitted and no repair was attempted.
 
 The command harness returned exit status `0` for that typed activation outcome, so the scripted capture continued through the read-only `workspace.state`, `session.runtimeState`, `session.triggerExchange`, `session.pendingExchange`, and `session.exchanges` calls before semantic inspection. Those outputs sharpen the contradiction but do not override the stop boundary: `workspace.state` found the named target, while trigger/pending returned idle and exchanges returned `open_prompt` with no projected exchange even though canonical active-branch JSONL ends in the provider-authored `fe1348-anchor-2` ask. The clone JSONL stayed byte-identical through those reads. There was no `session.submitExchangeResponse` call.
 
