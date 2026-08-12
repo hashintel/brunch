@@ -18,7 +18,7 @@
 - **Comparison lanes:** the repo keeps two distinct evaluation doors: seed-based intra-product testing and mission-driven cross-product comparison. FE-1241 closed the brownfield comparison cases; FE-1215 landed the approachable operator workflow; FE-1320 structurally separated controller-private mission material from fresh external harness targets. D142-L then exposed a control-topology gap: the prompts still use interactive shells even when rendering is not the claim, stdio Brunch RPC has no live session driver, and hosted web RPC cannot select an Execute process move. `cli-mode-entry` now owns terminal-independent mode activation; `comparison-machine-interface-cutover` then replaces eligible Brunch/Claude shell control before the real saved-mission witness.
 - **Executor / Execute evidence queue:** several KA fronts are implementation-merged but still carry explicit outer evidence: `host-landing`, `executor-plan-synthesis`, `execution-comparison-tracer`, `executor-plan-coherence`, `executor-slice-verification-repair`, and `greenfield-secure-drop-demo`.
 - **Current seams and discipline:** Brunch ships on `1.0.0-alpha.x`. D125-L's live ask registry is the structured-exchange headless surface; the transcript-backed pending projection remains compatibility-only. Sweep classification remains fail-closed on exchange-schema terminal names (D117-L); the larger capture-conditional watermark question remains A40-L. Co-located `src/**/TOPOLOGY.md` files own current topology; scratch evidence is not durable until promoted to `.fixtures/runs/`.
-- **Post-hardening validation:** FE-1348 freezes the current alpha boundary into a closed usage/verification-path inventory. A51-L's colleague walkthrough is complete; two product rows remain open: Execute evidence and cross-surface settlement, the latter blocked by FE-1348 finding CS1. The sweep records incidental simplification findings without widening into fixes. Existing provider campaigns, KA evidence, comparison witnesses, legacy-data migration, cross-platform rendering, and actual publication retain their current owners and gates.
+- **Post-hardening validation:** FE-1348 freezes the current alpha boundary into a closed usage/verification-path inventory. A51-L's colleague walkthrough is complete; two product rows remain open: Execute evidence and cross-surface settlement. CS1 is fixed in code but not outer-witnessed; the final settlement rerun stopped on consequential SW2 duplicate controls, so that row is wait-gated on SW2 repair under `shared-session-host-cutover`. The sweep records incidental simplification findings without widening into fixes. Existing provider campaigns, KA evidence, comparison witnesses, legacy-data migration, cross-platform rendering, and actual publication retain their current owners and gates.
 
 ## Initiatives
 
@@ -31,7 +31,7 @@
 ### shared-session-host-convergence — ◐ active, reshaped
 
 - **Goals:** preserve first-class TUI and web presentations while converging runtime construction, semantic browser contracts, durable truth, and single-writer authority; do not require one physical process shape where Pi's real TUI lifecycle makes that costly; retire the raw relay and sidecar-only driver vocabulary.
-- **Members:** `shared-session-host-tracer` ✓ → FE-1348 `post-hardening-alpha-validation` A51-L and standalone-web rows ✓ (the frontier's other rows are product-wide) → `shared-session-host-cutover` (wait-gated on the remaining cross-surface settlement evidence).
+- **Members:** `shared-session-host-tracer` ✓ → FE-1348 `post-hardening-alpha-validation` A51-L and standalone-web rows ✓ (the frontier's other rows are product-wide) → `shared-session-host-cutover` (wait-gated on SW2 repair before the remaining cross-surface settlement witness).
 - **Done-definition:** normal TUI and standalone web each own exactly one legitimate runtime composition; both use the same sealed runtime factory, target-addressed Brunch RPC/semantic projection contract, JSONL truth, and per-target cross-process writer exclusion; companion React remains useful beside the real TUI without raw Pi events; `SessionEventRelay`, `brunch.sessionEvent`, `/rpc/driver`, and duplicate browser semantics are deleted; `memory/SPEC.md`, `README.md`, `CONTRIBUTING.md`, `docs/design/WEB_UI_ARCHITECTURE.md`, and the app/session/rpc/web topology homes describe the two compositions and their shared contracts without claiming an independent shared daemon.
 - **Anchors:** A51-L; D39-L, D84-L (to retire), D132-L, D133-L, D141-L; I64-L, I65-L.
 - **Confirmation (2026-08-03):** an independent architecture review re-derived this arc unprompted as the top structural priority (split roots: `brunch-tui.ts` raw `SessionEventRelay` vs `LiveSessionHost`). Its separate observation about `workspace-session-coordinator.ts` breadth is not an obligation of this arc; re-enter decomposition only when concrete coordinator change pressure justifies it.
@@ -47,7 +47,7 @@
 
 ### Active
 
-- `post-hardening-alpha-validation` ([FE-1348](https://linear.app/hash/issue/FE-1348/validate-current-brunch-usage-and-testing-paths)) — **active, evidence-gated coverage frontier:** validate the frozen current alpha entry/usage/verification inventory through real source, product, dev, comparison-gate, and installed-package paths; disposition incidental audit findings without implementing them in the sweep. A51-L's colleague walkthrough is complete; two product rows remain open: Execute evidence and cross-surface settlement, the latter blocked by FE-1348 finding CS1. Definition and active sweep ledger below.
+- `post-hardening-alpha-validation` ([FE-1348](https://linear.app/hash/issue/FE-1348/validate-current-brunch-usage-and-testing-paths)) — **active, evidence-gated coverage frontier:** validate the frozen current alpha entry/usage/verification inventory through real source, product, dev, comparison-gate, and installed-package paths; disposition incidental audit findings without implementing them in the sweep. A51-L's colleague walkthrough is complete; two product rows remain open: Execute evidence and cross-surface settlement. CS1 is fixed in code but not outer-witnessed; cross-surface is wait-gated on SW2 repair under `shared-session-host-cutover`. Definition and active sweep ledger below.
 - `walkthrough-remediation-2` ([FE-1187](https://linear.app/hash/issue/FE-1187/walkthrough-remediation-sweep-2-wr18-follow-up-closure)) — **paused after `remediation-4` tie-off:** mixed-settlement review preservation and populated-group-only Impact Ledger rendering are built. Re-entry requires an explicit decision to resume extractor/oracle hardening, then restart R8–R10 from 0/3; A48-L, the separate web graph audit, and the consolidated outer checkpoint remain behind that gate. Execute O7–O9 stay KA-owned. Closing member of arc `deterministic-orientation`. Definition below.
 - **Alpha walkthrough lane** — historical runs A, C, and WR18 remain source evidence in `TESTING_FINDINGS.md`; FE-1348 now owns the frozen current-surface pass. `TESTING_PLAN.md` is reconciled as outer-loop guidance rather than retained as a parallel live plan.
 
@@ -68,7 +68,7 @@ Older completion history and archived completed frontier definitions live in [`d
 - `cli-mode-entry` — next proving frontier after FE-1348: make `brunch specify [spec-id]` / `brunch execute <spec-id>` select operational mode before either TUI or hosted-web composition starts, so machine control does not need to synthesize a TUI-only process-move entry. D98-L/D109-L are materialized; the former FE-1187 implementation block is retired. Definition below.
 - `comparison-machine-interface-cutover` — replace eligible Brunch/Claude `interactive_shell` conduct with hosted Brunch JSON-RPC and Claude stream-JSON, reusing existing adapters; depends on `cli-mode-entry` for Brunch Execute. Definition below.
 - `saved-mission-comparison-witness` — operator-owned real Brunch + Claude `/compare-specs` witness after the machine-interface cutover, then mission revision/rerun proving historical snapshots remain immutable. Definition below.
-- `shared-session-host-cutover` — tracer, A51-L, and standalone-web evidence are complete; remain wait-gated on FE-1348's cross-surface settlement evidence, then close the enumerated shared-contract surface and delete the raw sidecar relay and `/rpc/driver` without forcing physical host unification. Definition below.
+- `shared-session-host-cutover` — tracer, A51-L, and standalone-web evidence are complete; repair consequential SW2 duplicate actionable controls, then obtain FE-1348's cross-surface settlement witness and close the enumerated shared-contract surface without forcing physical host unification. Definition below.
 
 ### Parallel / Low-conflict
 
@@ -184,7 +184,7 @@ Legacy link target; see Horizon.
 - **Branch:** tbd; stacks on `shared-session-host-tracer`.
 - **Kind:** coverage-shaped architectural replacement over the closed TUI/web host capability surface.
 - **Certainty:** earned; A51-L retired and the reshaped tracer landed. Regress to proving if cross-process writer exclusion or semantic companion coverage becomes unknown.
-- **Classification:** tracer, A51-L, and standalone-web evidence complete; wait-gated on FE-1348's cross-surface settlement row, currently blocked by CS1.
+- **Classification:** tracer, A51-L, and standalone-web evidence complete; SW2 repair is now prerequisite to FE-1348's wait-gated cross-surface settlement witness. CS1 is fixed in code but remains outer-unwitnessed.
 - **Objective:** make the traced runtime/projection/writer contracts canonical across normal TUI and standalone web, preserve every required presentation capability, and delete the singleton raw relay, raw event contract, `/rpc/driver`, and duplicate driver/broker semantics without forcing one physical host process.
 - **Inventory authority:** create `memory/cards/shared-session-host-cutover--surface-ledger.md` (`Mode: sweep`) at scope time from the production composition/registries plus existing TUI, RPC, standalone-host, and web-route oracles.
 - **Aggregate DoD:** no required row remains `spec` / `new` / `partial`; normal TUI and standalone web use the same target-addressed semantic contract and enforce one writable runtime per durable target; the deletion list is absent from production and test code; no topology or onboarding doc teaches the retired raw-sidecar architecture.
@@ -543,7 +543,7 @@ active:
     classification: evidence-gated coverage frontier
     inventory: memory/cards/post-hardening-alpha-validation--usage-and-verification-sweep.md
     completed: A51-L colleague walkthrough -> shared-session-host-tracer ✓
-    open: execute interaction | cross-surface settlement (blocked by CS1)
+    open: execute interaction | cross-surface settlement (wait-gated on SW2 repair; CS1 fixed in code, outer-unwitnessed)
     includes: current alpha product entrances | current verification and installed-package paths
     excludes: provider campaigns | KA evidence | saved-mission/execution-comparison reruns | legacy migration | cross-platform claims | publish
     aggregate_done: every required row closed; every finding fixed/promoted/retired; canonical testing guidance reconciled
@@ -565,7 +565,7 @@ next:
     gated_by: comparison-machine-interface-cutover | operator availability
     dependencies_satisfied: FE-1215 direct control | FE-1320 external target placement
   shared-session-host-cutover
-    classification: wait-gated on FE-1348 cross-surface settlement (CS1)
+    classification: repair SW2 duplicate actionable controls -> FE-1348 cross-surface settlement witness
     closes: raw-event/driver divergence across legitimate TUI-owned and standalone-web runtime compositions
     deletes: SessionEventRelay | brunch.sessionEvent | /rpc/driver | sidecar handle wiring
 

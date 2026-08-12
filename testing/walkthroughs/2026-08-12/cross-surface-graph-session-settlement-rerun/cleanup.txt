@@ -1,0 +1,4 @@
+Workspace: /tmp/brunch-fe1348-cross-final.9bBVZ6
+Cleanup result: host, listener, and writer-owner absent on bounded cleanup attempt 2.
+Repository reconciliation independently confirmed no writer-lock file and no open workspace files before deletion.
+The exact workspace was removed only after session JSONL and read-only SQLite/graph evidence were copied and hashed.

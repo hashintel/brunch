@@ -1,0 +1,8 @@
+commit: abb0b8bd64d71a9c170f0d1e042faa93e6abc6f9
+workspace: /tmp/brunch-fe1348-cross-final.9bBVZ6
+spec: 1
+session: 019ff6ce-1291-7763-99c9-830b4ec122b4
+canonical_jsonl: .brunch/sessions/2026-08-12T16-28-48-145Z_019ff6ce-1291-7763-99c9-830b4ec122b4.jsonl
+canonical_entries: 13
+canonical_sha256: 6d8144e83ba7e7469b3878a87506585fb8017a5d226122cd3b42b177b7a7c454
+browser_evidence: user transcript report; no screenshot path supplied
