@@ -163,6 +163,25 @@ describe('session route', () => {
     },
   );
 
+  it('keeps a successfully answered live ask disabled until settlement', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }]);
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    const input = await screen.findByRole('textbox', { name: 'Proceed?' });
+    fireEvent.change(input, { target: { value: 'Yes' } });
+    const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Answer' });
+    fireEvent.click(button);
+
+    await waitFor(() =>
+      expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toHaveLength(1),
+    );
+    await act(async () => {});
+    expect(button.disabled).toBe(true);
+    fireEvent.click(button);
+    expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toHaveLength(1);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
   it.each(['driver_conflict', 'busy', 'not_open', 'ask_closed', 'invalid_answer'] as const)(
     'keeps ask failure local and permits retry after %s status',
     async (status) => {

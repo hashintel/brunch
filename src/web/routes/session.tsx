@@ -490,12 +490,14 @@ function Ask({
         setError(undefined);
         void answer(answerValue)
           .then((outcome) => {
-            if (outcome.status !== 'completed') {
-              setError(`Answer could not be submitted (${outcome.status.replaceAll('_', ' ')}).`);
-            }
+            if (outcome.status === 'completed') return;
+            setSubmitting(false);
+            setError(`Answer could not be submitted (${outcome.status.replaceAll('_', ' ')}).`);
           })
-          .catch(() => setError('Answer failed. Please retry.'))
-          .finally(() => setSubmitting(false));
+          .catch(() => {
+            setSubmitting(false);
+            setError('Answer failed. Please retry.');
+          });
       }}
     >
       {entry.options ? (
