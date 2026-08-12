@@ -1,8 +1,10 @@
 # Standalone-web driven session — owned gate
 
-Date: 2026-08-10; rerun 2026-08-11
+Date: 2026-08-10; reruns 2026-08-11 and 2026-08-12
 
-Commit under test: `2bb1fbd0b76183051a2dc4421a45b195dc0e2736`
+Final commit under test: `08c7f2b87`
+
+Original commit under test: `2bb1fbd0b76183051a2dc4421a45b195dc0e2736`
 
 Branch: `ln/fe-1348-validate-current-brunch-usage-and-testing-paths`
 
@@ -12,11 +14,42 @@ Environment: Node `v24.19.0`, npm `12.0.2`, Pi `0.84.1`, agent-browser `0.33.2`,
 
 ## Disposition
 
-**Owned product defect; row remains `partial`.** The 2026-08-11 rerun cleared the earlier browser/provider gates and completed a real standalone-web structured exchange, but a normal browser reload twice rendered `Session transcript cannot be displayed.` The terminated host also left its writer owner file behind after its process and listener were gone. The row cannot close until reload and bounded shutdown cleanup succeed without manual state repair.
+**Built.** The bounded 2026-08-12 final witness passed live and twice-reloaded transcript convergence and graceful writer cleanup at commit `08c7f2b87`. The failed 2026-08-11 witness remains below as historical evidence; no transcript or product state was manually repaired.
 
-Owner: FE-1348 `Standalone-web driven session` row. Re-entry trigger: fix the reload/cleanup defect in a separate row-sized scope, then rerun this same bounded browser journey. Cost/value: reload is a basic supported-session expectation and the stale owner blocks honest reacquisition; both are required before this path can carry product confidence.
+This closes only the FE-1348 `Standalone-web driven session` row. It does not close `Cross-surface graph/session settlement`: the final run accepted no graph effect.
 
-## 2026-08-11 real-browser rerun
+## 2026-08-12 final live/reload witness
+
+Workspace: `/tmp/brunch-fe1348-final2.QTlmdv`
+
+Target: `(specId=1, sessionId=019ff56d-2344-7e36-86ba-17fa11935900)`
+
+Canonical JSONL: `/tmp/brunch-fe1348-final2.QTlmdv/.brunch/sessions/2026-08-12T10-03-18-212Z_019ff56d-2344-7e36-86ba-17fa11935900.jsonl`
+
+User-supplied captures:
+
+- Live: `/Users/lunelson/Library/Application Support/CleanShot/media/media_9F7b3yQY9W/CleanShot 2026-08-12 at 12.32.34@2x.png`
+- Twice reloaded: `/Users/lunelson/Library/Application Support/CleanShot/media/media_abk9nVIWYz/CleanShot 2026-08-12 at 12.33.24@2x.png`
+
+The user reported that the requested live/reload flow looked correct. Coordinator inspection of both named captures found materially equivalent React presentations in the same order: the same first assistant turn, the first ask answered exactly once with `this is about consistency and coherence of transcript rendering and updtating in the web UI`, assistant follow-up content, then the second live ask. Neither capture showed a stale form, duplicate, or ordering divergence.
+
+A read-only parse of the exact 13-entry canonical JSONL found exactly one successful `fe1348-anchor-1` result containing that answer, subsequent assistant/tool activity for `fe1348-anchor-2`, and exactly one canonical `validation_failed` intermediate ask result. Structured presentation correctly omits that invalid invocation; its omission from React does not imply absence from canonical transcript truth. The JSONL contains no accepted graph effect, so this witness makes no graph-settlement claim.
+
+Graceful cleanup was observed after SIGTERM to host PID `88536`. Bounded attempt 2 confirmed that the process and listener had stopped and this session target's writer owner had been removed. No manual transcript cleanup, owner deletion, database write, or other product-state repair was performed.
+
+### Final witness leaf disposition
+
+| Leaf | Outcome | Evidence |
+| --- | --- | --- |
+| Live/reload presentation convergence | met | User report plus the two named live/twice-reloaded captures; coordinator inspection found identical material ordering with no stale form or duplicate. |
+| Canonical transcript audit | met | Read-only assertion over the exact 13-entry JSONL: one successful `fe1348-anchor-1`, later `fe1348-anchor-2` activity, one retained `validation_failed`, and no accepted graph effect. |
+| Structured omission honesty | met | React omits the invalid invocation while the walkthrough preserves it as canonical intermediate truth. |
+| Graceful cleanup | met | PID `88536`, listener, and target writer owner were absent on bounded attempt 2; no manual repair. |
+| Graph-settlement narrowing | met | No graph effect was accepted; cross-surface settlement remains open. |
+
+Skipped-test-count delta versus parent: `0` (production tests and test policy were unchanged).
+
+## 2026-08-11 real-browser rerun (retained failed evidence)
 
 Commit under test: `2b217b865`.
 

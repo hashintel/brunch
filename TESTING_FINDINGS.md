@@ -4,7 +4,7 @@
 
 Current row status, owners, evidence gates, and execution order live in the [FE-1348 sweep ledger](memory/cards/post-hardening-alpha-validation--usage-and-verification-sweep.md). This file records only walkthrough observations that need a durable fixed, promoted, or retired disposition. The older entries below remain provenance, not an active checklist.
 
-The A51-L colleague walkthrough completed on 2026-08-11. It retired SA1/SA2 without implementation and closed only the `TUI-companion semantic usefulness` row; four other product rows still keep FE-1348 open.
+The A51-L colleague walkthrough completed on 2026-08-11. It retired SA1/SA2 without implementation and closed the `TUI-companion semantic usefulness` row. The successful 2026-08-12 standalone-web witness fixed SW1 and closed that row; exactly three product rows still keep FE-1348 open: `Execute mode interaction`, `Stdio public RPC`, and `Cross-surface graph/session settlement`.
 
 ### 2026-08-10 retained-corpus reconciliation
 
@@ -17,7 +17,7 @@ The A51-L colleague walkthrough completed on 2026-08-11. It retired SA1/SA2 with
 | [Session resume and active-tree continuity](testing/walkthroughs/2026-08-10/session-resume-active-tree-continuity.md) | No finding: active-branch projections remained stable across relaunch and rejected the append-order rival. |
 | [TUI-companion semantic usefulness](testing/walkthroughs/2026-08-11/tui-companion-semantic-usefulness.md) | SA1/SA2 retired: the colleague found the companion useful and its honest TUI-owned ask refusal understandable; no ownership marker or dual-answer authority is currently warranted. |
 | [Cross-composition writer transfer](testing/walkthroughs/2026-08-10/cross-composition-writer-transfer.md) | No finding: refusal, release, reacquisition, continuity, and cleanup matched the single-writer contract. |
-| [Standalone-web driven session](testing/walkthroughs/2026-08-10/standalone-web-driven-session.md) | SW1 promoted: the browser/provider gates cleared, but normal reload could not display the transcript and host termination left a stale writer owner. |
+| [Standalone-web driven session](testing/walkthroughs/2026-08-10/standalone-web-driven-session.md) | SW1 fixed by `b1fa177f8`, `d632ff82a`, `b2df18f8e`, and `08c7f2b87`, focused regressions, and the successful final live/reload/cleanup witness. No graph effect was accepted, so cross-surface settlement remains open. |
 | [Stdio public RPC](testing/walkthroughs/2026-08-10/stdio-public-rpc-owned-gate.md) | Not a finding: the launched runtime had no provider/model; the ledger retains the owned `partial` evidence gate and re-entry trigger. |
 | [Print projection](testing/walkthroughs/2026-08-10/print-projection-owned-gate.md) | No finding: source and installed foreign-cwd projections were byte-stable. |
 | [Cross-surface graph/session settlement](testing/walkthroughs/2026-08-10/cross-surface-graph-session-settlement-owned-gate.md) | Not a finding: retained evidence lacked two fresh comparable session projections; the ledger retains the owned `partial` evidence gate and re-entry trigger. |
@@ -32,15 +32,15 @@ The A51-L colleague walkthrough completed on 2026-08-11. It retired SA1/SA2 with
 | [Installed-package integrity](testing/walkthroughs/2026-08-10/installed-package-integrity.md) | No finding: dependency deprecation warnings did not contradict install, foreign-cwd execution, or SQLite activation. |
 | [Installed interactive-mode boot](testing/walkthroughs/2026-08-10/installed-interactive-mode-boot.md) | No finding: both installed startup surfaces and cleanup passed without provider or publication claims. |
 
-### 2026-08-11 standalone-web rerun
+### 2026-08-11–12 standalone-web reruns
 
-#### SW1 · reload attachment and writer cleanup · product-critical · promoted defect
+#### SW1 · reload attachment and writer cleanup · product-critical · fixed
 
 Concern: a supported standalone-web session must survive browser reload and release target authority when its bounded host exits.
-Evidence: [`testing/walkthroughs/2026-08-10/standalone-web-driven-session.md`](testing/walkthroughs/2026-08-10/standalone-web-driven-session.md), rerun at commit `2b217b865`.
-Observation: real React, WebSocket transport, and a production-provider structured ask worked and settled into canonical JSONL. Two normal reloads then rendered `Session transcript cannot be displayed` despite HTTP 200 document/assets and no browser console error. After browser close and host termination, the listener and owner PID were gone but `owner.json` remained.
+Evidence: [`testing/walkthroughs/2026-08-10/standalone-web-driven-session.md`](testing/walkthroughs/2026-08-10/standalone-web-driven-session.md), failed rerun at commit `2b217b865`, focused projection/process/React regressions, and the successful final outer witness at commit `08c7f2b87`.
+Observation: the retained 2026-08-11 run proved the defect: reload failed and graceful shutdown left `owner.json`. Repairs landed as `b1fa177f8`, `d632ff82a`, `b2df18f8e`, and `08c7f2b87`. On 2026-08-12, the user reported the requested live/reload flow looked correct; coordinator inspection of the two named screenshots found the same first assistant turn, one answered first ask, assistant follow-up, and second live ask in order, with no stale form or duplicate. The exact 13-entry canonical JSONL preserves one `validation_failed` intermediate ask result that structured React correctly omits, and contains no accepted graph effect. SIGTERM cleanup for PID `88536` stopped the process/listener and removed the target writer owner on bounded attempt 2 without manual repair.
 Expected: reload reattaches to the existing standalone runtime and projects the same active branch; bounded shutdown releases the writer owner without manual state repair.
-Disposition: promoted to a separate FE-1348 row-sized defect scope before this product row is rerun. Owner: standalone host/session attachment and writer-cleanup seams. Re-entry trigger: a regression oracle fails on reload/cleanup, the minimum root-cause fix lands, then the same real-browser journey passes. Cost/value: this is required product continuity and authority hygiene, not optional polish.
+Disposition: fixed by the four named repair commits, their focused regressions, and the successful final outer witness. This closes SW1 and the standalone-web row only; `Cross-surface graph/session settlement` remains `partial` under its existing owner/re-entry trigger because no graph effect was accepted.
 
 ### 2026-07-28 Secure Drop pilot — greenfield elicitation → plan synthesis
 
