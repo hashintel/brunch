@@ -1,0 +1,3 @@
+workspace_absent=true
+retained_jsonl_present=true
+b2066a55f75c9cc74c15c960d31797005e39281d6ee09050aebaa65ff6c113e3  testing/walkthroughs/2026-08-10/stdio-public-rpc-fresh-target/session.jsonl

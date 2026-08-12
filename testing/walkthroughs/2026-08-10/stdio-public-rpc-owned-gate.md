@@ -20,6 +20,8 @@ Owner: FE-1348 `Stdio public RPC` row. Re-entry trigger: only after clone activa
 
 The earlier provider/model attempt remains valid historical narrowing: its launched Brunch runtime had no provider/model available, so `session.triggerExchange` returned `{"status":"idle","exchange":null}` and no typed response was legal.
 
+A later fresh same-workspace attempt superseded clone portability as the active gate without rewriting this history. Public activation reopened the exact original target as ready, but the one allowed `session.triggerExchange` returned idle while canonical JSONL remained byte-identical and ended in unresolved provider-authored free-text ask `fe1348-anchor-1`. Conduct stopped before pending/exchanges/submit, with no retry or repair. Evidence: [`stdio-public-rpc-fresh-target/walkthrough.md`](stdio-public-rpc-fresh-target/walkthrough.md).
+
 ## 2026-08-12 retained-exchange re-entry
 
 Source workspace: `/tmp/brunch-fe1348-final2.QTlmdv` (protected, retained)

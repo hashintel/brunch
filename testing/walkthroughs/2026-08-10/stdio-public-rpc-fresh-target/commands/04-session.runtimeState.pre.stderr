@@ -1,0 +1,2 @@
+npm notice run @hashintel/brunch@1.0.0-alpha.13 dev-cli
+npm notice run nub scripts/dev.ts rpc session.runtimeState {"specId":1,"sessionId":"019ff59d-45d0-761f-9bca-e7fb655cfdd5"} --workspace /tmp/brunch-fe1348-stdio-fresh.FsFSuK
