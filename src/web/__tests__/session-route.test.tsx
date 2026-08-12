@@ -43,6 +43,7 @@ function fixture(
         } as T;
       }
       if (method === 'session.open') return { status: 'opened' } as T;
+      if (method === 'session.close') return { status: 'closed' } as T;
       if (method === 'session.driveTurn' || method === 'session.answerExchange') {
         const outcome = outcomes[method === 'session.driveTurn' ? 'driveTurn' : 'answerExchange'];
         if (outcome instanceof Error) throw outcome;
@@ -217,7 +218,7 @@ describe('session route', () => {
       screen.getByRole('list', { name: 'Session transcript' }).textContent?.match(/Durable explanation/gu),
     ).toHaveLength(1);
     expect(screen.getByRole('textbox', { name: 'Anything else?' })).toBeTruthy();
-    expect(screen.queryByText('Answered: Yes')).toBeNull();
+    expect(screen.getByText('Answered: Yes')).toBeTruthy();
     expect(screen.queryByRole('textbox', { name: 'Proceed?' })).toBeNull();
 
     const askBoundaryReads = f.reads();
@@ -229,7 +230,7 @@ describe('session route', () => {
     expect(screen.queryByRole('textbox', { name: 'Anything else?' })).toBeNull();
   });
 
-  it.each(['driver_conflict', 'busy', 'not_open', 'ask_closed', 'invalid_answer'] as const)(
+  it.each(['driver_conflict', 'busy', 'not_open', 'invalid_answer'] as const)(
     'keeps ask failure local and permits retry after %s status',
     async (status) => {
       const outcome = { status };
@@ -250,6 +251,23 @@ describe('session route', () => {
       );
     },
   );
+
+  it('converges ask_closed without retrying the stale control', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      answerExchange: { status: 'ask_closed' },
+    });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Proceed?' })).toBeNull());
+    expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toHaveLength(1);
+    expect(f.calls.filter(({ method }) => method === 'session.openAsks')).toHaveLength(2);
+    expect(f.reads()).toBeGreaterThan(1);
+  });
 
   it.each([
     ['session.driveTurn', 'Send', 'Turn failed. Please retry.'],
@@ -406,6 +424,8 @@ describe('session route', () => {
       method: 'session.answerExchange',
       params: expect.objectContaining({ exchangeId: 'live-choice', answer: 'safe' }),
     });
+    expect(await screen.findByText('Selected: Safe path')).toBeTruthy();
+    expect(screen.queryByRole('radio', { name: /Safe path/u })).toBeNull();
   });
 
   it('renders durable multi-choice selections and submits a live checkbox selection list', async () => {
@@ -468,6 +488,9 @@ describe('session route', () => {
       method: 'session.answerExchange',
       params: expect.objectContaining({ exchangeId: 'live-choices', answer: 'fast,safe' }),
     });
+    expect(await screen.findByText('Selected: Fast path')).toBeTruthy();
+    expect(screen.getByText('Selected: Safe path')).toBeTruthy();
+    expect(screen.queryByRole('checkbox', { name: /Fast path/u })).toBeNull();
   });
 
   it('renders candidate proposal cards while the existing ask owns the choice continuation', async () => {
@@ -818,6 +841,58 @@ describe('session route', () => {
     );
     expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
     expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toEqual([]);
+  });
+
+  it('merges competing canonical and hydrated asks without collapsing durable history', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture(
+      [
+        {
+          id: 'offer',
+          cursor: 'durable:offer',
+          kind: 'present_digest',
+          exchangeId: 'shared',
+          heading: 'Durable offer',
+          digest: { abstract: 'Keep me.' },
+        },
+        {
+          id: 'ask',
+          cursor: 'durable:ask',
+          kind: 'ask',
+          exchangeId: 'shared',
+          question: 'Canonical question',
+        },
+      ],
+      [{ exchangeId: 'shared', mode: 'text', question: { body: 'Hydrated rival' } }],
+    );
+
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    expect(await screen.findByText('Durable offer')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Answer' })).toHaveLength(1);
+    expect(screen.queryByRole('textbox', { name: 'Hydrated rival' })).toBeNull();
+  });
+
+  it('canonical terminal wins over a stale hydrated ask', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture(
+      [
+        {
+          id: 'terminal',
+          cursor: 'durable:terminal',
+          kind: 'ask',
+          exchangeId: 'shared',
+          question: 'Canonical question',
+          terminal: { status: 'answered', value: { text: 'Done' } },
+        },
+      ],
+      [{ exchangeId: 'shared', mode: 'text', question: { body: 'Hydrated rival' } }],
+    );
+
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    expect(await screen.findByText('Answered: Done')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
   });
 
   it('hydrates an already-open ask on load so a reconnecting client can answer it', async () => {

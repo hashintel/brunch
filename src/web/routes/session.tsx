@@ -6,7 +6,11 @@ import type { QuestionnaireAnswer, QuestionnaireQuestion } from '../../exchanges
 import type { SessionPresentationEntry } from '../../projections/session/session-presentation.js';
 import { openAsksResultSchema } from '../../rpc/live-session-contract.js';
 import type { LiveSessionEvent, LiveSessionHostResult } from '../../session/live-session-host.js';
-import { reduceLiveSessionOverlay, settleConfirmedTextAnswer } from '../features/session/live-overlay.js';
+import {
+  mergeSessionPresentation,
+  reduceLiveSessionOverlay,
+  settleConfirmedAnswer,
+} from '../features/session/live-overlay.js';
 import { sessionPresentationQueryOptions } from '../queries/session-presentation.js';
 import { queryKeys } from '../query-keys.js';
 import { parseSpecId } from '../spec-id.js';
@@ -31,18 +35,8 @@ export const sessionRoute = createRoute({
       }
     };
     try {
-      // Hydrate asks already open before this attachment: their ask_opened events
-      // fired before load, so only the live registry — not the transcript or the
-      // live stream — can surface them to a reconnecting client.
-      const openAsks = openAsksResultSchema.safeParse(
-        await context.rpcClient.request('session.openAsks', target),
-      );
       await presentation;
-      if (!openAsks.success) {
-        await close();
-        return { error: 'Session protocol load failed.' } as const;
-      }
-      return { target, openAsks: openAsks.data.openAsks } as const;
+      return { target } as const;
     } catch (error) {
       await close();
       throw error;
@@ -54,27 +48,16 @@ export const sessionRoute = createRoute({
 function SessionPage() {
   const loaderData = sessionRoute.useLoaderData();
   if ('error' in loaderData) return <main role="alert">{loaderData.error}</main>;
-  return <ReadySessionPage target={loaderData.target} openAsks={loaderData.openAsks} />;
+  return <ReadySessionPage target={loaderData.target} />;
 }
 
-function ReadySessionPage({
-  target,
-  openAsks,
-}: {
-  target: { specId: number; sessionId: string };
-  openAsks: ReturnType<typeof openAsksResultSchema.parse>['openAsks'];
-}) {
+function ReadySessionPage({ target }: { target: { specId: number; sessionId: string } }) {
   const { rpcClient } = sessionRoute.useRouteContext();
   const queryClient = useQueryClient();
   const { data: result } = useSuspenseQuery(sessionPresentationQueryOptions(rpcClient, target));
-  const [overlay, setOverlay] = useState<SessionPresentationEntry[]>(() =>
-    openAsks.reduce<SessionPresentationEntry[]>(
-      (entries, ask) => [
-        ...reduceLiveSessionOverlay(entries, { target, seq: 0, delta: { type: 'ask_opened', ask } }),
-      ],
-      [],
-    ),
-  );
+  const [overlay, setOverlay] = useState<SessionPresentationEntry[]>([]);
+  const [closed, setClosed] = useState<Set<string>>(() => new Set());
+  const [protocolError, setProtocolError] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [busy, setBusy] = useState(false);
   const [turnError, setTurnError] = useState<string>();
@@ -94,7 +77,12 @@ function ReadySessionPage({
           // presentation is ready when a paused turn never settles. Drop the
           // superseded overlay before refetching, but retain this ask across the
           // asynchronous canonical refresh so it remains answerable.
-          setOverlay(() => [...reduceLiveSessionOverlay([], event)]);
+          setOverlay((entries) => [
+            ...reduceLiveSessionOverlay(
+              entries.filter((entry) => entry.kind === 'ask'),
+              event,
+            ),
+          ]);
           setAssistantResponding(false);
           void queryClient.invalidateQueries({ queryKey: queryKeys.session.presentation(target) });
         }
@@ -111,6 +99,28 @@ function ReadySessionPage({
         },
       },
     );
+    // Subscribe first, then close the attachment race with a monotonic snapshot.
+    void rpcClient.request('session.openAsks', target).then((value) => {
+      const parsed = openAsksResultSchema.safeParse(value);
+      if (!parsed.success) {
+        setProtocolError(true);
+        void rpcClient.request('session.close', target);
+        return;
+      }
+      setOverlay((entries) =>
+        parsed.data.openAsks.reduce<SessionPresentationEntry[]>((current, ask) => {
+          if (current.some((entry) => entry.kind === 'ask' && entry.exchangeId === ask.exchangeId))
+            return current;
+          return [
+            ...reduceLiveSessionOverlay(current, {
+              target,
+              seq: 0,
+              delta: { type: 'ask_opened', ask },
+            }),
+          ];
+        }, entries),
+      );
+    });
     return () => {
       unsubscribe();
       try {
@@ -121,8 +131,9 @@ function ReadySessionPage({
     };
   }, [queryClient, rpcClient, target]);
 
+  if (protocolError) return <main role="alert">Session protocol load failed.</main>;
   if (result.status !== 'ready') return <main role="alert">Session transcript cannot be displayed.</main>;
-  const entries = [...result.presentation.entries, ...overlay];
+  const entries = mergeSessionPresentation(result.presentation.entries, overlay, closed);
   return (
     <main className="session-page" aria-busy={busy}>
       <h1>Session {target.sessionId}</h1>
@@ -149,11 +160,35 @@ function ReadySessionPage({
                     exchangeId: entry.exchangeId,
                     answer,
                   });
-                  if (outcome.status === 'completed' && !entry.options) {
+                  if (outcome.status === 'completed') {
                     setOverlay((entries) => [
-                      ...settleConfirmedTextAnswer(entries, entry.exchangeId, answer),
+                      ...settleConfirmedAnswer(
+                        entries.some(
+                          (candidate) =>
+                            candidate.kind === 'ask' && candidate.exchangeId === entry.exchangeId,
+                        )
+                          ? entries
+                          : [...entries, entry],
+                        entry.exchangeId,
+                        answer,
+                      ),
                     ]);
                     setAssistantResponding(true);
+                    void queryClient.invalidateQueries({
+                      queryKey: queryKeys.session.presentation(target),
+                    });
+                  }
+                  if (outcome.status === 'ask_closed') {
+                    setClosed((current) => new Set(current).add(entry.exchangeId));
+                    setOverlay((entries) =>
+                      entries.filter(
+                        (candidate) => candidate.kind !== 'ask' || candidate.exchangeId !== entry.exchangeId,
+                      ),
+                    );
+                    void rpcClient.request('session.openAsks', target);
+                    void queryClient.invalidateQueries({
+                      queryKey: queryKeys.session.presentation(target),
+                    });
                   }
                   return outcome;
                 }}
@@ -509,7 +544,7 @@ function Ask({
         setError(undefined);
         void answer(answerValue)
           .then((outcome) => {
-            if (outcome.status === 'completed') return;
+            if (outcome.status === 'completed' || outcome.status === 'ask_closed') return;
             setSubmitting(false);
             setError(`Answer could not be submitted (${outcome.status.replaceAll('_', ' ')}).`);
           })

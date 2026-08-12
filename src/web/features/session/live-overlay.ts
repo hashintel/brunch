@@ -1,16 +1,64 @@
 import type { SessionPresentationEntry } from '../../../projections/session/session-presentation.js';
 import type { LiveSessionEvent } from '../../../session/live-session-host.js';
 
-export function settleConfirmedTextAnswer(
+export function settleConfirmedAnswer(
   entries: readonly SessionPresentationEntry[],
   exchangeId: string,
   answer: string,
 ): readonly SessionPresentationEntry[] {
-  return entries.map((entry) =>
-    entry.kind === 'ask' && entry.exchangeId === exchangeId
-      ? { ...entry, terminal: { status: 'answered' as const, value: { text: answer } } }
-      : entry,
+  return entries.map((entry) => {
+    if (entry.kind !== 'ask' || entry.exchangeId !== exchangeId) return entry;
+    const selected = answer.split(',').flatMap((id) => {
+      const option = entry.options?.find((candidate) => candidate.id === id);
+      return option ? [{ kind: 'listed' as const, id: option.id, label: option.label }] : [];
+    });
+    const value = !entry.options
+      ? { text: answer }
+      : entry.mode === 'multi-select'
+        ? {
+            choices: selected,
+            options: entry.options.map((option) => ({
+              id: option.id,
+              content: option.label,
+              ...(option.description ? { rationale: option.description } : {}),
+            })),
+          }
+        : {
+            choice: selected[0]!,
+            options: entry.options.map((option) => ({
+              id: option.id,
+              content: option.label,
+              ...(option.description ? { rationale: option.description } : {}),
+            })),
+          };
+    return { ...entry, terminal: { status: 'answered' as const, value } };
+  });
+}
+
+export function mergeSessionPresentation(
+  canonical: readonly SessionPresentationEntry[],
+  overlay: readonly SessionPresentationEntry[],
+  closed: ReadonlySet<string> = new Set(),
+): readonly SessionPresentationEntry[] {
+  const canonicalAsks = new Map(
+    canonical.flatMap((entry) => (entry.kind === 'ask' ? [[entry.exchangeId, entry] as const] : [])),
   );
+  const localTerminals = new Set(
+    overlay.flatMap((entry) => (entry.kind === 'ask' && entry.terminal ? [entry.exchangeId] : [])),
+  );
+  return [
+    ...canonical.filter(
+      (entry) =>
+        entry.kind !== 'ask' ||
+        entry.terminal ||
+        (!closed.has(entry.exchangeId) && !localTerminals.has(entry.exchangeId)),
+    ),
+    ...overlay.filter((entry) => {
+      if (entry.kind !== 'ask') return true;
+      const durable = canonicalAsks.get(entry.exchangeId);
+      return !closed.has(entry.exchangeId) && (!durable || (!durable.terminal && entry.terminal));
+    }),
+  ];
 }
 
 export function reduceLiveSessionOverlay(
