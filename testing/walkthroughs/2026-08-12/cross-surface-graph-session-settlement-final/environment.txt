@@ -1,0 +1,8 @@
+capture_date=2026-08-12
+journey_commit=b688df57d6a6025afc31ea58f890e26dcfcfb508
+branch=ln/fe-1348-validate-current-brunch-usage-and-testing-paths
+node=v24.19.0
+npm=12.0.2
+platform=Darwin 25.6.0 arm64
+canonical_entries=13
+canonical_sha256=34a2aefbd1281678e88179d154510e9d57b403964708c1437060730c7275581a

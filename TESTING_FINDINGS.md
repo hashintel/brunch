@@ -4,7 +4,7 @@
 
 Current row status, owners, evidence gates, and execution order live in the [FE-1348 sweep ledger](memory/cards/post-hardening-alpha-validation--usage-and-verification-sweep.md). This file records only walkthrough observations that need a durable fixed, promoted, or retired disposition. The older entries below remain provenance, not an active checklist.
 
-The A51-L colleague walkthrough completed on 2026-08-11. It retired SA1/SA2 without implementation and closed the `TUI-companion semantic usefulness` row. The successful 2026-08-12 standalone-web witness fixed SW1 and closed that row; the final same-workspace public stdio witness fixed its prior recovery defect and closed `Stdio public RPC`. Exactly two product rows still keep FE-1348 open: `Execute mode interaction` and `Cross-surface graph/session settlement`.
+The A51-L colleague walkthrough completed on 2026-08-11. It retired SA1/SA2 without implementation and closed the `TUI-companion semantic usefulness` row. The successful 2026-08-12 standalone-web witness fixed SW1 and closed that row; the final same-workspace public stdio witness fixed its prior recovery defect and closed `Stdio public RPC`. Exactly two product rows still keep FE-1348 open: `Execute mode interaction` and `Cross-surface graph/session settlement`. The latter is now blocked by promoted finding CS1 rather than only missing evidence.
 
 ### 2026-08-10 retained-corpus reconciliation
 
@@ -20,7 +20,7 @@ The A51-L colleague walkthrough completed on 2026-08-11. It retired SA1/SA2 with
 | [Standalone-web driven session](testing/walkthroughs/2026-08-10/standalone-web-driven-session.md) | SW1 fixed by `b1fa177f8`, `d632ff82a`, `b2df18f8e`, and `08c7f2b87`, focused regressions, and the successful final live/reload/cleanup witness. No graph effect was accepted, so cross-surface settlement remains open. |
 | [Stdio public RPC](testing/walkthroughs/2026-08-10/stdio-public-rpc-owned-gate.md) | Prior recovery defect fixed by `f6053d605`, `f741f94df`, `bd77c277f`, and `3cddae4eb`, then proved through the fresh [final same-workspace witness](testing/walkthroughs/2026-08-10/stdio-public-rpc-final/walkthrough.md). The separate duplicate React question rendering is promoted as SW2. |
 | [Print projection](testing/walkthroughs/2026-08-10/print-projection-owned-gate.md) | No finding: source and installed foreign-cwd projections were byte-stable. |
-| [Cross-surface graph/session settlement](testing/walkthroughs/2026-08-10/cross-surface-graph-session-settlement-owned-gate.md) | Not a finding: retained evidence lacked two fresh comparable session projections; the ledger retains the owned `partial` evidence gate and re-entry trigger. |
+| [Cross-surface graph/session settlement](testing/walkthroughs/2026-08-12/cross-surface-graph-session-settlement-final/walkthrough.md) | CS1 promoted to FE-1348: the authorized journey proved a one-node/zero-edge review set is rejected as structurally illegal; no approval or graph effect occurred. The resulting transcript-display failure stays consequential evidence under CS1, while duplicate rendering stays SW2. |
 | [Seeded workbench and fixture validation](testing/walkthroughs/2026-08-10/seeded-workbench-and-fixture-validation.md) | No finding: validator, seed CLI, public reads, and runtime-state disposal agreed. |
 | [TUI-driver lifecycle fallback](testing/walkthroughs/2026-08-10/tui-driver-lifecycle-fallback.md) | No finding: the lifecycle passed; the stale scripted expectation was not a documentation or product defect. |
 | [Component-preview surface](testing/walkthroughs/2026-08-10/component-preview-surface.md) | No finding: the sampled current registry families exposed no defect, architecture question, weak evidence, or measurable simplification. |
@@ -31,6 +31,16 @@ The A51-L colleague walkthrough completed on 2026-08-11. It retired SA1/SA2 with
 | [Conditional CI lane selection](testing/walkthroughs/2026-08-10/conditional-ci-lane-selection.md) | No finding: selector, workflow, and SPEC policy agreed with no omitted capability. |
 | [Installed-package integrity](testing/walkthroughs/2026-08-10/installed-package-integrity.md) | No finding: dependency deprecation warnings did not contradict install, foreign-cwd execution, or SQLite activation. |
 | [Installed interactive-mode boot](testing/walkthroughs/2026-08-10/installed-interactive-mode-boot.md) | No finding: both installed startup surfaces and cleanup passed without provider or publication claims. |
+
+### 2026-08-12 cross-surface settlement journey
+
+#### CS1 · one-node/zero-edge review set rejected · product-critical · promoted
+
+Concern: the smallest legal review-set batch—one settled requirement and no edges—must pass structural validation so the user can inspect and approve it through the shared settlement operation.
+Evidence: [`testing/walkthroughs/2026-08-12/cross-surface-graph-session-settlement-final/walkthrough.md`](testing/walkthroughs/2026-08-12/cross-surface-graph-session-settlement-final/walkthrough.md), including the exact 13-entry canonical JSONL, screenshots, public graph read, and read-only SQLite audit.
+Observation: the provider authored exactly one settled `intent` / `requirement` draft with `edgeDrafts: []`; `present_review_set` returned `structural_illegal` because `edgeDrafts must be non-empty`, then the provider authored a plain standalone approval ask. The user correctly made no approval or second answer. React first repeated the canonical ask (existing SW2), then reported `Session transcript cannot be displayed`. Canonical graph authority remained empty at LSN 1. The projection failure is consequential evidence under this finding rather than a second finding: this bounded journey did not independently diagnose another sub-seam, and the closed-inventory stop rule fires at CS1.
+Expected: one settled entity draft with zero edge drafts is structurally legal, remains reviewable through the review-set UI, and cannot force a fallback approval path or destroy session presentation.
+Disposition: promoted to FE-1348's still-open cross-surface row. Re-enter after an explicitly scoped production repair reconciles structural validation with the legal zero-edge batch and guards the consequential projection failure, then obtain new user authorization. Cost/value: the defect blocks the minimum honest graph approval and settlement witness; repair has high value, while another journey before repair would deterministically waste provider and user time. SW2 remains promoted to `shared-session-host-cutover` unchanged.
 
 ### 2026-08-11–12 standalone-web reruns
 
