@@ -1,6 +1,9 @@
 import type { z } from 'zod';
 
-import { findUnresolvedStandaloneAsk } from '../../exchanges/recovery.js';
+import {
+  classifyProviderStandaloneAskOccupancy,
+  findUnresolvedStandaloneAsk,
+} from '../../exchanges/recovery.js';
 import {
   zPresentCandidatesDetails,
   zPresentDigestDetails,
@@ -183,6 +186,13 @@ export function projectSessionPresentation(
   entries: readonly unknown[],
 ): SessionPresentationResult {
   const projected: SessionPresentationEntry[] = [];
+  const providerAskOccupancies = classifyProviderStandaloneAskOccupancy(entries as readonly never[]);
+  const poisonedAsk = providerAskOccupancies.find((occupancy) => occupancy.status === 'protocol_invalid');
+  if (poisonedAsk?.status === 'protocol_invalid') {
+    const invalidResult = poisonedAsk.invalidResult as { id?: unknown };
+    if (typeof invalidResult.id === 'string')
+      return { status: 'malformed_detail', entryId: invalidResult.id, family: 'ask' };
+  }
   const openProviderAsk = findUnresolvedStandaloneAsk(entries as readonly never[]);
   for (const [index, entry] of entries.entries()) {
     if (

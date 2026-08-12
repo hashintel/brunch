@@ -671,10 +671,9 @@ describe('session presentation', () => {
     };
 
     expect(asks([call('call-a', 'a'), call('call-b', 'b')])).toEqual([]);
-    expect(asks([call('call-a', 'a'), terminal('wrong', 'call-a', 'other')])).toEqual([
-      expect.objectContaining({ id: 'entry-call-a:ask', exchangeId: 'a' }),
-      expect.objectContaining({ id: 'wrong', exchangeId: 'other', terminal: expect.any(Object) }),
-    ]);
+    expect(
+      projectSessionPresentation(target, [call('call-a', 'a'), terminal('wrong', 'call-a', 'other')]),
+    ).toEqual({ status: 'malformed_detail', entryId: 'wrong', family: 'ask' });
     expect(
       projectSessionPresentation(target, [
         call('call-a', 'a'),
@@ -683,6 +682,9 @@ describe('session presentation', () => {
     ).toEqual({ status: 'malformed_detail', entryId: 'malformed', family: 'ask' });
     expect(asks([call('call-a', 'a'), terminal('answer', 'call-a', 'a')])).toEqual([
       expect.objectContaining({ id: 'answer', exchangeId: 'a', terminal: expect.any(Object) }),
+    ]);
+    expect(asks([terminal('orphan', 'historical-call', 'historical')])).toEqual([
+      expect.objectContaining({ id: 'orphan', exchangeId: 'historical', terminal: expect.any(Object) }),
     ]);
   });
 

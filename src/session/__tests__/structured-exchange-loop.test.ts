@@ -556,6 +556,38 @@ describe('structured exchange loop helpers', () => {
     });
     expect(accepted).not.toHaveProperty('toolCallMessage');
 
+    for (const details of [
+      { raw: 'pi' },
+      {
+        schema: 'brunch.structured_exchange.request',
+        v: 1,
+        exchange_id: 'another-exchange',
+        tool_meta: { curr: 'ask' },
+        question: { body: 'What should be canonical?' },
+        answered: { text: 'Wrong identity.' },
+      },
+    ]) {
+      expect(
+        pendingExchangeFromEnvelope({
+          ...envelope,
+          entries: [
+            ...envelope.entries,
+            {
+              id: 'occupied-result',
+              type: 'message',
+              parentId: 'provider-ask',
+              message: {
+                role: 'toolResult',
+                toolName: 'ask',
+                toolCallId: 'toolu_fe1348',
+                details,
+              },
+            },
+          ],
+        } as unknown as BrunchSessionEnvelope),
+      ).toBeNull();
+    }
+
     for (const params of [
       { exchangeId: 'listed-one', body: 'One?', options: [{ id: 'a', label: 'A' }] },
       { exchangeId: 'listed-many', body: 'Many?', options: [{ id: 'a', label: 'A' }], multiple: true },

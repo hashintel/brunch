@@ -405,6 +405,73 @@ function sessionBindingEntry(sessionId = 'session-1', specId = 1) {
 }
 
 describe('JSON-RPC handlers', () => {
+  it('refuses persisted provider asks occupied by malformed or exchange-mismatched results without mutation', async () => {
+    for (const [name, details] of [
+      ['malformed', { raw: 'pi' }],
+      [
+        'mismatched',
+        {
+          schema: 'brunch.structured_exchange.request',
+          v: 1,
+          exchange_id: 'other-exchange',
+          tool_meta: { curr: 'ask' },
+          question: { body: 'Choose?' },
+          answered: { text: 'Wrong identity.' },
+        },
+      ],
+    ] as const) {
+      const cwd = await mkdtemp(join(tmpdir(), `brunch-rpc-poisoned-ask-${name}-`));
+      const setup = await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
+        specTitle: 'Poisoned persisted ask',
+      });
+      const manager = SessionManager.open(setup.session.file);
+      manager.appendMessage({
+        role: 'assistant',
+        content: [
+          {
+            type: 'toolCall',
+            id: 'provider-call',
+            name: 'ask',
+            arguments: { exchangeId: 'ask-1', body: 'Choose?' },
+          },
+        ],
+        api: 'anthropic-messages',
+        provider: 'anthropic',
+        model: 'test',
+        usage: {
+          input: 0,
+          output: 0,
+          cacheRead: 0,
+          cacheWrite: 0,
+          totalTokens: 0,
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+        },
+        stopReason: 'toolUse',
+        timestamp: 0,
+      } as never);
+      manager.appendMessage({
+        role: 'toolResult',
+        toolName: 'ask',
+        toolCallId: 'provider-call',
+        content: [],
+        details,
+        isError: false,
+        timestamp: 1,
+      } as never);
+      flushSessionManagerToFile(manager, setup.session.file);
+      const before = await readFile(setup.session.file, 'utf8');
+      const handlers = createRpcHandlers({ coordinator: createWorkspaceSessionCoordinator({ cwd }), cwd });
+      const call = (id: number, method: string, params?: unknown) =>
+        handlers.handle({ jsonrpc: '2.0', id, method, ...(params === undefined ? {} : { params }) });
+
+      await expect(call(1, 'session.pendingExchange')).resolves.toMatchObject({ result: { status: 'idle' } });
+      await expect(
+        call(2, 'session.submitExchangeResponse', { exchangeId: 'ask-1', answer: { text: 'Duplicate.' } }),
+      ).resolves.toMatchObject({ error: { code: -32008, message: 'No pending structured exchange' } });
+      await expect(readFile(setup.session.file, 'utf8')).resolves.toBe(before);
+    }
+  });
+
   it('drives a persisted provider-authored standalone ask through one-shot public RPC', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-persisted-ask-'));
     const setup = await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({

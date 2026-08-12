@@ -793,16 +793,14 @@ describe('session exchange projection', () => {
       exchanges: [],
       openPrompt: { promptEntryIds: ['entry-call-a', 'entry-call-b'] },
     });
-    expect(
-      projectSessionExchanges([call('call-a', 'a'), terminal('wrong', 'call-a', 'other')]),
-    ).toMatchObject({
-      status: 'open_prompt',
+    expect(projectSessionExchanges([call('call-a', 'a'), terminal('wrong', 'call-a', 'other')])).toEqual({
+      status: 'empty',
       exchanges: [],
-      openPrompt: { promptEntryIds: ['entry-call-a'] },
+      openPrompt: null,
     });
     expect(
       projectSessionExchanges([call('call-a', 'a'), terminal('malformed', 'call-a', 'a', { raw: 'pi' })]),
-    ).toMatchObject({ status: 'open_prompt', exchanges: [] });
+    ).toEqual({ status: 'empty', exchanges: [], openPrompt: null });
     expect(projectSessionExchanges([call('call-a', 'a')])).toMatchObject({
       status: 'open_prompt',
       openPrompt: { promptEntryIds: ['entry-call-a'] },
