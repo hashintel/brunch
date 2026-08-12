@@ -758,6 +758,69 @@ describe('session exchange projection', () => {
     expect(JSON.stringify(activeEntries)).not.toContain('Abandoned follow-up ask');
   });
 
+  it('projects standalone provider asks only when globally unambiguous and validates both terminal identities', () => {
+    const call = (id: string, exchangeId: string) => ({
+      id: `entry-${id}`,
+      type: 'message',
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: `Ask ${exchangeId}.` },
+          { type: 'toolCall', id, name: 'ask', arguments: { exchangeId, body: `Question ${exchangeId}?` } },
+        ],
+      },
+    });
+    const terminal = (id: string, toolCallId: string, exchangeId: string, details?: unknown) => ({
+      id,
+      type: 'message',
+      message: {
+        role: 'toolResult',
+        toolName: 'ask',
+        toolCallId,
+        details: details ?? {
+          schema: 'brunch.structured_exchange.request',
+          v: 1,
+          exchange_id: exchangeId,
+          tool_meta: { curr: 'ask' },
+          question: { body: `Question ${exchangeId}?` },
+          answered: { text: 'Answer.' },
+        },
+      },
+    });
+
+    expect(projectSessionExchanges([call('call-a', 'a'), call('call-b', 'b')])).toMatchObject({
+      status: 'open_prompt',
+      exchanges: [],
+      openPrompt: { promptEntryIds: ['entry-call-a', 'entry-call-b'] },
+    });
+    expect(
+      projectSessionExchanges([call('call-a', 'a'), terminal('wrong', 'call-a', 'other')]),
+    ).toMatchObject({
+      status: 'open_prompt',
+      exchanges: [],
+      openPrompt: { promptEntryIds: ['entry-call-a'] },
+    });
+    expect(
+      projectSessionExchanges([call('call-a', 'a'), terminal('malformed', 'call-a', 'a', { raw: 'pi' })]),
+    ).toMatchObject({ status: 'open_prompt', exchanges: [] });
+    expect(projectSessionExchanges([call('call-a', 'a')])).toMatchObject({
+      status: 'open_prompt',
+      openPrompt: { promptEntryIds: ['entry-call-a'] },
+    });
+    expect(projectSessionExchanges([call('call-a', 'a'), terminal('answer', 'call-a', 'a')])).toEqual({
+      status: 'ready',
+      exchanges: [
+        {
+          promptRange: { start: 'entry-call-a', end: 'entry-call-a' },
+          responseRange: { start: 'answer', end: 'answer' },
+          promptEntryIds: ['entry-call-a'],
+          responseEntryIds: ['answer'],
+        },
+      ],
+      openPrompt: null,
+    });
+  });
+
   it('loads the selected sibling path from a Pi JSONL tree', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-pi-branch-'));
     const manager = SessionManager.create(cwd, join(cwd, '.brunch/sessions'));

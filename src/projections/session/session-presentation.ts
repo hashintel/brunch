@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 
-import { findProviderStandaloneAskCalls } from '../../exchanges/recovery.js';
+import { findUnresolvedStandaloneAsk } from '../../exchanges/recovery.js';
 import {
   zPresentCandidatesDetails,
   zPresentDigestDetails,
@@ -183,25 +183,7 @@ export function projectSessionPresentation(
   entries: readonly unknown[],
 ): SessionPresentationResult {
   const projected: SessionPresentationEntry[] = [];
-  const providerAskCalls = findProviderStandaloneAskCalls(entries as readonly never[]);
-  const providerResultIds = new Set(
-    entries.flatMap((entry) =>
-      isRecord(entry) &&
-      entry.type === 'message' &&
-      isRecord(entry.message) &&
-      entry.message.role === 'toolResult' &&
-      entry.message.toolName === 'ask' &&
-      typeof entry.message.toolCallId === 'string'
-        ? [entry.message.toolCallId]
-        : [],
-    ),
-  );
-  const openProviderAsks = providerAskCalls.filter(
-    (call) =>
-      !providerResultIds.has(call.toolCallId) &&
-      providerAskCalls.filter((candidate) => candidate.params.exchangeId === call.params.exchangeId)
-        .length === 1,
-  );
+  const openProviderAsk = findUnresolvedStandaloneAsk(entries as readonly never[]);
   for (const [index, entry] of entries.entries()) {
     if (
       !isRecord(entry) ||
@@ -215,8 +197,8 @@ export function projectSessionPresentation(
     if (message.role === 'user' || message.role === 'assistant') {
       const text = messageText(message.content);
       if (text !== null) projected.push({ id: entry.id, cursor, kind: 'message', role: message.role, text });
-      const openAsk = openProviderAsks.find((call) => call.entry === entry);
-      if (openAsk) {
+      if (openProviderAsk?.entry === entry) {
+        const openAsk = openProviderAsk;
         projected.push({
           id: `${entry.id}:ask`,
           cursor: `${cursor}:ask`,

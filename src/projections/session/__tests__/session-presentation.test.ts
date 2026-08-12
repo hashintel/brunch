@@ -642,6 +642,50 @@ describe('session presentation', () => {
     ).toEqual({ status: 'malformed_detail', entryId: 'bad-candidates', family: 'present_candidates' });
   });
 
+  it('projects only one globally unresolved validated provider ask and correlates terminals by both identities', () => {
+    const call = (id: string, exchangeId: string) =>
+      entry(`entry-${id}`, {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: `Ask ${exchangeId}.` },
+          { type: 'toolCall', id, name: 'ask', arguments: { exchangeId, body: `Question ${exchangeId}?` } },
+        ],
+      });
+    const terminal = (id: string, toolCallId: string, exchangeId: string, details?: unknown) =>
+      entry(id, {
+        role: 'toolResult',
+        toolName: 'ask',
+        toolCallId,
+        details: details ?? {
+          ...request,
+          exchange_id: exchangeId,
+          question: { body: `Question ${exchangeId}?` },
+        },
+      });
+    const asks = (entries: readonly unknown[]) => {
+      const result = projectSessionPresentation(target, entries);
+      expect(result.status).toBe('ready');
+      return result.status === 'ready'
+        ? result.presentation.entries.filter((item) => item.kind === 'ask')
+        : [];
+    };
+
+    expect(asks([call('call-a', 'a'), call('call-b', 'b')])).toEqual([]);
+    expect(asks([call('call-a', 'a'), terminal('wrong', 'call-a', 'other')])).toEqual([
+      expect.objectContaining({ id: 'entry-call-a:ask', exchangeId: 'a' }),
+      expect.objectContaining({ id: 'wrong', exchangeId: 'other', terminal: expect.any(Object) }),
+    ]);
+    expect(
+      projectSessionPresentation(target, [
+        call('call-a', 'a'),
+        terminal('malformed', 'call-a', 'a', { raw: 'pi' }),
+      ]),
+    ).toEqual({ status: 'malformed_detail', entryId: 'malformed', family: 'ask' });
+    expect(asks([call('call-a', 'a'), terminal('answer', 'call-a', 'a')])).toEqual([
+      expect.objectContaining({ id: 'answer', exchangeId: 'a', terminal: expect.any(Object) }),
+    ]);
+  });
+
   it('classifies malformed Brunch ask details instead of leaking them', () => {
     expect(
       projectSessionPresentation(target, [

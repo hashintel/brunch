@@ -6,7 +6,9 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 import {
+  findCorrelatedStandaloneAskTerminal,
   findProviderStandaloneAskCalls,
+  findUnresolvedStandaloneAsk,
   isStructuredExchangePresentDetails,
   isStructuredExchangeRequestDetails,
 } from '../exchanges/recovery.js';
@@ -147,10 +149,12 @@ export function projectSessionExchanges(entries: readonly unknown[]): SessionExc
   let openStructuredExchange: PresentDetails | undefined;
   let openProviderAsk: { exchangeId: string; toolCallId: string } | undefined;
   const providerAskCalls = findProviderStandaloneAskCalls(entries as readonly never[]);
-  const unambiguousProviderAsks = providerAskCalls.filter(
+  const actionableProviderAsk = findUnresolvedStandaloneAsk(entries as readonly never[]);
+  const projectableProviderAsks = providerAskCalls.filter(
     (call) =>
-      providerAskCalls.filter((candidate) => candidate.params.exchangeId === call.params.exchangeId)
-        .length === 1,
+      providerAskCalls.filter((candidate) => candidate.toolCallId === call.toolCallId).length === 1 &&
+      (call === actionableProviderAsk ||
+        findCorrelatedStandaloneAskTerminal(entries as readonly never[], call) !== undefined),
   );
 
   for (const entry of entries) {
@@ -158,7 +162,7 @@ export function projectSessionExchanges(entries: readonly unknown[]): SessionExc
       continue;
     }
 
-    const providerAsk = unambiguousProviderAsks.find((call) => call.entry === entry);
+    const providerAsk = projectableProviderAsks.find((call) => call.entry === entry);
     if (providerAsk) {
       flushResponse();
       promptIds.push(entry.id);

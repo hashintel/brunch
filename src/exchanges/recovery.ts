@@ -88,22 +88,31 @@ export function findUnresolvedStandaloneAsk(
   entries: readonly EntryLike[],
 ): UnresolvedStandaloneAsk | undefined {
   const calls = findProviderStandaloneAskCalls(entries);
-  const resultCallIds = new Set(
-    entries.flatMap((entry) => {
-      const message = entry.type === 'message' ? entry.message : undefined;
-      return message?.role === 'toolResult' &&
-        message.toolName === 'ask' &&
-        typeof message.toolCallId === 'string'
-        ? [message.toolCallId]
-        : [];
-    }),
+  const uniqueCalls = calls.filter(
+    (call) => calls.filter((candidate) => candidate.toolCallId === call.toolCallId).length === 1,
   );
-  const unresolved = calls.filter((call) => !resultCallIds.has(call.toolCallId));
-  if (unresolved.length !== 1) return undefined;
-  const [candidate] = unresolved;
-  if (calls.some((call) => call !== candidate && call.params.exchangeId === candidate!.params.exchangeId))
-    return undefined;
-  return candidate;
+  const unresolved = uniqueCalls.filter(
+    (call) => findCorrelatedStandaloneAskTerminal(entries, call) === undefined,
+  );
+  return unresolved.length === 1 ? unresolved[0] : undefined;
+}
+
+/** A provider ask closes only through a schema-valid terminal carrying both original identities. */
+export function findCorrelatedStandaloneAskTerminal(
+  entries: readonly EntryLike[],
+  call: UnresolvedStandaloneAsk,
+): EntryLike | undefined {
+  return entries.find((entry) => {
+    const message = entry.type === 'message' ? entry.message : undefined;
+    if (
+      message?.role !== 'toolResult' ||
+      message.toolName !== 'ask' ||
+      message.toolCallId !== call.toolCallId
+    )
+      return false;
+    const parsed = zAskDetails.safeParse(message.details);
+    return parsed.success && parsed.data.exchange_id === call.params.exchangeId;
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
