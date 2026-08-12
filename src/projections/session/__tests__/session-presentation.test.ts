@@ -752,6 +752,90 @@ describe('session presentation', () => {
     ).toEqual({ status: 'malformed_detail', entryId: 'bad', family: 'ask' });
   });
 
+  it('omits an exact present_review_set structural failure and projects the later standalone ask', () => {
+    const result = projectSessionPresentation(target, [
+      entry('u1', { role: 'user', content: 'Begin.', timestamp: 0 }),
+      entry('failed-review', {
+        role: 'toolResult',
+        toolName: 'present_review_set',
+        details: {
+          status: 'structural_illegal',
+          diagnostics: [{ field: 'edgeDrafts', message: 'edgeDrafts must be an array' }],
+        },
+      }),
+      entry('ask-call', {
+        role: 'assistant',
+        provider: 'anthropic',
+        content: [
+          { type: 'text', text: 'One later question.' },
+          {
+            type: 'toolCall',
+            id: 'later-ask',
+            name: 'ask',
+            arguments: { exchangeId: 'later', body: 'Continue?' },
+          },
+        ],
+      }),
+    ]);
+
+    expect(result).toMatchObject({
+      status: 'ready',
+      presentation: {
+        entries: [
+          { id: 'u1', kind: 'message' },
+          { id: 'ask-call', kind: 'message' },
+          { id: 'ask-call:ask', kind: 'ask', exchangeId: 'later', question: 'Continue?' },
+        ],
+      },
+    });
+  });
+
+  it('omits exact matching present-tool validation failures', () => {
+    for (const toolName of ['present_review_set', 'present_candidates', 'present_digest'] as const) {
+      expect(
+        projectSessionPresentation(target, [
+          entry(`invalid-${toolName}`, {
+            role: 'toolResult',
+            toolName,
+            details: {
+              status: 'validation_failed',
+              tool: toolName,
+              diagnostics: [{ field: 'payload', message: 'Expected object.' }],
+            },
+          }),
+        ]),
+      ).toEqual({ status: 'ready', presentation: { target, cursor: null, entries: [] } });
+    }
+  });
+
+  it('fails closed on non-exact present-tool failure rivals', () => {
+    const rivals = [
+      ['present_review_set', { status: 'validation_failed', tool: 'present_digest', diagnostics: [] }],
+      [
+        'present_digest',
+        { status: 'validation_failed', tool: 'present_digest', diagnostics: [], extra: true },
+      ],
+      [
+        'present_candidates',
+        { status: 'validation_failed', tool: 'present_candidates', diagnostics: [{ field: 'x' }] },
+      ],
+      ['present_digest', { status: 'structural_illegal', diagnostics: [] }],
+      ['present_review_set', { status: 'future_failure', diagnostics: [] }],
+      [
+        'present_review_set',
+        { status: 'structural_illegal', diagnostics: [{ field: 'x', message: 'bad', extra: true }] },
+      ],
+      ['present_candidates', { candidates: 'malformed offer' }],
+    ] as const;
+
+    for (const [toolName, details] of rivals) {
+      const id = `bad-${toolName}`;
+      expect(
+        projectSessionPresentation(target, [entry(id, { role: 'toolResult', toolName, details })]),
+      ).toEqual({ status: 'malformed_detail', entryId: id, family: toolName });
+    }
+  });
+
   it('ignores an ask input-validation failure without collapsing surrounding transcript projection', () => {
     expect(
       projectSessionPresentation(target, [

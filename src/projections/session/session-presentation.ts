@@ -223,6 +223,7 @@ export function projectSessionPresentation(
     }
     if (message.role !== 'toolResult') continue;
     if (message.toolName === 'present_review_set') {
+      if (isRecognizedPresentFailureDetails(message.toolName, message.details)) continue;
       const parsed = zPresentReviewSetDetails.safeParse(message.details);
       if (!parsed.success)
         return { status: 'malformed_detail', entryId: entry.id, family: 'present_review_set' };
@@ -240,6 +241,7 @@ export function projectSessionPresentation(
       continue;
     }
     if (message.toolName === 'present_digest') {
+      if (isRecognizedPresentFailureDetails(message.toolName, message.details)) continue;
       const parsed = zPresentDigestDetails.safeParse(message.details);
       if (!parsed.success) return { status: 'malformed_detail', entryId: entry.id, family: 'present_digest' };
       const details = parsed.data;
@@ -256,6 +258,7 @@ export function projectSessionPresentation(
       continue;
     }
     if (message.toolName === 'present_candidates') {
+      if (isRecognizedPresentFailureDetails(message.toolName, message.details)) continue;
       const parsed = zPresentCandidatesDetails.safeParse(message.details);
       if (!parsed.success)
         return { status: 'malformed_detail', entryId: entry.id, family: 'present_candidates' };
@@ -417,17 +420,45 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function hasExactDiagnostics(value: unknown): value is Record<string, unknown> & { diagnostics: unknown[] } {
+  return (
+    isRecord(value) &&
+    !Array.isArray(value) &&
+    Array.isArray(value.diagnostics) &&
+    value.diagnostics.every(
+      (diagnostic) =>
+        isRecord(diagnostic) &&
+        !Array.isArray(diagnostic) &&
+        Object.keys(diagnostic).every((key) => key === 'field' || key === 'message') &&
+        typeof diagnostic.field === 'string' &&
+        typeof diagnostic.message === 'string',
+    )
+  );
+}
+
+function isRecognizedPresentFailureDetails(
+  toolName: 'present_candidates' | 'present_digest' | 'present_review_set',
+  value: unknown,
+): boolean {
+  if (!hasExactDiagnostics(value)) return false;
+  if (value.status === 'validation_failed') {
+    return (
+      Object.keys(value).every((key) => ['status', 'tool', 'diagnostics'].includes(key)) &&
+      value.tool === toolName
+    );
+  }
+  return (
+    toolName === 'present_review_set' &&
+    value.status === 'structural_illegal' &&
+    Object.keys(value).every((key) => key === 'status' || key === 'diagnostics')
+  );
+}
+
 function isAskValidationFailureDetails(value: unknown): boolean {
-  if (!isRecord(value) || Array.isArray(value)) return false;
-  if (Object.keys(value).some((key) => !['status', 'tool', 'diagnostics'].includes(key))) return false;
-  if (value.status !== 'validation_failed' || value.tool !== 'ask' || !Array.isArray(value.diagnostics))
-    return false;
-  return value.diagnostics.every(
-    (diagnostic) =>
-      isRecord(diagnostic) &&
-      !Array.isArray(diagnostic) &&
-      Object.keys(diagnostic).every((key) => key === 'field' || key === 'message') &&
-      typeof diagnostic.field === 'string' &&
-      typeof diagnostic.message === 'string',
+  return (
+    hasExactDiagnostics(value) &&
+    Object.keys(value).every((key) => ['status', 'tool', 'diagnostics'].includes(key)) &&
+    value.status === 'validation_failed' &&
+    value.tool === 'ask'
   );
 }
