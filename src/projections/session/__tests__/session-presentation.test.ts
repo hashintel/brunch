@@ -808,6 +808,22 @@ describe('session presentation', () => {
     }
   });
 
+  it('fails closed on empty-diagnostic present-tool validation failures', () => {
+    const failures = [
+      ['present_review_set', { status: 'validation_failed', tool: 'present_review_set', diagnostics: [] }],
+      ['present_candidates', { status: 'validation_failed', tool: 'present_candidates', diagnostics: [] }],
+      ['present_digest', { status: 'validation_failed', tool: 'present_digest', diagnostics: [] }],
+      ['present_review_set', { status: 'structural_illegal', diagnostics: [] }],
+    ] as const;
+
+    for (const [toolName, details] of failures) {
+      const id = `empty-diagnostics-${toolName}-${details.status}`;
+      expect(
+        projectSessionPresentation(target, [entry(id, { role: 'toolResult', toolName, details })]),
+      ).toEqual({ status: 'malformed_detail', entryId: id, family: toolName });
+    }
+  });
+
   it('fails closed on non-exact present-tool failure rivals', () => {
     const rivals = [
       ['present_review_set', { status: 'validation_failed', tool: 'present_digest', diagnostics: [] }],

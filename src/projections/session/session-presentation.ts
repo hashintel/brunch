@@ -425,6 +425,7 @@ function hasExactDiagnostics(value: unknown): value is Record<string, unknown> &
     isRecord(value) &&
     !Array.isArray(value) &&
     Array.isArray(value.diagnostics) &&
+    value.diagnostics.length > 0 &&
     value.diagnostics.every(
       (diagnostic) =>
         isRecord(diagnostic) &&
