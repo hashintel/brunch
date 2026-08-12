@@ -1,0 +1,16 @@
+sourceHead=19c8151a6961670d8ba1371125fdde969bb83ee4
+sourceBranch=ln/fe-1348-audit-all-usage-and-testing-paths
+workspace=/tmp/brunch-fe1348-post-sw3-final.jYIzva
+url=http://127.0.0.1:65333/session/1/019ff748-8a4b-73cb-b260-ec45ba3b061c
+hostCommandPid=46823
+hostListenerPid=46910
+hostPort=65333
+hostStartedAt=2026-08-12T18:43:09.914Z
+hostEndedAt=2026-08-12T18:45:21.892Z
+browserSession=fe1348-final-c109bbf8a532
+provider=anthropic
+model=claude-opus-5
+thinkingLevel=medium
+node=v24.19.0
+npm=12.0.2
+os=Darwin 25.6.0 arm64

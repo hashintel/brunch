@@ -1,0 +1,24 @@
+{
+  "audit": {
+    "mode": "readonly",
+    "fileMustExist": true,
+    "path": "/tmp/brunch-fe1348-post-sw3-final.jYIzva/.brunch/brunch-v1.db"
+  },
+  "graphClock": [
+    {
+      "spec_id": 1,
+      "lsn": 1
+    }
+  ],
+  "nodes": [],
+  "edges": [],
+  "changeLog": [
+    {
+      "spec_id": 1,
+      "lsn": 1,
+      "operation": "create_spec",
+      "payload": "{\"specId\":1,\"name\":\"FE-1348 post-SW3 final settlement witness\",\"slug\":\"fe-1348-post-sw3-final-settlement-witness\",\"kind\":\"product\",\"origin\":null,\"relatesToSpecId\":null}",
+      "created_at": "2026-08-12 18:42:34"
+    }
+  ]
+}
