@@ -1,0 +1,5 @@
+source=/tmp/brunch-fe1348-final2.QTlmdv
+clone=/tmp/brunch-fe1348-stdio-reentry.hTx07h
+workspace_file_manifest=match
+source_jsonl_sha256=ca2a176b3c63a32cd934daebf10c92840047dcf2dbffb3483bafb81d1f13114e
+writer_owner_files=0

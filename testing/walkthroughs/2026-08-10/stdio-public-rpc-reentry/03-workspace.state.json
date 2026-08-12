@@ -1,0 +1,16 @@
+{
+  "status": "ready",
+  "cwd": "/tmp/brunch-fe1348-stdio-reentry.hTx07h",
+  "spec": {
+    "id": 1,
+    "title": "FE-1348 final live convergence",
+    "kind": "product",
+    "origin": null,
+    "relatesToSpecId": null
+  },
+  "chrome": {},
+  "session": {
+    "id": "019ff56d-2344-7e36-86ba-17fa11935900",
+    "file": "/tmp/brunch-fe1348-stdio-reentry.hTx07h/.brunch/sessions/2026-08-12T10-03-18-212Z_019ff56d-2344-7e36-86ba-17fa11935900.jsonl"
+  }
+}

@@ -12,11 +12,35 @@ Workspace: `.fixtures/scratch/fe-1348-stdio-public-rpc` (fresh, ignored, removed
 
 ## Disposition
 
-**Owned product-level gate; row remains `partial`.** Provider use was authorized for this bounded retry, but the launched Brunch runtime had no provider/model available to fire the assistant-first turn. `session.triggerExchange` returned `{"status":"idle","exchange":null}`. Canonical JSONL contains the context seed but no `brunch.kick`, assistant message, or structured present tuple; therefore `session.exchanges` is empty and `session.pendingExchange` is idle. There is no public pending exchange ID to answer, so calling `session.submitExchangeResponse` would be invalid rather than a typed response proof.
+**Owned product-level gate; row remains `partial`.** A 2026-08-12 bounded re-entry used the retained standalone provider-authored pending ask only through a byte-for-byte disposable clone. The first true public-boundary failure was `workspace.activate`: it returned `status: needs_human` and `Selected session is not available for the selected spec.` The copied canonical JSONL retained its original-workspace cwd and was not rewritten. No response was submitted and no repair was attempted.
 
-This preserves the prior truthful result: discovery, activation, reads, and empty canonical/projection agreement work through the public stdio RPC. The new retry removes authorization as the gate and localizes the remaining gate to provider/model availability inside the launched Brunch runtime.
+The command harness returned exit status `0` for that typed activation outcome, so the scripted capture continued through the read-only `workspace.state`, `session.runtimeState`, `session.triggerExchange`, `session.pendingExchange`, and `session.exchanges` calls before semantic inspection. Those outputs sharpen the contradiction but do not override the stop boundary: `workspace.state` found the named target, while trigger/pending returned idle and exchanges returned `open_prompt` with no projected exchange even though canonical active-branch JSONL ends in the provider-authored `fe1348-anchor-2` ask. The clone JSONL stayed byte-identical through those reads. There was no `session.submitExchangeResponse` call.
 
-Owner: FE-1348 `Stdio public RPC` row. Re-entry trigger: run the same bounded public path when the launched Brunch runtime has a provider/model available to `session.triggerExchange`, or when a deterministic supported product path can author a pending exchange. Cost/value: one real assistant-first turn plus one typed answer closes the row; private transcript minting would invalidate the evidence.
+Owner: FE-1348 `Stdio public RPC` row. Re-entry trigger: only after clone activation/projection portability is separately accepted and repaired, or a fresh supported pending target supersedes this retained input. Cost/value: fixing or avoiding the cwd-bound clone contradiction would permit the same one-response public proof; rewriting retained/copy state would invalidate the evidence.
+
+The earlier provider/model attempt remains valid historical narrowing: its launched Brunch runtime had no provider/model available, so `session.triggerExchange` returned `{"status":"idle","exchange":null}` and no typed response was legal.
+
+## 2026-08-12 retained-exchange re-entry
+
+Source workspace: `/tmp/brunch-fe1348-final2.QTlmdv` (protected, retained)
+
+Disposable clone: `/tmp/brunch-fe1348-stdio-reentry.hTx07h` (removed after serializable capture)
+
+Source session SHA-256 before and after:
+
+```text
+ca2a176b3c63a32cd934daebf10c92840047dcf2dbffb3483bafb81d1f13114e
+```
+
+No source writer-owner file existed before or after conduct. Process enumeration was unavailable in the sandbox, so no stronger process claim is made. Discovery advertised `rpc.discover` and `session.triggerExchange` with omitted params; conduct used the actual no-params invocation. The coordinator's earlier read-only `{}` discovery preflight is excluded from row conduct and from success/failure accounting.
+
+Exact serializable outputs, exit statuses, source manifests, assertions, and cleanup proof are retained under [`stdio-public-rpc-reentry/`](stdio-public-rpc-reentry/). The active-branch comparison records:
+
+- the 13-entry canonical JSONL ends in the real Anthropic-authored `fe1348-anchor-2` multi-select ask with no terminal result;
+- the source and clone JSONL hashes matched before conduct and remained unchanged after all read-only calls;
+- normalized trigger and pending wrappers agreed only as idle/null, while exchanges reported one `open_prompt` range and no exchange tuple;
+- no submit, provider launch, graph effect, private handler, direct state edit, raw Pi/WebSocket call, or retry occurred; and
+- only the disposable clone was removed.
 
 ## Runtime identity
 
