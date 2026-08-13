@@ -8,7 +8,7 @@ Created:  2026-08-11
 ## Orientation
 
 - The containing seam is brunch's entire consumption surface over `@earendil-works/pi-coding-agent`, `pi-ai`, and `pi-tui` — 210 importing files and ~110 distinct imported symbols, pinned at `0.83.0` on `next`.
-- FE-1352 `pi-084-upgrade` is the containing coverage frontier. It stacks on FE-1348 and is gated on that frontier's two remaining required rows — Execute evidence and cross-surface settlement — because FE-1348's closed inventory is this sweep's regression oracle. Do not begin rows until that evidence lands. (Updated 2026-08-12 during restack: A51-L, TUI-companion usefulness, standalone-web driven session, and stdio public RPC have closed since this ledger was authored; the cross-surface row is additionally gated on `shared-session-host-cutover` repairing the React settled-review/continuation projection.)
+- FE-1352 `pi-084-upgrade` is the containing coverage frontier. It stacks on completed FE-1348 and uses that frontier's closed inventory as its regression oracle; the evidence gate is satisfied.
 - No `HANDOFF.md` exists. `main`'s PR #422 is a separate trunk's bump and is not this frontier's work; its migration target (`src/orchestrator/src/pi-actions.ts`) does not exist on `next`.
 - Main risk: **the changelog is not the inventory.** Scoping found a hard breaking change absent from the published Breaking Changes section (row C1), so rows are enumerated from brunch's import graph — which is closed and derivable — not from changelog entries.
 

@@ -123,7 +123,7 @@ Legacy link target; see Horizon.
 
 - **Name:** Pi 0.84.x upgrade — change-surface closure and new-API disposition
 - **Linear:** [FE-1352](https://linear.app/hash/issue/FE-1352/upgrade-pi-to-084x-on-next-and-close-its-change-surface)
-- **Branch:** `ln/fe-1352-pi-084-upgrade`; stacked after FE-1348 so the frozen alpha inventory exists as a regression oracle before the baseline moves. Do not start building until FE-1348's two remaining required rows close — Execute evidence and cross-surface settlement — because the dependency is on its *evidence*, not its branch position. A51-L, TUI-companion usefulness, standalone-web driven session, and stdio public RPC closed on 2026-08-12; the cross-surface row is additionally gated on `shared-session-host-cutover` repairing the React settled-review/continuation projection.
+- **Branch:** `ln/fe-1352-pi-084-upgrade`; stacked after completed FE-1348 so its closed alpha inventory can serve as the regression oracle before the baseline moves.
 - **Kind:** coverage-shaped dependency-seam upgrade over the closed Pi 0.80.8→0.84.1 change surface. Adaptation is required; adoption is dispositioned, not assumed.
 - **Certainty:** proving.
 - **Retires:** A25-L — "tracking the latest `pi-coding-agent` release continuously keeps Brunch adaptable without routinely destabilizing it" is `partially validated` and has never been tested across a five-minor jump that spans a harness rewrite. This frontier either validates it or falsifies it into a pinned-baseline policy.
@@ -150,7 +150,7 @@ Legacy link target; see Horizon.
 - **New-API disposition rows (each needs an adopt / promote / decline verdict with rationale):** `PiClient`/`RemoteSession`/CBOR/Unix-socket transport (verdict feeds `shared-session-host-cutover` — see the arc obligation); consuming `assistantMessageEvent` deltas directly instead of prefix-diffing cumulative snapshots (upstream removed the cumulative field precisely because it grew quadratically, so brunch's re-derivation now works against the grain); `pi.registerMarkdownTransformer()`; `tool_call` `terminate`; `AGENTS.override.md` per-directory context; `pi auth check`; `AgentOptions.shouldStopAfterTurn`; vendor-neutral telemetry contracts (relevant to Horizon `mechanism-trace` / `agent-tracing`); `samplingParams`. Adopt-now is limited to verdicts that remove an existing brunch workaround or are required for parity; everything else promotes or declines.
 - **Aggregate DoD:** no required row remains `spec` / `new` / `partial`; `npm run check` and `npm run verify:full` pass on 0.84.1; FE-1321's four slow session-runtime-contract witnesses and the required FE-1348 subset re-pass on the new baseline; every new-API area carries a recorded verdict; no required row's closure rests on an untyped structural cast; A25-L is updated to validated or falsified with evidence.
 - **Promotion / disposal:** the sweep adapts, it does not redesign. Adaptation exceeding row size promotes to its owning frontier (`shared-session-host-cutover`, `cli-mode-entry`, executor, comparison); new-API adoptions needing real design promote to `pi-084-api-adoption` (Horizon) or their owning frontier. Delete the ledger only after every required row and every promoted required-row dependency closes.
-- **Why now / unlocks:** four reasons converge. `next` still carries advisory families that `main` is clearing. FE-1348's frozen inventory is the cheapest and most complete regression oracle brunch will ever have for a harness bump, and it is closing right now — take the bump while that evidence is fresh rather than re-deriving it later. `cli-mode-entry` and `shared-session-host-cutover` are both Pi-surface work, so bumping after them doubles the adaptation. And 0.84.0's remote-session client may reshape the cutover's delete list, which must be known before deletion, not after.
+- **Why now / unlocks:** four reasons converge. `next` still carries advisory families that `main` is clearing. FE-1348's now-closed inventory is the cheapest and most complete regression oracle brunch will have for a harness bump; take the bump while that evidence is fresh rather than re-deriving it later. `cli-mode-entry` and `shared-session-host-cutover` are both Pi-surface work, so bumping after them doubles the adaptation. And 0.84.0's remote-session client may reshape the cutover's delete list, which must be known before deletion, not after.
 - **Verification:** **type-checking is necessary but explicitly not sufficient** — the two highest-risk consumers read Pi events through structural casts that no type-aware lint can see through, which is the central hazard of this frontier and the reason it is evidence-gated rather than buildable-now. Per-row: the existing focused tests for each named consumer. Differential: re-run `session-runtime-contract-{tracer,companion,structured-ask,authority}.slow.test.ts` — these are the semantic-convergence oracles that would actually catch a silent delta regression — plus the required FE-1348 rows and `npm run check:release-pack`. Where a row's only current guard is a structural cast, the row closes by converting the seam to a typed import per [`docs/praxis/pi-types.md`](../docs/praxis/pi-types.md), so the *next* bump fails loudly.
 - **Traceability:** A25-L (retires), A1-L, D1-L, D67-L; D19-L; D125-L, D141-L; I64-L, I65-L; [`src/rpc/TOPOLOGY.md`](../src/rpc/TOPOLOGY.md), [`docs/praxis/pi-types.md`](../docs/praxis/pi-types.md); SPEC §Verification Design.
 
@@ -574,10 +574,7 @@ next:
                    consuming sub-seam from the import graph, not by changelog entry.
     retires: A25-L (continuous-tracking safety, never tested across a 5-minor harness jump)
     depends_on: FE-1348 closed inventory (regression oracle) | FE-1321 slow witnesses (convergence oracle)
-    gate: FE-1348's two open required rows (2026-08-12) — Execute evidence | cross-surface settlement.
-          A51-L, TUI-companion, standalone-web driven session, and stdio public RPC closed;
-          cross-surface additionally waits on shared-session-host-cutover's React repair.
-          Branch exists and is stacked; building waits on that evidence, not the branch.
+    gate_satisfied: FE-1348 closed every required row; its retained evidence is the regression oracle
     highest_risk: message_update cumulative-field removal is JSON/RPC-only, but brunch's two
                   consumers read it through structural casts -> silent runtime failure, not a
                   type error (live-session-events.ts, subagents/session.ts)
@@ -600,13 +597,9 @@ next:
     gated_by: comparison-machine-interface-cutover | operator availability
     dependencies_satisfied: FE-1215 direct control | FE-1320 external target placement
   shared-session-host-cutover
-<<<<<<< HEAD
     classification: FE-1348 CS1/SW2/SW3 repairs fixed and outer-witnessed; remaining cutover surface unbuilt
-=======
-    classification: FE-1348 CS1/SW2 repairs fixed -> consumed final witness found remaining React settled-review/continuation semantic contradiction before approval
     new_gate: consume pi-084-upgrade's RemoteSession/PiClient verdict before deleting
               SessionEventRelay and /rpc/driver — 0.84.0 may ship the seam this arc hand-builds
->>>>>>> ac6428e49 (FE-1352: Admit Pi 0.84.x upgrade frontier to PLAN)
     closes: raw-event/driver divergence across legitimate TUI-owned and standalone-web runtime compositions
     deletes: SessionEventRelay | brunch.sessionEvent | /rpc/driver | sidecar handle wiring
 
