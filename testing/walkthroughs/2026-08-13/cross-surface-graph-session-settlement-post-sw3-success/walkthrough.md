@@ -1,8 +1,8 @@
 # Cross-surface graph/session settlement — successful post-SW3 witness
 
-Date: 2026-08-13  
-Frontier/owner: FE-1348 `post-hardening-alpha-validation`  
-Source: `cad69d602542fb774416a33ae2d48b4460e69039`, including SW3 repairs `c180eb55e` and `69d6fd7b`  
+Date: 2026-08-13
+Frontier/owner: FE-1348 `post-hardening-alpha-validation`
+Source: `cad69d602542fb774416a33ae2d48b4460e69039`, including SW3 repairs `c180eb55e` and `69d6fd7b`
 Disposition: successful retained witness; cross-surface sweep row `built`; FE-1348 remains active
 
 ## Target and conduct
