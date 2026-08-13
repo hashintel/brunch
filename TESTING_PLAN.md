@@ -2,16 +2,16 @@
 
 This file is a stable orientation surface for current alpha walkthroughs. It is not a branch checklist, PR gate, command-policy copy, or live status ledger.
 
-- FE-1348's closed inventory, row status, owners, gates, and retained evidence live in the [current alpha usage and verification sweep](memory/cards/post-hardening-alpha-validation--usage-and-verification-sweep.md).
+- FE-1348's completed inventory and retained evidence are summarized in the [findings log](TESTING_FINDINGS.md) and [plan history](docs/archive/PLAN_HISTORY.md#2026-08-13-fe-1348-post-hardening-alpha-validation-closeout).
 - Setup, PTY/browser control, workbench handling, evidence capture, and findings discipline live in the [Manual Testing Protocol](docs/praxis/manual-testing.md).
 - Canonical verification commands and lane policy live in [SPEC §Verification Design](memory/SPEC.md#verification-design); repository execution details live in [AGENTS §verification](AGENTS.md#verification).
 - Walkthrough observations go to [`TESTING_FINDINGS.md`](TESTING_FINDINGS.md). Durable product or sequencing changes reconcile through `memory/SPEC.md` and `memory/PLAN.md`.
 
-Do not copy a branch name, PR number, package/runtime version, fixture list, or verification command table into this file. Record run-specific values in the walkthrough evidence for the applicable FE-1348 row.
+Do not copy a branch name, PR number, package/runtime version, fixture list, or verification command table into this file. Record run-specific values in the applicable walkthrough evidence.
 
 ## Current outer-loop surface
 
-Use the FE-1348 ledger as the executable checklist. The concern map below explains why each part of the current surface is sampled without duplicating row status or acceptance criteria.
+Use the concern map below to choose the applicable current surface; frontier-specific executable checklists belong in active scope files, not this stable guidance.
 
 ### Entry and durable posture
 
@@ -36,7 +36,7 @@ Workbench `.brunch/` state is local runtime state, not tracked fixture truth. Pr
 - **Single-writer refusal and post-shutdown ownership transfer** → `Cross-composition writer transfer`.
 - **Current component families across themes and representative widths** → `Component-preview surface`.
 - **Terminal portability beyond the witnessed host** → deferred `Cross-platform terminal matrix`, owned by the SPEC blind spot / manual protocol and re-entered on another available host or a concrete portability defect.
-- **Raw-relay deletion after the evidence gate** → deferred `Shared-session raw-relay cutover`, owned by `shared-session-host-cutover` after A51-L and the relevant FE-1348 evidence close.
+- **Raw-relay deletion after the evidence gate** → deferred `Shared-session raw-relay cutover`, owned by `shared-session-host-cutover`; A51-L and the relevant FE-1348 evidence are closed.
 
 ### Public projections and operator observability
 
@@ -53,9 +53,9 @@ Canonical truth remains graph state plus active-branch Pi JSONL. Browser, TUI, p
 - **Repository, full, comparison, and conditional-CI behavior** → `Read-only repository gate`, `Full retained local gate`, `Comparison lane entry`, and `Conditional CI lane selection`.
 - **Packed assets, isolated foreign-cwd install, native binding, and source-tree independence** → `Installed-package integrity`.
 - **Foreign-cwd TUI and standalone-web startup/cleanup** → `Installed interactive-mode boot`.
-- **Actual publication** → deferred `Actual npm publication`, owned by the reviewed Changesets release workflow on `next`; never publish from the FE-1348 sweep.
+- **Actual publication** → deferred `Actual npm publication`, owned by the reviewed Changesets release workflow on `next`; walkthroughs never publish.
 
-Mission-driven provider comparisons are not implied by entering the comparison lane. The saved Brunch + Claude witness and execution-comparison reruns remain with the named deferred rows and their authorization triggers in the FE-1348 ledger.
+Mission-driven provider comparisons are not implied by entering the comparison lane. The saved Brunch + Claude witness and execution-comparison reruns remain with their named PLAN owners and authorization triggers.
 
 ## Evidence and findings
 

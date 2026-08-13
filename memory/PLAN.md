@@ -18,7 +18,7 @@
 - **Comparison lanes:** the repo keeps two distinct evaluation doors: seed-based intra-product testing and mission-driven cross-product comparison. FE-1241 closed the brownfield comparison cases; FE-1215 landed the approachable operator workflow; FE-1320 structurally separated controller-private mission material from fresh external harness targets. D142-L then exposed a control-topology gap: the prompts still use interactive shells even when rendering is not the claim, stdio Brunch RPC has no live session driver, and hosted web RPC cannot select an Execute process move. `cli-mode-entry` now owns terminal-independent mode activation; `comparison-machine-interface-cutover` then replaces eligible Brunch/Claude shell control before the real saved-mission witness.
 - **Executor / Execute evidence queue:** several KA fronts are implementation-merged but still carry explicit outer evidence: `host-landing`, `executor-plan-synthesis`, `execution-comparison-tracer`, `executor-plan-coherence`, `executor-slice-verification-repair`, and `greenfield-secure-drop-demo`.
 - **Current seams and discipline:** Brunch ships on `1.0.0-alpha.x`. D125-L's live ask registry is the structured-exchange headless surface; the transcript-backed pending projection remains compatibility-only. Sweep classification remains fail-closed on exchange-schema terminal names (D117-L); the larger capture-conditional watermark question remains A40-L. Co-located `src/**/TOPOLOGY.md` files own current topology; scratch evidence is not durable until promoted to `.fixtures/runs/`.
-- **Post-hardening validation:** FE-1348 freezes the current alpha boundary into a closed usage/verification-path inventory. A51-L's colleague walkthrough and cross-surface graph/session settlement are built; the successful post-SW3 journey carried exactly one approval through receipt LSN 2 and exactly one reload, with React, JSONL, public presentation/graph reads, and stopped-host SQLite converging on one settled requirement and zero edges. CS1/SW2/SW3 are fixed and outer-witnessed; prior failed-run provenance remains retained. Execute evidence is the sole open required product row. Its retained witness found that production TUI callers never consume state-aware process-move availability, so FE-1348 explicitly owns that bounded deterministic wiring repair and the final rerun; FE-1187 retains A48-L's optional model-backed improvement and campaign. Other incidental findings remain disposition-only. Existing provider campaigns, KA evidence, comparison witnesses, legacy-data migration, cross-platform rendering, and actual publication retain their current owners and gates.
+- **Post-hardening validation:** FE-1348 is complete. Its closed alpha inventory outer-witnessed every required product and verification path, including the final state-aware Execute mode-switch and explicit-consult journey against canonical plan/run authority. Optional provider campaigns, KA evidence, comparison witnesses, legacy-data migration, cross-platform rendering, and actual publication retain their existing owners and gates.
 
 ## Initiatives
 
@@ -47,12 +47,12 @@
 
 ### Active
 
-- `post-hardening-alpha-validation` ([FE-1348](https://linear.app/hash/issue/FE-1348/validate-current-brunch-usage-and-testing-paths)) — **active, evidence-gated coverage frontier with one promoted bounded repair:** validate the frozen current alpha entry/usage/verification inventory through real source, product, dev, comparison-gate, and installed-package paths; disposition incidental audit findings without implementing them in the sweep. A51-L and cross-surface graph/session settlement are built. The successful post-SW3 witness outer-proved CS1/SW2/SW3 through exactly one approval, receipt LSN 2, one reload, byte-equal public A/B projections, one settled requirement, zero edges, and stopped-host SQLite agreement. Execute mode interaction is the sole open required product row. Its production availability wiring repair is explicitly transferred from FE-1187's broader A48-L ownership to FE-1348, then the bounded TUI witness reruns; FE-1348 is not frontier-complete until both land. Definition and active sweep ledger below.
 - `walkthrough-remediation-2` ([FE-1187](https://linear.app/hash/issue/FE-1187/walkthrough-remediation-sweep-2-wr18-follow-up-closure)) — **paused after `remediation-4` tie-off:** mixed-settlement review preservation and populated-group-only Impact Ledger rendering are built. Re-entry requires an explicit decision to resume extractor/oracle hardening, then restart R8–R10 from 0/3; A48-L, the separate web graph audit, and the consolidated outer checkpoint remain behind that gate. Execute O7–O9 stay KA-owned. Closing member of arc `deterministic-orientation`. Definition below.
-- **Alpha walkthrough lane** — historical runs A, C, and WR18 remain source evidence in `TESTING_FINDINGS.md`; FE-1348 now owns the frozen current-surface pass. `TESTING_PLAN.md` is reconciled as outer-loop guidance rather than retained as a parallel live plan.
+- **Alpha walkthrough lane** — historical runs A, C, WR18, and FE-1348 remain source evidence in `TESTING_FINDINGS.md`; `TESTING_PLAN.md` is outer-loop guidance rather than a parallel live plan.
 
 ### Recently Completed
 
+- 2026-08-13 `post-hardening-alpha-validation` ([FE-1348](https://linear.app/hash/issue/FE-1348/validate-current-brunch-usage-and-testing-paths)) — **✓ complete:** every required alpha usage/verification row closed; the final real-TUI Execute witness proved identical state-aware Prepare / Compile / Execute choices through mode switch and explicit consult against frozen canonical plan/run/session/SQLite authority. Optional rows retain their prior owners.
 - 2026-08-11 `shared-session-host-tracer` ([FE-1321](https://linear.app/hash/issue/FE-1321/prove-shared-session-host-attachment-for-tui-and-react)) — **✓ complete:** production TUI and companion React converge through target-addressed semantic contracts and one canonical JSONL; structured asks preserve TUI-only answer authority; rival runtimes fail closed; normal shutdown permits standalone takeover; the A51-L colleague walkthrough found the companion useful and retired SA1/SA2 without contract changes.
 - 2026-08-05 `comparison-mission-isolation-hardening` (FE-1320) — **✓ complete:** `/compare-specs` now places every harness in a fresh system-temporary external target root outside controller checkout, scratch, and retained trees; actual-entry-point tests cover the CS2 `../../private-mission.md` rival, target-root visibility, controller-owned transcript retention, unchanged target output, and target cleanup without claiming whole-host isolation.
 - 2026-08-05 `canonical-document-reconciliation` (FE-1318) — **✓ complete:** the unadopted PLAN-replacement proposal is historical, seven superseded design surfaces now point to current authority, comparison prose distinguishes four execution cases from three configured E2E contracts and one retained witness, and active document links resolve.
@@ -65,7 +65,7 @@ Older completion history and archived completed frontier definitions live in [`d
 
 ### Next
 
-- `cli-mode-entry` — next proving frontier after FE-1348: make `brunch specify [spec-id]` / `brunch execute <spec-id>` select operational mode before either TUI or hosted-web composition starts, so machine control does not need to synthesize a TUI-only process-move entry. D98-L/D109-L are materialized; the former FE-1187 implementation block is retired. Definition below.
+- `cli-mode-entry` — next proving frontier: make `brunch specify [spec-id]` / `brunch execute <spec-id>` select operational mode before either TUI or hosted-web composition starts, so machine control does not need to synthesize a TUI-only process-move entry. D98-L/D109-L are materialized; the former FE-1187 implementation block is retired. Definition below.
 - `comparison-machine-interface-cutover` — replace eligible Brunch/Claude `interactive_shell` conduct with hosted Brunch JSON-RPC and Claude stream-JSON, reusing existing adapters; depends on `cli-mode-entry` for Brunch Execute. Definition below.
 - `saved-mission-comparison-witness` — operator-owned real Brunch + Claude `/compare-specs` witness after the machine-interface cutover, then mission revision/rerun proving historical snapshots remain immutable. Definition below.
 - `shared-session-host-cutover` — tracer, A51-L, standalone-web, and cross-surface settlement evidence are complete; FE-1348's CS1/SW2/SW3 contracts are fixed and outer-witnessed. Cutover still closes the remaining enumerated shared-contract surface without forcing physical host unification; this evidence does not claim the cutover is implemented. Definition below.
@@ -99,23 +99,6 @@ Legacy link target; see Horizon.
 
 <!-- Closed frontier definitions live in docs/archive/PLAN_HISTORY.md. Keep live definitions for active/next pickup items. -->
 
-### post-hardening-alpha-validation
-
-- **Name:** Current alpha usage and verification path validation
-- **Linear:** [FE-1348](https://linear.app/hash/issue/FE-1348/validate-current-brunch-usage-and-testing-paths)
-- **Branch:** `ln/fe-1348-audit-all-usage-and-testing-paths`; stacked after FE-1321 so the sweep validates the complete current runtime-contract tracer.
-- **Kind:** evidence-gated coverage frontier over the frozen current alpha boundary; verification and finding disposition by default, not implementation.
-- **Certainty:** proving.
-- **Stabilizes:** the current product-entry, runtime-authority, durable-state, developer-verification, comparison-gate, and installed-package evidence boundary; A51-L retired after its required colleague walkthrough passed.
-- **Boundary:** required rows cover supported source/product entry points (TUI, companion React, standalone web, stdio/WebSocket RPC, print), workspace/spec/session activation and resume/tree behavior, one bounded Specify and Execute interaction path, canonical graph/session settlement, current dev/probe observability, repository/full/comparison gates, conditional CI selection, and installed-package smoke. One explicit exception permits the last Execute row's promoted repair: production TUI mode-switch and `/brunch:consult` must consume a read-only deterministic availability result from existing executor truth before the witness reruns. The repair does not include A48-L's model-backed preflight/campaign, provider conduct, process-move execution, or a new plan/RPC model. Otherwise explicitly out: new capabilities or fixes, full provider-quality campaigns, KA-owned Execute evidence, saved-mission and execution-comparison reruns, legacy 0.x migration without a disposable fixture, cross-platform terminal claims, and actual npm publication.
-- **Classification:** evidence-gated — the inventory and existing oracles are available, but required outer rows need fresh structured-interface, human, PTY, or browser evidence on the current stack. D142-L's completed harness-routing spike makes structured machine interfaces the default for conduct; PTY evidence remains required only where terminal semantics or deliberate human observation are part of the claim.
-- **Inventory authority:** [`memory/cards/post-hardening-alpha-validation--usage-and-verification-sweep.md`](cards/post-hardening-alpha-validation--usage-and-verification-sweep.md) (`Mode: sweep`). `TESTING_PLAN.md` supplies historical concern inputs only and must be reconciled to the frozen current-path checklist rather than expanded during execution.
-- **Aggregate DoD:** every required ledger row is `have` or `built`; every observation in `TESTING_FINDINGS.md` is fixed, promoted to a named owner, or retired with rationale; every deferred row retains an owner and re-entry trigger; required evidence is retained or linked; canonical testing guidance matches the current surface; `npm run check`, `npm run verify:full`, and `npm run check:release-pack` pass.
-- **Promotion / disposal:** the sweep never fixes incidental defects inline. A row-sized verification defect may be routed to a separate scope file on this frontier; behavior/design/refactor work normally promotes to its owning existing or new PLAN frontier. User direction explicitly transferred only the last Execute row's deterministic production availability wiring from FE-1187 to a separate FE-1348 scope; the ledger stays open until that repair and its outer witness close. Delete the sweep ledger only after every required row and every promoted required-row dependency closes.
-- **Why now / unlocks:** FE-1311–FE-1321 pruned, reconciled, isolated, and hardened the live stack, but the broad alpha walkthrough script predates those changes. The frozen current-boundary pass supplied the A51-L judgment and successful cross-surface settlement witness. The remaining Execute row falsified the assumption that the existing state-aware menu builder reaches production: mode switch and explicit consult still supply the static Prepare-only menu. Wiring the deterministic source, then rerunning the bounded witness, supplies the last product-level evidence before this coverage frontier can close.
-- **Verification:** each row binds a real entry point to a canonical artifact/query/contract oracle. Under D142-L, agent conduct uses public Brunch JSON-RPC, Pi RPC, or Claude stream-JSON/Agent SDK where the required operation is represented; Herdr or the headless `tui-driver` remains valid for terminal-specific claims and for the current Brunch Execute process-move gap, while browser claims stay browser-driven. The Execute RPC spike confirmed that stdio has no live session driver and hosted web RPC has no process-move operation. Qualitative UI/conduct claims use owned outer walkthroughs. Incidental simplicity/quality observations are evidence, never completion criteria unless promoted.
-- **Traceability:** product requirements 1–5, 7–12, 16–19, 24–32; A5-L, A42-L, A51-L; D39-L, D109-L, D120-L, D123-L, D132-L, D133-L, D141-L, D142-L; I24-L, I32-L, I54-L, I59-L, I62-L, I64-L–I69-L; SPEC §Verification Design. A48-L remains FE-1187-owned and optional over the deterministic production path.
-
 ### walkthrough-remediation-2
 
 - **Name:** Walkthrough chapter closure — remediation, evidence, and design follow-through (absorbs FE-1167)
@@ -136,7 +119,7 @@ Legacy link target; see Horizon.
 
 - **Name:** Direct operational-mode entry — `brunch specify [spec-id]` / `brunch execute <spec-id>`
 - **Linear:** unassigned (create at pickup, FE team / brunch project)
-- **Branch:** tbd at pickup; stack after FE-1348 because that frontier found and bounded the machine-control gap.
+- **Branch:** tbd at pickup; FE-1348 is complete and established the machine-control gap this frontier addresses.
 - **Kind:** structural bounded feature — one presentation-neutral activation decision with CLI subcommands as its product-facing entry.
 - **Certainty:** proving.
 - **Status:** next; the revised D98-L/D109-L entry semantics are materialized, so the former FE-1187 implementation block is retired.
@@ -539,17 +522,6 @@ Legacy link target; see Horizon.
 
 ```text
 active:
-  post-hardening-alpha-validation (FE-1348)
-    classification: evidence-gated coverage frontier
-    inventory: memory/cards/post-hardening-alpha-validation--usage-and-verification-sweep.md
-    completed: A51-L colleague walkthrough -> shared-session-host-tracer ✓
-    open: execute interaction -> deterministic production availability wiring built -> final TUI witness
-    transferred_from_fe1187: production consumption of deterministic availability only; A48-L model preflight/campaign remains FE-1187
-    built: cross-surface settlement (CS1 + SW2 + SW3 fixed and outer-witnessed through approval, receipt LSN 2, and one reload)
-    includes: current alpha product entrances | current verification and installed-package paths
-    excludes: provider campaigns | KA evidence | saved-mission/execution-comparison reruns | legacy migration | cross-platform claims | publish
-    aggregate_done: every required row closed; every finding fixed/promoted/retired; canonical testing guidance reconciled
-    relevant_rows: cross-surface settlement evidence complete -> shared-session-host-cutover contract outer-witnessed, cutover still unbuilt
   walkthrough-remediation-2 (FE-1187)
     closes_arc: deterministic-orientation
     blocked_reentry: extractor/oracle reconciliation -> fresh R8–R10 0/3 campaign -> A48-L -> consolidated outer checkpoint

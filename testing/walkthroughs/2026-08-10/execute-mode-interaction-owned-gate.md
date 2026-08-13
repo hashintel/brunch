@@ -1,89 +1,74 @@
-# Execute mode interaction — owned gate
+# Execute mode interaction — successful owned-gate closure
 
-Date: 2026-08-10  
-Frontier: FE-1348  
-Source commit: `47f02b802` (`FE-1348: Validate session resume tree continuity`)  
-Host: macOS arm64, Node v24.16.0, Pi v0.83.0, Brunch v1.0.0-alpha.13
+Final witness date: 2026-08-13
 
-## Orientation
+Frontier: FE-1348
 
-- Seam: real TUI operational-mode switch plus public session and executor read projections.
-- Row: `Execute mode interaction` only; Specify, seeded-workbench validation, graph settlement, and provider execution were not claimed.
-- Cross-cutting obligations: SQLite/JSONL remained authority, provider auth was isolated, and no run or provider turn was started.
-- Open risk: the current public surface does not provide enough plan/run state on this bounded seed to prove Compile or Execute availability.
+Source commit: `0302c41c1`
 
-## Setup
+Host path: `/tmp/brunch-fe1348-execute-final.Fb6Spv`
 
-A fresh temporary workbench was produced through the documented seed command; this establishes only the bounded row input, not the separate seeded-workbench-validation row:
+## Closure
 
-```sh
-W=$(mktemp -d /tmp/brunch-fe1348-execute.XXXXXX)
-npm run seed -- \
-  --seed workspace-alpha-grounding/scope-handoff-ready \
-  --workspace "$W" \
-  --reset
-```
+**Built.** The final real-TUI witness proved that both production Execute menu entrances consume the same state-aware deterministic availability result, and that their visible Prepare / Compile / Execute choices agree with canonical session, plan, run, Petri, report, JSONL, and SQLite authority. The earlier 2026-08-10 thin-seed gate remains provenance below; this successful witness supersedes only its open disposition.
 
-The supported seed command completed with `spec 1 (5 nodes, 5 edges)` and wrote a fresh `brunch-v1.db`. The TUI was launched through `npm run tui-driver` with a fresh temporary `PI_CODING_AGENT_DIR`, so root provider credentials and settings were not visible to the process. The existing ignored `workspace-alpha-grounding` workbench was not read or changed.
+## Final disposable target and setup
 
-## Real mode switch and render
-
-The TUI selected `Alpha Grounding — Scope Handoff Ready`, created its first greenfield session, and rendered the normal Specify chrome. Through the real command path:
-
-1. dismissed the initial Specify orientation;
-2. entered `/brunch:mode`;
-3. observed `Choose Brunch mode`, `current: Specify`, and the `Specify | Execute` picker;
-4. selected Execute with Right + Enter.
-
-The resulting render said:
+The fresh disposable workspace used seed `rust-todo-cli/base`, producing spec `1` with 44 nodes and 69 edges. The activated session was `019ffb3b-e7c9-7da8-aa37-8808aa1f54cb`; its canonical JSONL was:
 
 ```text
-Brunch mode set to Execute.
-[ Execute ]
-Choose a process move for Execute mode
-› 1. Prepare execution
-    Close design, verification, and commitment gaps.
+/tmp/brunch-fe1348-execute-final.Fb6Spv/.brunch/sessions/2026-08-13T13-07-15-017Z_019ffb3b-e7c9-7da8-aa37-8808aa1f54cb.jsonl
 ```
 
-Advertised capability states were therefore:
+During setup, the user switched the real TUI to Execute and selected **Compile a plan**. The provider produced the confirmation ask and the user selected **Compile now**. Compilation wrote `.brunch/cook/specs/1/plan.json` plus provenance: 1 epic, 4 slices, 2 synthesis rounds, graph LSN 3, `execute_launch: ready`, and status `not_started`.
 
-| Capability | Visible state |
+The user then selected **Create the run, then pause**. Run `run-msrnsjo7` was created and paused at `reports_initialized`; no slice started. Its artifacts comprised run metadata, Petrinaut snapshot/net/events, an isolated `empty_dir` workspace, and reports.
+
+The frozen witness boundary began after this setup. No provider or assistant turn occurred after that boundary.
+
+## Frozen-boundary readbacks
+
+Public readbacks agreed:
+
+- `workspace.state` matched spec `1` and the named session.
+- `execute.runs` returned exactly one run, `run-msrnsjo7`, at `reports_initialized`, with worktree/reports/Petri present and promotion absent.
+- `session.runtimeState` reported operational mode `execute`, role `executor`, and graph LSN 3.
+- `execute.run` showed only `worktree_create`, `populate`, `source_policy`, `source_copy`, and `report_init`; it showed no `slice_start`.
+- Final read-only SQLite authority reported latest LSN 3, 44 nodes, and 69 edges.
+
+In the real TUI, `/brunch:mode` and `/brunch:consult` each displayed the same **Prepare execution**, **Compile a plan**, and **Execute the plan** choices. The user escaped both menus without selection and then exited normally.
+
+The JSONL contained exactly one `brunch.process_move`: `compile_plan`, written during setup. It contained zero post-boundary process moves and zero post-boundary assistant messages. Post-boundary mode switches were only Specify and then Execute.
+
+## Frozen authority and cleanup
+
+Final authority hashes matched their witness-boundary hashes:
+
+| Artifact | Retained hash |
 | --- | --- |
-| Prepare | available |
-| Compile | not advertised |
-| Execute | not advertised |
+| events | `488f...` |
+| marking | `e3fe...` |
+| net | `e8f...` |
+| sdcpn | `7350...` |
+| frozen plan | `11cef...` |
+| reports | `9159...` |
+| run.json | `dfadda...` |
+| source-policy | `d07f...` |
 
-This is capability-honest against the available readbacks below: no plan/run was exposed from which Compile or Execute could be justified. It is not evidence that a plan-bearing or run-bearing seed advertises those later moves.
+Plan and provenance hashes also matched before/after. Only abbreviated hashes were retained, so no full digest is inferred here.
 
-## Supported readbacks
+A later clean `pgrep -fl 'brunch-fe1348-execute-final.Fb6Spv'` produced no output; port 52757 had no listener; no writer lock remained; and the TUI exited normally. This deliberately excludes the earlier self-matching `pgrep` observation.
 
-`workspace.state` identified spec `1`, session `019feb6b-a5eb-7d7c-b0d5-39960f987ce3`, and the fresh JSONL under the temporary workbench.
+Screenshots:
 
-The explicit public runtime read:
+- `/Users/lunelson/Library/Application Support/CleanShot/media/media_BVj8Bl0S7N/CleanShot 2026-08-13 at 15.15.02@2x.png`
+- `/Users/lunelson/Library/Application Support/CleanShot/media/media_Ry05ae4lPC/CleanShot 2026-08-13 at 17.13.13@2x.png`
+- `/Users/lunelson/Library/Application Support/CleanShot/media/media_aaZnvPUc4p/CleanShot 2026-08-13 at 17.32.48@2x.png`
+- `/Users/lunelson/Library/Application Support/CleanShot/media/media_GhDvLgMtH1/CleanShot 2026-08-13 at 17.38.58@2x.png`
+- `/Users/lunelson/Library/Application Support/CleanShot/media/media_c6Oh1JqPDy/CleanShot 2026-08-13 at 17.40.06@2x.png`
 
-```sh
-npm run dev-cli -- rpc session.runtimeState \
-  '{"specId":1,"sessionId":"019feb6b-a5eb-7d7c-b0d5-39960f987ce3"}' \
-  --workspace "$W"
-```
+## Prior-gate provenance — 2026-08-10
 
-returned `status: ready`, `agent.operationalMode: execute`, `agent.role: executor`, and graph watermark `latestLsn: 3`, matching the visible Execute chrome.
+The original witness ran at source commit `47f02b802` against a fresh `workspace-alpha-grounding/scope-handoff-ready` seed (spec 1, 5 nodes, 5 edges). It switched through the real `/brunch:mode` path into Execute and honestly displayed only **Prepare execution**. Public `session.runtimeState` agreed on Execute/executor/LSN 3, while `execute.runs` and `execute.runTraceIndex` were empty and no independent plan read was available.
 
-The available public executor reads returned:
-
-```text
-execute.runs                 -> { "runs": [] }
-execute.runTraceIndex        -> { "traces": [] }
-```
-
-`rpc.discover` exposed `execute.runs`, `execute.run`, and `execute.runTraceIndex`, but no independent plan-read method. Because the fresh seed contained no run, `execute.run` could not provide a recorded plan snapshot without manufacturing state. The row requires plan/run reads matching visible Prepare/Compile/Execute promises, so this evidence cannot close it.
-
-## Disposition
-
-**Owned gate; row remains `partial`.** Re-enter under FE-1348 when a suitable existing seed can be freshly established through the supported seed command with a real readable plan/run, or when a supported plan read is available. Then repeat the real mode switch and compare the Compile/Execute render with `session.runtimeState` and the public plan/run readbacks. Do not run the provider or execute the plan.
-
-Cost/value: retaining the gate costs one later bounded PTY pass; it prevents claiming later Execute capabilities from an empty run inventory or hand-authored state.
-
-## Cleanup
-
-The TUI driver was stopped and removed; `npm run tui-driver -- list` returned `no sessions`. The temporary workbench and isolated Pi profile were deleted. No tracked seed/fixture, existing ignored workbench, provider profile, or production path was changed.
+That evidence remained `partial`, rather than manufacturing plan/run state: it proved only the thin-seed Prepare case and exposed that production callers were not consuming the existing state-aware resolver. FE-1348 subsequently built that bounded deterministic wiring. The final 2026-08-13 witness above supplied a supported compiled-plan/run target and closed the production mode-switch plus explicit-consult gate without selecting a post-boundary move or executing a slice.
