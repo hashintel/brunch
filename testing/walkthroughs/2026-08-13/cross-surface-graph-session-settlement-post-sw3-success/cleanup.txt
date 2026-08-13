@@ -1,0 +1,22 @@
+FE-1348 successful post-SW3 settlement witness cleanup
+Date: 2026-08-13
+
+Before deletion:
+- Host had stopped.
+- Listener 127.0.0.1:55244 was absent.
+- Target writer owner was absent.
+- Workspace remained solely for evidence retention.
+- Exact JSONL, five public RPC artifacts, and three screenshots were copied.
+- Source/copy SHA-256 values matched.
+- Read-only SQLite audit used better-sqlite3 with readonly=true and fileMustExist=true.
+- Artifact and receipt-convergence assertions passed.
+
+Deleted, exactly:
+- /tmp/brunch-fe1348-post-sw3-final.wb4C0B
+- /tmp/brunch-fe1348-post-sw3-final-evidence.wb4C0B
+
+After deletion:
+- /tmp/brunch-fe1348-post-sw3-final.wb4C0B is absent.
+- /tmp/brunch-fe1348-post-sw3-final-evidence.wb4C0B is absent.
+- Listener 127.0.0.1:55244 remains absent.
+- Retained evidence is under testing/walkthroughs/2026-08-13/cross-surface-graph-session-settlement-post-sw3-success/.

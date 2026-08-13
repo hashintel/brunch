@@ -1,0 +1,78 @@
+{
+  "database": "/tmp/brunch-fe1348-post-sw3-final.wb4C0B/.brunch/brunch-v1.db",
+  "openOptions": {
+    "readonly": true,
+    "fileMustExist": true
+  },
+  "hostStopped": true,
+  "specId": 1,
+  "graphClock": {
+    "specId": 1,
+    "lsn": 2
+  },
+  "changeLog": [
+    {
+      "specId": 1,
+      "lsn": 1,
+      "operation": "create_spec",
+      "payload": {
+        "specId": 1,
+        "name": "FE-1348 settlement final witness",
+        "slug": "fe-1348-settlement-final-witness",
+        "kind": "product",
+        "origin": null,
+        "relatesToSpecId": null
+      },
+      "createdAt": "2026-08-13 08:20:48"
+    },
+    {
+      "specId": 1,
+      "lsn": 2,
+      "operation": "accept_review_set",
+      "payload": {
+        "specId": 1,
+        "createBasis": "explicit",
+        "createdNodes": {
+          "r1": 1
+        },
+        "createdEdges": [],
+        "updatedNodes": [],
+        "updatedEdges": [],
+        "deletedNodes": [],
+        "deletedEdges": []
+      },
+      "createdAt": "2026-08-13 08:32:34"
+    }
+  ],
+  "nodes": [
+    {
+      "id": 1,
+      "specId": 1,
+      "plane": "intent",
+      "kind": "requirement",
+      "kindOrdinal": 1,
+      "title": "Local command saves one plain-text note while offline",
+      "body": "A locally invoked command must save exactly one plain-text note successfully while the environment is offline (no network connectivity required or used).",
+      "basis": "explicit",
+      "settlement": "settled",
+      "detail": {
+        "form": "plain"
+      },
+      "createdAtLsn": 2,
+      "updatedAtLsn": 2
+    }
+  ],
+  "edges": [],
+  "operationCounts": [
+    {
+      "operation": "accept_review_set",
+      "count": 1
+    },
+    {
+      "operation": "create_spec",
+      "count": 1
+    }
+  ],
+  "acceptanceCount": 1,
+  "mutationCount": 0
+}

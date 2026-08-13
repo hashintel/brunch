@@ -1,0 +1,10 @@
+{
+  "specId": 1,
+  "sessionId": "019ffa35-a778-7ddc-bd73-c0acb6ba72d3",
+  "url": "http://127.0.0.1:55244/session/1/019ffa35-a778-7ddc-bd73-c0acb6ba72d3",
+  "canonicalJsonlSource": "/tmp/brunch-fe1348-post-sw3-final.wb4C0B/.brunch/sessions/2026-08-13T08-20-48-120Z_019ffa35-a778-7ddc-bd73-c0acb6ba72d3.jsonl",
+  "sqliteSource": "/tmp/brunch-fe1348-post-sw3-final.wb4C0B/.brunch/brunch-v1.db",
+  "retainedJsonl": "session.jsonl",
+  "graphBaselineLsn": 1,
+  "settledLsn": 2
+}

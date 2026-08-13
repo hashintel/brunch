@@ -1,0 +1,38 @@
+{
+  "instructionSubmissions": 1,
+  "reviewDecisions": ["approve"],
+  "approveActivations": 1,
+  "requestChangesActivations": 0,
+  "rejectActivations": 0,
+  "reloads": 1,
+  "inputAfterApproval": 0,
+  "inputAfterReload": 0,
+  "retries": 0,
+  "relaunches": 0,
+  "preApproval": {
+    "settledRequirementProposals": 1,
+    "nodes": 1,
+    "edges": 0,
+    "approveControls": 1,
+    "requestChangesControls": 1,
+    "rejectControls": 1,
+    "genericReviewAnswerControls": 0,
+    "duplicateProposalOrNarration": false
+  },
+  "settled": {
+    "decision": "approve",
+    "receiptLsn": 2,
+    "createdNodeCodes": ["REQ1"],
+    "edges": 0,
+    "remainingReviewControls": 0
+  },
+  "instructionByteDivergence": {
+    "outcome": "met-with-divergence",
+    "observed": "Do  │ not",
+    "intended": "Do not",
+    "cause": "The coordinator presented the fixed instruction as a blockquote, and the user's TUI copy included the quote gutter.",
+    "classification": "witness-harness contamination",
+    "productFinding": false,
+    "semanticEffect": "none; the constrained one-item, zero-edge conduct remained exact"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "date": "2026-08-13",
+  "sourceCommit": "cad69d602542fb774416a33ae2d48b4460e69039",
+  "repairAncestors": ["c180eb55e", "69d6fd7b"],
+  "branch": "ln/fe-1348-audit-all-usage-and-testing-paths",
+  "node": "v24.19.0",
+  "npm": "12.0.2",
+  "workspace": "/tmp/brunch-fe1348-post-sw3-final.wb4C0B",
+  "host": {
+    "url": "http://127.0.0.1:55244/session/1/019ffa35-a778-7ddc-bd73-c0acb6ba72d3",
+    "port": 55244,
+    "stoppedBeforeAudit": true,
+    "listenerAbsentBeforeCleanup": true
+  },
+  "writerOwnerAbsentBeforeCleanup": true
+}
