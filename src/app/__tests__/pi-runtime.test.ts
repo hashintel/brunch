@@ -178,7 +178,8 @@ describe('Brunch Pi runtime', () => {
       body: 'execute.verify: npm test',
       basis: 'explicit',
     });
-    if (requirement.status !== 'success' || criterion.status !== 'success') throw new Error('graph seed failed');
+    if (requirement.status !== 'success' || criterion.status !== 'success')
+      throw new Error('graph seed failed');
     const mutation = graph.commandExecutor.mutateGraph({
       specId: workspace.spec.id,
       ops: [
@@ -192,9 +193,7 @@ describe('Brunch Pi runtime', () => {
       ],
     });
     expect(mutation.status).toBe('success');
-    const graphBefore = graph
-      .forSpec(workspace.spec.id)
-      .queryGraph(undefined, { visibility: 'active' });
+    const graphBefore = graph.forSpec(workspace.spec.id).queryGraph(undefined, { visibility: 'active' });
     const projection = projectExecuteGraph({
       specId: workspace.spec.id,
       graphLsn: graphBefore.lsn,
@@ -247,9 +246,11 @@ describe('Brunch Pi runtime', () => {
         },
       });
 
-      const rendered = (customFactories[0]!(undefined, createTestLabTheme(), undefined, () => {}) as {
-        render(width: number): string[];
-      })
+      const rendered = (
+        customFactories[0]!(undefined, createTestLabTheme(), undefined, () => {}) as {
+          render(width: number): string[];
+        }
+      )
         .render(80)
         .join('\n');
       expect(rendered).toContain('Compile a plan');

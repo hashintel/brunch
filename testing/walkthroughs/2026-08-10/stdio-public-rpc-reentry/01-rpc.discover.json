@@ -9,9 +9,7 @@
       },
       "resultSchema": {
         "type": "object",
-        "required": [
-          "methods"
-        ],
+        "required": ["methods"],
         "properties": {
           "methods": {
             "type": "array",
@@ -41,12 +39,7 @@
       },
       "resultSchema": {
         "type": "object",
-        "required": [
-          "status",
-          "cwd",
-          "spec",
-          "chrome"
-        ],
+        "required": ["status", "cwd", "spec", "chrome"],
         "properties": {
           "status": {
             "type": "string"
@@ -103,12 +96,7 @@
       },
       "resultSchema": {
         "type": "object",
-        "required": [
-          "status",
-          "requiresSelection",
-          "specs",
-          "sessions"
-        ],
+        "required": ["status", "requiresSelection", "specs", "sessions"],
         "properties": {
           "status": {
             "type": "string"
@@ -148,19 +136,13 @@
       "description": "Apply an explicit workspace→spec→session activation decision such as continuing, opening a session, creating a session, creating a spec, or cancelling.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "decision"
-        ],
+        "required": ["decision"],
         "properties": {
           "decision": {
             "anyOf": [
               {
                 "type": "object",
-                "required": [
-                  "action",
-                  "specId",
-                  "sessionFile"
-                ],
+                "required": ["action", "specId", "sessionFile"],
                 "properties": {
                   "action": {
                     "type": "string",
@@ -180,11 +162,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "action",
-                  "specId",
-                  "sessionFile"
-                ],
+                "required": ["action", "specId", "sessionFile"],
                 "properties": {
                   "action": {
                     "type": "string",
@@ -204,10 +182,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "action",
-                  "specId"
-                ],
+                "required": ["action", "specId"],
                 "properties": {
                   "action": {
                     "type": "string",
@@ -222,10 +197,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "action",
-                  "title"
-                ],
+                "required": ["action", "title"],
                 "properties": {
                   "action": {
                     "type": "string",
@@ -241,9 +213,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "action"
-                ],
+                "required": ["action"],
                 "properties": {
                   "action": {
                     "type": "string",
@@ -261,12 +231,7 @@
         "anyOf": [
           {
             "type": "object",
-            "required": [
-              "status",
-              "spec",
-              "session",
-              "chrome"
-            ],
+            "required": ["status", "spec", "session", "chrome"],
             "properties": {
               "status": {
                 "type": "string",
@@ -292,10 +257,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "status",
-              "chrome"
-            ],
+            "required": ["status", "chrome"],
             "properties": {
               "status": {
                 "type": "string",
@@ -342,9 +304,7 @@
       "description": "Return the canonical selected-spec graph slice with nodes, edges, and current graph LSN.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "specId"
-        ],
+        "required": ["specId"],
         "properties": {
           "specId": {
             "type": "integer",
@@ -355,11 +315,7 @@
       },
       "resultSchema": {
         "type": "object",
-        "required": [
-          "nodes",
-          "edges",
-          "lsn"
-        ],
+        "required": ["nodes", "edges", "lsn"],
         "properties": {
           "nodes": {
             "type": "array",
@@ -400,10 +356,7 @@
       "description": "Return a focused same-spec graph neighborhood around one node, or not_found when the node is absent from that spec.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "specId",
-          "nodeId"
-        ],
+        "required": ["specId", "nodeId"],
         "properties": {
           "specId": {
             "type": "integer",
@@ -424,13 +377,7 @@
         "anyOf": [
           {
             "type": "object",
-            "required": [
-              "selector",
-              "status",
-              "node",
-              "related",
-              "edges"
-            ],
+            "required": ["selector", "status", "node", "related", "edges"],
             "properties": {
               "selector": {
                 "type": "object",
@@ -467,12 +414,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "selector",
-              "status",
-              "related",
-              "edges"
-            ],
+            "required": ["selector", "status", "related", "edges"],
             "properties": {
               "selector": {
                 "type": "object",
@@ -522,9 +464,7 @@
       "description": "Project session exchanges from the selected or explicitly named linear Brunch session transcript.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "sessionId"
-        ],
+        "required": ["sessionId"],
         "properties": {
           "sessionId": {
             "type": "string",
@@ -540,10 +480,7 @@
       },
       "resultSchema": {
         "type": "object",
-        "required": [
-          "status",
-          "exchanges"
-        ],
+        "required": ["status", "exchanges"],
         "properties": {
           "status": {
             "type": "string"
@@ -576,10 +513,7 @@
       "description": "Return flattened transcript-backed runtime posture, mention, world-watermark, and lifecycle state for an explicit Brunch session.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "sessionId",
-          "specId"
-        ],
+        "required": ["sessionId", "specId"],
         "properties": {
           "sessionId": {
             "type": "string",
@@ -595,15 +529,7 @@
       },
       "resultSchema": {
         "type": "object",
-        "required": [
-          "status",
-          "specId",
-          "sessionId",
-          "agent",
-          "mentions",
-          "world",
-          "lifecycle"
-        ],
+        "required": ["status", "specId", "sessionId", "agent", "mentions", "world", "lifecycle"],
         "properties": {
           "status": {
             "type": "string",
@@ -620,10 +546,7 @@
           },
           "agent": {
             "type": "object",
-            "required": [
-              "operationalMode",
-              "role"
-            ],
+            "required": ["operationalMode", "role"],
             "properties": {
               "operationalMode": {
                 "type": "string",
@@ -638,18 +561,13 @@
           },
           "mentions": {
             "type": "object",
-            "required": [
-              "graphNodes",
-              "files"
-            ],
+            "required": ["graphNodes", "files"],
             "properties": {
               "graphNodes": {
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": [
-                    "id"
-                  ],
+                  "required": ["id"],
                   "properties": {
                     "id": {
                       "type": "string",
@@ -678,9 +596,7 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": [
-                    "path"
-                  ],
+                  "required": ["path"],
                   "properties": {
                     "path": {
                       "type": "string",
@@ -701,16 +617,11 @@
           },
           "world": {
             "type": "object",
-            "required": [
-              "graph",
-              "git"
-            ],
+            "required": ["graph", "git"],
             "properties": {
               "graph": {
                 "type": "object",
-                "required": [
-                  "latestLsn"
-                ],
+                "required": ["latestLsn"],
                 "properties": {
                   "latestLsn": {
                     "anyOf": [
@@ -728,9 +639,7 @@
               },
               "git": {
                 "type": "object",
-                "required": [
-                  "head"
-                ],
+                "required": ["head"],
                 "properties": {
                   "head": {
                     "anyOf": [
@@ -850,10 +759,7 @@
         "anyOf": [
           {
             "type": "object",
-            "required": [
-              "status",
-              "exchange"
-            ],
+            "required": ["status", "exchange"],
             "properties": {
               "status": {
                 "type": "string",
@@ -873,12 +779,7 @@
                   },
                   "mode": {
                     "type": "string",
-                    "enum": [
-                      "text",
-                      "single-select",
-                      "multi-select",
-                      "review"
-                    ]
+                    "enum": ["text", "single-select", "multi-select", "review"]
                   },
                   "prompt": {
                     "type": "string",
@@ -910,11 +811,7 @@
                           "minLength": 1
                         }
                       },
-                      "required": [
-                        "id",
-                        "label",
-                        "content"
-                      ],
+                      "required": ["id", "label", "content"],
                       "additionalProperties": false
                     }
                   },
@@ -925,9 +822,7 @@
                         "type": "boolean"
                       }
                     },
-                    "required": [
-                      "allowed"
-                    ],
+                    "required": ["allowed"],
                     "additionalProperties": false
                   },
                   "reviewSet": {
@@ -943,21 +838,10 @@
                   },
                   "respondsToPresentTool": {
                     "type": "string",
-                    "enum": [
-                      "present_candidates",
-                      "present_review_set",
-                      "present_digest"
-                    ]
+                    "enum": ["present_candidates", "present_review_set", "present_digest"]
                   }
                 },
-                "required": [
-                  "exchangeId",
-                  "lens",
-                  "mode",
-                  "prompt",
-                  "options",
-                  "note"
-                ],
+                "required": ["exchangeId", "lens", "mode", "prompt", "options", "note"],
                 "additionalProperties": false
               }
             },
@@ -965,10 +849,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "status",
-              "exchange"
-            ],
+            "required": ["status", "exchange"],
             "properties": {
               "status": {
                 "type": "string",
@@ -995,9 +876,7 @@
       "description": "Read the current transcript-backed pending structured exchange from the selected or explicitly named linear Brunch session.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "sessionId"
-        ],
+        "required": ["sessionId"],
         "properties": {
           "sessionId": {
             "type": "string",
@@ -1015,10 +894,7 @@
         "anyOf": [
           {
             "type": "object",
-            "required": [
-              "status",
-              "exchange"
-            ],
+            "required": ["status", "exchange"],
             "properties": {
               "status": {
                 "type": "string",
@@ -1038,12 +914,7 @@
                   },
                   "mode": {
                     "type": "string",
-                    "enum": [
-                      "text",
-                      "single-select",
-                      "multi-select",
-                      "review"
-                    ]
+                    "enum": ["text", "single-select", "multi-select", "review"]
                   },
                   "prompt": {
                     "type": "string",
@@ -1075,11 +946,7 @@
                           "minLength": 1
                         }
                       },
-                      "required": [
-                        "id",
-                        "label",
-                        "content"
-                      ],
+                      "required": ["id", "label", "content"],
                       "additionalProperties": false
                     }
                   },
@@ -1090,9 +957,7 @@
                         "type": "boolean"
                       }
                     },
-                    "required": [
-                      "allowed"
-                    ],
+                    "required": ["allowed"],
                     "additionalProperties": false
                   },
                   "reviewSet": {
@@ -1108,21 +973,10 @@
                   },
                   "respondsToPresentTool": {
                     "type": "string",
-                    "enum": [
-                      "present_candidates",
-                      "present_review_set",
-                      "present_digest"
-                    ]
+                    "enum": ["present_candidates", "present_review_set", "present_digest"]
                   }
                 },
-                "required": [
-                  "exchangeId",
-                  "lens",
-                  "mode",
-                  "prompt",
-                  "options",
-                  "note"
-                ],
+                "required": ["exchangeId", "lens", "mode", "prompt", "options", "note"],
                 "additionalProperties": false
               }
             },
@@ -1130,10 +984,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "status",
-              "exchange"
-            ],
+            "required": ["status", "exchange"],
             "properties": {
               "status": {
                 "type": "string",
@@ -1169,10 +1020,7 @@
       "description": "Submit a text, single-choice, or multi-choice answer for the selected session's current deterministic tuple-shaped pending structured exchange.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "exchangeId",
-          "answer"
-        ],
+        "required": ["exchangeId", "answer"],
         "properties": {
           "exchangeId": {
             "type": "string",
@@ -1183,9 +1031,7 @@
             "anyOf": [
               {
                 "type": "object",
-                "required": [
-                  "text"
-                ],
+                "required": ["text"],
                 "properties": {
                   "text": {
                     "type": "string",
@@ -1197,9 +1043,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "optionId"
-                ],
+                "required": ["optionId"],
                 "properties": {
                   "optionId": {
                     "type": "string",
@@ -1211,9 +1055,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "optionIds"
-                ],
+                "required": ["optionIds"],
                 "properties": {
                   "optionIds": {
                     "type": "array",
@@ -1229,15 +1071,11 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "review"
-                ],
+                "required": ["review"],
                 "properties": {
                   "review": {
                     "type": "object",
-                    "required": [
-                      "decision"
-                    ],
+                    "required": ["decision"],
                     "properties": {
                       "decision": {
                         "anyOf": [
@@ -1274,11 +1112,7 @@
       },
       "resultSchema": {
         "type": "object",
-        "required": [
-          "status",
-          "exchangeId",
-          "answer"
-        ],
+        "required": ["status", "exchangeId", "answer"],
         "properties": {
           "status": {
             "type": "string",
@@ -1298,11 +1132,7 @@
             "anyOf": [
               {
                 "type": "object",
-                "required": [
-                  "status",
-                  "lsn",
-                  "createdNodes"
-                ],
+                "required": ["status", "lsn", "createdNodes"],
                 "properties": {
                   "status": {
                     "type": "string",
@@ -1322,9 +1152,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "status"
-                ],
+                "required": ["status"],
                 "properties": {
                   "status": {
                     "anyOf": [
@@ -1343,10 +1171,7 @@
               },
               {
                 "type": "object",
-                "required": [
-                  "status",
-                  "diagnostics"
-                ],
+                "required": ["status", "diagnostics"],
                 "properties": {
                   "status": {
                     "type": "string",
@@ -1391,9 +1216,7 @@
       "description": "Append an ordinary user message to the selected session, or record an explicit interruption while a structured exchange is pending.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "text"
-        ],
+        "required": ["text"],
         "properties": {
           "text": {
             "type": "string",
@@ -1408,12 +1231,7 @@
       },
       "resultSchema": {
         "type": "object",
-        "required": [
-          "status",
-          "messageId",
-          "text",
-          "interruption"
-        ],
+        "required": ["status", "messageId", "text", "interruption"],
         "properties": {
           "status": {
             "type": "string",
@@ -1455,9 +1273,7 @@
       },
       "resultSchema": {
         "type": "object",
-        "required": [
-          "runs"
-        ],
+        "required": ["runs"],
         "properties": {
           "runs": {
             "type": "array",
@@ -1465,12 +1281,7 @@
               "anyOf": [
                 {
                   "type": "object",
-                  "required": [
-                    "runId",
-                    "specId",
-                    "status",
-                    "presence"
-                  ],
+                  "required": ["runId", "specId", "status", "presence"],
                   "properties": {
                     "runId": {
                       "type": "string"
@@ -1527,12 +1338,7 @@
                     },
                     "presence": {
                       "type": "object",
-                      "required": [
-                        "worktree",
-                        "reports",
-                        "petri",
-                        "promotion"
-                      ],
+                      "required": ["worktree", "reports", "petri", "promotion"],
                       "properties": {
                         "worktree": {
                           "type": "boolean"
@@ -1554,10 +1360,7 @@
                 },
                 {
                   "type": "object",
-                  "required": [
-                    "runId",
-                    "unreadable"
-                  ],
+                  "required": ["runId", "unreadable"],
                   "properties": {
                     "runId": {
                       "type": "string"
@@ -1588,9 +1391,7 @@
       "description": "Return one executor run projection: recorded run.json snapshot, artifact-presence flags, reports.jsonl and Petri runtime-event tails, plus optional derived Petri projection and raw net artifacts (events lead the metadata snapshot by design).",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "runId"
-        ],
+        "required": ["runId"],
         "properties": {
           "runId": {
             "type": "string",
@@ -1678,12 +1479,7 @@
               },
               "presence": {
                 "type": "object",
-                "required": [
-                  "worktree",
-                  "reports",
-                  "petri",
-                  "promotion"
-                ],
+                "required": ["worktree", "reports", "petri", "promotion"],
                 "properties": {
                   "worktree": {
                     "type": "boolean"
@@ -1707,9 +1503,7 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": [
-                    "event"
-                  ],
+                  "required": ["event"],
                   "properties": {
                     "event": {
                       "type": "string"
@@ -1726,9 +1520,7 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": [
-                    "kind"
-                  ],
+                  "required": ["kind"],
                   "properties": {
                     "kind": {
                       "type": "string"
@@ -1747,9 +1539,7 @@
                   "anyOf": [
                     {
                       "type": "object",
-                      "required": [
-                        "kind"
-                      ],
+                      "required": ["kind"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -1760,9 +1550,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind"
-                      ],
+                      "required": ["kind"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -1773,9 +1561,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind"
-                      ],
+                      "required": ["kind"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -1786,9 +1572,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind"
-                      ],
+                      "required": ["kind"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -1799,9 +1583,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind"
-                      ],
+                      "required": ["kind"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -1812,10 +1594,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind",
-                        "sliceId"
-                      ],
+                      "required": ["kind", "sliceId"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -1838,10 +1617,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind",
-                        "sliceId"
-                      ],
+                      "required": ["kind", "sliceId"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -1864,10 +1640,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind",
-                        "sliceId"
-                      ],
+                      "required": ["kind", "sliceId"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -1890,10 +1663,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind",
-                        "sliceId"
-                      ],
+                      "required": ["kind", "sliceId"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -1916,10 +1686,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind",
-                        "sliceId"
-                      ],
+                      "required": ["kind", "sliceId"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -1942,10 +1709,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind",
-                        "sliceId"
-                      ],
+                      "required": ["kind", "sliceId"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -1968,9 +1732,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind"
-                      ],
+                      "required": ["kind"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -1981,9 +1743,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind"
-                      ],
+                      "required": ["kind"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -1994,9 +1754,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind"
-                      ],
+                      "required": ["kind"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -2007,10 +1765,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind",
-                        "epicId"
-                      ],
+                      "required": ["kind", "epicId"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -2024,10 +1779,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind",
-                        "epicId"
-                      ],
+                      "required": ["kind", "epicId"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -2041,10 +1793,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind",
-                        "epicId"
-                      ],
+                      "required": ["kind", "epicId"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -2065,11 +1814,7 @@
                   "anyOf": [
                     {
                       "type": "object",
-                      "required": [
-                        "kind",
-                        "sliceId",
-                        "blockers"
-                      ],
+                      "required": ["kind", "sliceId", "blockers"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -2093,10 +1838,7 @@
                             "anyOf": [
                               {
                                 "type": "object",
-                                "required": [
-                                  "kind",
-                                  "sliceId"
-                                ],
+                                "required": ["kind", "sliceId"],
                                 "properties": {
                                   "kind": {
                                     "anyOf": [
@@ -2118,10 +1860,7 @@
                               },
                               {
                                 "type": "object",
-                                "required": [
-                                  "kind",
-                                  "epicId"
-                                ],
+                                "required": ["kind", "epicId"],
                                 "properties": {
                                   "kind": {
                                     "type": "string",
@@ -2135,10 +1874,7 @@
                               },
                               {
                                 "type": "object",
-                                "required": [
-                                  "kind",
-                                  "state"
-                                ],
+                                "required": ["kind", "state"],
                                 "properties": {
                                   "kind": {
                                     "type": "string",
@@ -2173,10 +1909,7 @@
                               },
                               {
                                 "type": "object",
-                                "required": [
-                                  "kind",
-                                  "phase"
-                                ],
+                                "required": ["kind", "phase"],
                                 "properties": {
                                   "kind": {
                                     "type": "string",
@@ -2199,9 +1932,7 @@
                               },
                               {
                                 "type": "object",
-                                "required": [
-                                  "kind"
-                                ],
+                                "required": ["kind"],
                                 "properties": {
                                   "kind": {
                                     "type": "string",
@@ -2218,11 +1949,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind",
-                        "epicId",
-                        "blockers"
-                      ],
+                      "required": ["kind", "epicId", "blockers"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -2237,10 +1964,7 @@
                             "anyOf": [
                               {
                                 "type": "object",
-                                "required": [
-                                  "kind",
-                                  "sliceId"
-                                ],
+                                "required": ["kind", "sliceId"],
                                 "properties": {
                                   "kind": {
                                     "anyOf": [
@@ -2262,10 +1986,7 @@
                               },
                               {
                                 "type": "object",
-                                "required": [
-                                  "kind",
-                                  "epicId"
-                                ],
+                                "required": ["kind", "epicId"],
                                 "properties": {
                                   "kind": {
                                     "type": "string",
@@ -2279,10 +2000,7 @@
                               },
                               {
                                 "type": "object",
-                                "required": [
-                                  "kind",
-                                  "state"
-                                ],
+                                "required": ["kind", "state"],
                                 "properties": {
                                   "kind": {
                                     "type": "string",
@@ -2317,10 +2035,7 @@
                               },
                               {
                                 "type": "object",
-                                "required": [
-                                  "kind",
-                                  "phase"
-                                ],
+                                "required": ["kind", "phase"],
                                 "properties": {
                                   "kind": {
                                     "type": "string",
@@ -2343,9 +2058,7 @@
                               },
                               {
                                 "type": "object",
-                                "required": [
-                                  "kind"
-                                ],
+                                "required": ["kind"],
                                 "properties": {
                                   "kind": {
                                     "type": "string",
@@ -2362,10 +2075,7 @@
                     },
                     {
                       "type": "object",
-                      "required": [
-                        "kind",
-                        "blockers"
-                      ],
+                      "required": ["kind", "blockers"],
                       "properties": {
                         "kind": {
                           "type": "string",
@@ -2377,10 +2087,7 @@
                             "anyOf": [
                               {
                                 "type": "object",
-                                "required": [
-                                  "kind",
-                                  "sliceId"
-                                ],
+                                "required": ["kind", "sliceId"],
                                 "properties": {
                                   "kind": {
                                     "anyOf": [
@@ -2402,10 +2109,7 @@
                               },
                               {
                                 "type": "object",
-                                "required": [
-                                  "kind",
-                                  "epicId"
-                                ],
+                                "required": ["kind", "epicId"],
                                 "properties": {
                                   "kind": {
                                     "type": "string",
@@ -2419,10 +2123,7 @@
                               },
                               {
                                 "type": "object",
-                                "required": [
-                                  "kind",
-                                  "state"
-                                ],
+                                "required": ["kind", "state"],
                                 "properties": {
                                   "kind": {
                                     "type": "string",
@@ -2457,10 +2158,7 @@
                               },
                               {
                                 "type": "object",
-                                "required": [
-                                  "kind",
-                                  "phase"
-                                ],
+                                "required": ["kind", "phase"],
                                 "properties": {
                                   "kind": {
                                     "type": "string",
@@ -2483,9 +2181,7 @@
                               },
                               {
                                 "type": "object",
-                                "required": [
-                                  "kind"
-                                ],
+                                "required": ["kind"],
                                 "properties": {
                                   "kind": {
                                     "type": "string",
@@ -2505,10 +2201,7 @@
               },
               "petriProjection": {
                 "type": "object",
-                "required": [
-                  "currentMarking",
-                  "firedTransitionCount"
-                ],
+                "required": ["currentMarking", "firedTransitionCount"],
                 "properties": {
                   "claimedTransitionIds": {
                     "type": "array",
@@ -2586,10 +2279,7 @@
               },
               "petriParallelSliceBatch": {
                 "type": "object",
-                "required": [
-                  "claimedSliceIds",
-                  "settlements"
-                ],
+                "required": ["claimedSliceIds", "settlements"],
                 "properties": {
                   "claimedSliceIds": {
                     "type": "array",
@@ -2603,10 +2293,7 @@
                       "anyOf": [
                         {
                           "type": "object",
-                          "required": [
-                            "sliceId",
-                            "status"
-                          ],
+                          "required": ["sliceId", "status"],
                           "properties": {
                             "sliceId": {
                               "type": "string"
@@ -2620,12 +2307,7 @@
                         },
                         {
                           "type": "object",
-                          "required": [
-                            "sliceId",
-                            "status",
-                            "step",
-                            "reason"
-                          ],
+                          "required": ["sliceId", "status", "step", "reason"],
                           "properties": {
                             "sliceId": {
                               "type": "string"
@@ -2653,14 +2335,7 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": [
-                    "event",
-                    "runId",
-                    "sliceId",
-                    "sequence",
-                    "kind",
-                    "message"
-                  ],
+                  "required": ["event", "runId", "sliceId", "sequence", "kind", "message"],
                   "properties": {
                     "event": {
                       "type": "string",
@@ -2714,14 +2389,7 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": [
-                    "event",
-                    "runId",
-                    "sliceId",
-                    "sequence",
-                    "kind",
-                    "message"
-                  ],
+                  "required": ["event", "runId", "sliceId", "sequence", "kind", "message"],
                   "properties": {
                     "event": {
                       "type": "string",
@@ -2775,12 +2443,7 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": [
-                    "sliceId",
-                    "state",
-                    "agentAttempts",
-                    "verifyAttempts"
-                  ],
+                  "required": ["sliceId", "state", "agentAttempts", "verifyAttempts"],
                   "properties": {
                     "sliceId": {
                       "type": "string"
@@ -2831,10 +2494,7 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": [
-                    "sliceId",
-                    "progress"
-                  ],
+                  "required": ["sliceId", "progress"],
                   "properties": {
                     "sliceId": {
                       "type": "string"
@@ -2938,30 +2598,18 @@
               },
               "petrinautReplayExport": {
                 "type": "object",
-                "required": [
-                  "definition",
-                  "initialState",
-                  "transitionFirings"
-                ],
+                "required": ["definition", "initialState", "transitionFirings"],
                 "properties": {
                   "definition": {
                     "type": "object",
-                    "required": [
-                      "version",
-                      "meta",
-                      "title",
-                      "places",
-                      "transitions"
-                    ],
+                    "required": ["version", "meta", "title", "places", "transitions"],
                     "properties": {
                       "version": {
                         "type": "number"
                       },
                       "meta": {
                         "type": "object",
-                        "required": [
-                          "generator"
-                        ],
+                        "required": ["generator"],
                         "properties": {
                           "generator": {
                             "type": "string"
@@ -2979,12 +2627,7 @@
                         "type": "array",
                         "items": {
                           "type": "object",
-                          "required": [
-                            "id",
-                            "name",
-                            "x",
-                            "y"
-                          ],
+                          "required": ["id", "name", "x", "y"],
                           "properties": {
                             "id": {
                               "type": "string"
@@ -3006,14 +2649,7 @@
                         "type": "array",
                         "items": {
                           "type": "object",
-                          "required": [
-                            "id",
-                            "name",
-                            "x",
-                            "y",
-                            "inputArcs",
-                            "outputArcs"
-                          ],
+                          "required": ["id", "name", "x", "y", "inputArcs", "outputArcs"],
                           "properties": {
                             "id": {
                               "type": "string"
@@ -3031,11 +2667,7 @@
                               "type": "array",
                               "items": {
                                 "type": "object",
-                                "required": [
-                                  "placeId",
-                                  "weight",
-                                  "type"
-                                ],
+                                "required": ["placeId", "weight", "type"],
                                 "properties": {
                                   "placeId": {
                                     "type": "string"
@@ -3064,10 +2696,7 @@
                               "type": "array",
                               "items": {
                                 "type": "object",
-                                "required": [
-                                  "placeId",
-                                  "weight"
-                                ],
+                                "required": ["placeId", "weight"],
                                 "properties": {
                                   "placeId": {
                                     "type": "string"
@@ -3100,12 +2729,7 @@
                     "type": "array",
                     "items": {
                       "type": "object",
-                      "required": [
-                        "transitionId",
-                        "input",
-                        "output",
-                        "ts"
-                      ],
+                      "required": ["transitionId", "input", "output", "ts"],
                       "properties": {
                         "transitionId": {
                           "type": "string"
@@ -3151,10 +2775,7 @@
           },
           {
             "type": "object",
-            "required": [
-              "runId",
-              "unreadable"
-            ],
+            "required": ["runId", "unreadable"],
             "properties": {
               "runId": {
                 "type": "string"
@@ -3184,9 +2805,7 @@
       "description": "Return graph-node-to-run traceability for one spec, derived from run plans and reports without exposing run artifact paths.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "specId"
-        ],
+        "required": ["specId"],
         "properties": {
           "specId": {
             "type": "integer",
@@ -3197,9 +2816,7 @@
       },
       "resultSchema": {
         "type": "object",
-        "required": [
-          "traces"
-        ],
+        "required": ["traces"],
         "properties": {
           "traces": {
             "type": "array",
@@ -3268,10 +2885,7 @@
       "description": "Return a human-readable retry/replan diagnosis and allowed action set for one executor run, without mutating run state.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "runId",
-          "specId"
-        ],
+        "required": ["runId", "specId"],
         "properties": {
           "runId": {
             "type": "string",
@@ -3319,10 +2933,7 @@
       "description": "Regenerate plan.json and provenance for a stale early executor run when current graph projection is plan-ready. Does not mutate run metadata.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "runId",
-          "specId"
-        ],
+        "required": ["runId", "specId"],
         "properties": {
           "runId": {
             "type": "string",
@@ -3370,10 +2981,7 @@
       "description": "Create a fresh executor run that supersedes a prior run when the current plan is launch-ready. Does not mutate the prior run or execute the new run.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "previousRunId",
-          "specId"
-        ],
+        "required": ["previousRunId", "specId"],
         "properties": {
           "previousRunId": {
             "type": "string",
@@ -3426,9 +3034,7 @@
       "description": "Mark a non-terminal executor run abandoned without deleting worktree, reports, Petri, promotion, or graph state.",
       "paramsSchema": {
         "type": "object",
-        "required": [
-          "runId"
-        ],
+        "required": ["runId"],
         "properties": {
           "runId": {
             "type": "string",
