@@ -3,6 +3,7 @@ import { Type, type Static } from 'typebox';
 
 import {
   assertExecuteProjectionPlanReady,
+  deterministicCompileAdmissionFindings,
   projectExecuteGraph,
 } from '../../../../executor/execute-projection.js';
 import type { PlannerPort } from '../../../../executor/execution-ports.js';
@@ -91,7 +92,7 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
       assertExecuteProjectionPlanReady(projection);
       const modelRegistry = (ctx as { modelRegistry?: unknown } | undefined)?.modelRegistry;
       if (!deps.planner || !modelRegistry) {
-        const findings = deterministicContractFindings(projection.executionContract);
+        const findings = deterministicCompileAdmissionFindings(projection);
         if (findings.length > 0) return blockedPlanResult(findings);
       }
       let preview = projection.planPreview;
@@ -210,35 +211,6 @@ export function createExecutePlanFileTool(deps: ExecutePlanFileDeps) {
       };
     },
   });
-}
-
-function deterministicContractFindings(
-  contract: ReturnType<typeof projectExecuteGraph>['executionContract'],
-): readonly PlanValidationFinding[] {
-  return [
-    ...contract.blocked.map((entry) => ({
-      code: 'capability_unsupported' as const,
-      severity: 'error' as const,
-      ...(entry.source.kind === 'elicited' ? { itemId: entry.source.itemId } : {}),
-      message: entry.message ?? `Capability ${entry.id} is blocked (${entry.reason}).`,
-    })),
-    ...contract.conflicts.map((conflict) => ({
-      code: 'capability_conflict' as const,
-      severity: 'error' as const,
-      itemId: conflict.requiredId,
-      message: conflict.message,
-    })),
-    ...(contract.resolvedActions.verify.length === 0
-      ? [
-          {
-            code: 'no_verification_capability' as const,
-            severity: 'error' as const,
-            message:
-              'No authored execute.verify recipe resolves a verification action; settle an oracle/vv_method named Project execution harness with one plain execute.verify command.',
-          },
-        ]
-      : []),
-  ];
 }
 
 function blockedPlanResult(findings: readonly PlanValidationFinding[]) {

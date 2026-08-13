@@ -543,7 +543,7 @@ active:
     classification: evidence-gated coverage frontier
     inventory: memory/cards/post-hardening-alpha-validation--usage-and-verification-sweep.md
     completed: A51-L colleague walkthrough -> shared-session-host-tracer ✓
-    open: execute interaction -> bounded deterministic production availability wiring -> final TUI witness
+    open: execute interaction -> deterministic production availability wiring built -> final TUI witness
     transferred_from_fe1187: production consumption of deterministic availability only; A48-L model preflight/campaign remains FE-1187
     built: cross-surface settlement (CS1 + SW2 + SW3 fixed and outer-witnessed through approval, receipt LSN 2, and one reload)
     includes: current alpha product entrances | current verification and installed-package paths

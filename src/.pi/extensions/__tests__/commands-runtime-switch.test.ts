@@ -87,6 +87,7 @@ function commandHarness(
     branch?: readonly EntryLike[];
     appendOrderRivals?: readonly EntryLike[];
     inputResult?: string;
+    processMoveAvailability?: unknown;
   } = {},
 ) {
   const entries: RuntimeEntry[] = [];
@@ -162,6 +163,7 @@ function commandHarness(
 
   const orientationDeps: BrunchSessionOrientationDeps | undefined = options.orientation
     ? {
+        resolveProcessMoveAvailability: () => options.processMoveAvailability,
         resolveKickContext: () => ({
           specId: 7,
           specName: 'Alpha',
@@ -363,6 +365,40 @@ describe('Brunch menu command', () => {
         data: { schemaVersion: 1, move: 'prepare_execution' },
       }),
     );
+  });
+
+  it('uses resolved Execute availability for consult and dismissal has no carrier or kick', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      customResult: undefined,
+      processMoveAvailability: { compile_plan: true, execute_plan: true },
+    });
+    harness.entries.push({
+      type: 'custom',
+      customType: BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+      data: {
+        schemaVersion: 1,
+        reason: 'switch',
+        source: 'user',
+        state: { schemaVersion: 1, operationalMode: 'execute' },
+      },
+    });
+
+    await harness.commands.get(BRUNCH_CONSULT_COMMAND)?.handler('', harness.ctx);
+
+    const rendered = (
+      harness.customCalls[0]!.factory(undefined, createTestLabTheme(), undefined, () => {}) as {
+        render(width: number): string[];
+      }
+    )
+      .render(80)
+      .join('\n');
+    expect(rendered).toContain('Compile a plan');
+    expect(rendered).toContain('Execute the plan');
+    expect(harness.entries.filter((entry) => entry.customType === BRUNCH_PROCESS_MOVE_CUSTOM_TYPE)).toEqual(
+      [],
+    );
+    expect(harness.sent).toEqual([]);
   });
 
   it('reports unavailable resume when no incomplete structured exchange exists and no kick seam is bound', async () => {

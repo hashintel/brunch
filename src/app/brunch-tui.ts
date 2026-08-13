@@ -24,6 +24,7 @@ import {
   appendOriginationRecordToDebugCache,
 } from '../.pi/extensions/dev-mode/index.js';
 import { isBrunchDevelopmentRuntime } from '../build-info.js';
+import { resolveDeterministicProcessMoveAvailability } from '../executor/process-move-availability.js';
 import {
   openWorkspaceGraphRuntime,
   type EdgeCategory,
@@ -656,6 +657,18 @@ export function createBrunchAgentSessionRuntimeFactory(
               };
             },
             sessionOrientation: {
+              resolveProcessMoveAvailability: () => {
+                const graphState = graph.forSpec(currentWorkspace.spec.id).queryGraph(undefined, {
+                  visibility: 'active',
+                });
+                return resolveDeterministicProcessMoveAvailability({
+                  cwd,
+                  specId: currentWorkspace.spec.id,
+                  graphLsn: graphState.lsn,
+                  nodes: graphState.nodes,
+                  edges: graphState.edges,
+                });
+              },
               // Option-2 J1: origination + kick now run inside the
               // `session_start` (reason `startup`) handler in the
               // session-orientation extension registrar, which fires from

@@ -36,7 +36,7 @@ import { latestElicitationStyle } from '../../../session/elicitation-style.js';
 import { BRUNCH_CONSULT_COMMAND } from '../commands/names.js';
 import type { SessionOrientationTrigger } from './index.js';
 import {
-  CODE_SESSION_ORIENTATION_MENU,
+  buildSessionOrientationMenu,
   SESSION_ORIENTATION_MENU,
   type SessionOrientationMenuDescriptor,
 } from './index.js';
@@ -57,6 +57,8 @@ export interface BrunchSessionOrientationDeps {
     | Promise<JunctureContextKick | undefined>
     | JunctureContextKick
     | undefined;
+  /** Read-only deterministic process-move availability; failures fail closed. */
+  readonly resolveProcessMoveAvailability?: () => unknown;
 }
 
 /**
@@ -138,9 +140,19 @@ interface JunctureInvocation {
   readonly mode: OrientationJunctureMode;
 }
 
-function menuForContext(ctx: ExtensionContext): SessionOrientationMenuDescriptor {
+async function menuForContext(
+  ctx: ExtensionContext,
+  deps: BrunchSessionOrientationDeps,
+): Promise<SessionOrientationMenuDescriptor> {
   const state = projectBrunchAgentState(ctx.sessionManager.getBranch());
-  return state.operationalMode === 'execute' ? CODE_SESSION_ORIENTATION_MENU : SESSION_ORIENTATION_MENU;
+  if (state.operationalMode !== 'execute') return SESSION_ORIENTATION_MENU;
+  let availability: unknown;
+  try {
+    availability = await deps.resolveProcessMoveAvailability?.();
+  } catch {
+    availability = undefined;
+  }
+  return buildSessionOrientationMenu({ mode: 'execute', availability });
 }
 
 async function runJuncture(
@@ -172,7 +184,7 @@ async function runJuncture(
       trigger: invocation.trigger,
       mode: invocation.mode,
       kick: kickContext,
-      menu: menuForContext(ctx),
+      menu: await menuForContext(ctx, deps),
       onAppendError: (error) => {
         ctx.ui.notify(
           `Session-orientation entry could not be recorded: ${formatErrorMessage(error)}`,
