@@ -3,7 +3,7 @@ import {
   deterministicCompileAdmissionFindings,
   type ProjectExecuteGraphInput,
 } from './execute-projection.js';
-import { prepareLaunch } from './launch.js';
+import { prepareLaunch, type LaunchCurrentProjection } from './launch.js';
 
 export interface DeterministicProcessMoveAvailability {
   readonly move_to_execution: false;
@@ -13,8 +13,16 @@ export interface DeterministicProcessMoveAvailability {
 }
 
 /** Read-only deterministic availability for the Execute orientation menu. */
+type AvailabilityInput =
+  | (ProjectExecuteGraphInput & { readonly cwd: string })
+  | {
+      readonly cwd: string;
+      readonly projection: ReturnType<typeof projectExecuteGraph>;
+      readonly current: LaunchCurrentProjection;
+    };
+
 export async function resolveDeterministicProcessMoveAvailability(
-  input: ProjectExecuteGraphInput & { readonly cwd: string },
+  input: AvailabilityInput,
 ): Promise<DeterministicProcessMoveAvailability> {
   const fallback: DeterministicProcessMoveAvailability = {
     move_to_execution: false,
@@ -23,19 +31,19 @@ export async function resolveDeterministicProcessMoveAvailability(
     execute_plan: false,
   };
   try {
-    const projection = projectExecuteGraph(input);
+    const projection = 'projection' in input ? input.projection : projectExecuteGraph(input);
     if (projection.check.status !== 'ok' || deterministicCompileAdmissionFindings(projection).length > 0)
       return fallback;
-    const launch = await prepareLaunch({
-      cwd: input.cwd,
-      specId: String(input.specId),
-      current: {
-        specId: String(input.specId),
-        mode: projection.snapshot.mode,
-        source: projection.source,
-        checkStatus: projection.check.status,
-      },
-    });
+    const current =
+      'current' in input
+        ? input.current
+        : {
+            specId: String(input.specId),
+            mode: projection.snapshot.mode,
+            source: projection.source,
+            checkStatus: projection.check.status,
+          };
+    const launch = await prepareLaunch({ cwd: input.cwd, specId: current.specId, current });
     return { ...fallback, compile_plan: true, execute_plan: launch.status === 'ready' };
   } catch {
     return fallback;

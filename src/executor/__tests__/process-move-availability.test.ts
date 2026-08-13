@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -87,17 +87,46 @@ describe('resolveDeterministicProcessMoveAvailability', () => {
     });
   });
 
-  it('offers Execute only for the current launch-ready plan', async () => {
+  it('offers Execute only for the current launch-ready plan, including brownfield provenance', async () => {
     const dir = await cwd();
-    const projection = projectExecuteGraph(input(dir));
+    const projection = projectExecuteGraph({ ...input(dir), mode: 'brownfield' });
     await writePlanFile({ cwd: dir, preview: projection.planPreview, source: projection.source });
-    expect(await resolveDeterministicProcessMoveAvailability(input(dir))).toMatchObject({
-      compile_plan: true,
-      execute_plan: true,
-    });
-    expect(await resolveDeterministicProcessMoveAvailability({ ...input(dir), graphLsn: 10 })).toMatchObject({
-      compile_plan: true,
-      execute_plan: false,
-    });
+    const current = {
+      specId: '7',
+      mode: 'brownfield' as const,
+      source: projection.source,
+      checkStatus: projection.check.status,
+    };
+    expect(
+      await resolveDeterministicProcessMoveAvailability({ cwd: dir, projection, current }),
+    ).toMatchObject({ compile_plan: true, execute_plan: true });
+    expect(
+      await resolveDeterministicProcessMoveAvailability({
+        cwd: dir,
+        projection,
+        current: { ...current, source: { ...current.source, graphLsn: 10 } },
+      }),
+    ).toMatchObject({ compile_plan: true, execute_plan: false });
+  });
+
+  it('does not mutate graph inputs or plan, provenance, and run inventory bytes', async () => {
+    const dir = await cwd();
+    const args = input(dir);
+    const projection = projectExecuteGraph(args);
+    await writePlanFile({ cwd: dir, preview: projection.planPreview, source: projection.source });
+    const graphBefore = JSON.stringify({ nodes: args.nodes, edges: args.edges, lsn: args.graphLsn });
+    const specsDir = join(dir, '.brunch', 'cook', 'specs', '7');
+    const files = await readdir(specsDir);
+    const bytesBefore = await Promise.all(files.map((file) => readFile(join(specsDir, file))));
+    const runsRoot = join(dir, '.brunch', 'cook', 'runs');
+    const runsBefore = await readdir(runsRoot).catch(() => [] as string[]);
+
+    await resolveDeterministicProcessMoveAvailability(args);
+
+    expect(JSON.stringify({ nodes: args.nodes, edges: args.edges, lsn: args.graphLsn })).toBe(graphBefore);
+    expect(await readdir(specsDir)).toEqual(files);
+    const bytesAfter = await Promise.all(files.map((file) => readFile(join(specsDir, file))));
+    expect(bytesAfter.map(String)).toEqual(bytesBefore.map(String));
+    expect(await readdir(runsRoot).catch(() => [] as string[])).toEqual(runsBefore);
   });
 });

@@ -838,16 +838,26 @@ describe('Brunch runtime switch commands', () => {
     expect(orientationJunctureGate(harness.orientationDeps!).suppressNextAbortJuncture).toBe(false);
   });
 
-  it('runs the CODE-side orientation menu and kicks on the selected choice after switching to Execute', async () => {
+  it('uses resolved Execute availability after a real mode switch and kicks on the selected choice', async () => {
     const harness = commandHarness({
       orientation: true,
       customResult: { id: 'prepare_execution' },
+      processMoveAvailability: { compile_plan: true, execute_plan: true },
     });
 
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
 
     expect(harness.customCalls).toHaveLength(1);
     expect(harness.selectCalls).toEqual([]);
+    const rendered = (
+      harness.customCalls[0]!.factory(undefined, createTestLabTheme(), undefined, () => {}) as {
+        render(width: number): string[];
+      }
+    )
+      .render(80)
+      .join('\n');
+    expect(rendered).toContain('Compile a plan');
+    expect(rendered).toContain('Execute the plan');
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
         type: 'custom',
