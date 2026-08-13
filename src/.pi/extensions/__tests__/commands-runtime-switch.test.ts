@@ -88,6 +88,7 @@ function commandHarness(
     appendOrderRivals?: readonly EntryLike[];
     inputResult?: string;
     processMoveAvailability?: unknown;
+    processMoveAvailabilityError?: Error;
   } = {},
 ) {
   const entries: RuntimeEntry[] = [];
@@ -163,7 +164,10 @@ function commandHarness(
 
   const orientationDeps: BrunchSessionOrientationDeps | undefined = options.orientation
     ? {
-        resolveProcessMoveAvailability: () => options.processMoveAvailability,
+        resolveProcessMoveAvailability: () => {
+          if (options.processMoveAvailabilityError) throw options.processMoveAvailabilityError;
+          return options.processMoveAvailability;
+        },
         resolveKickContext: () => ({
           specId: 7,
           specName: 'Alpha',
@@ -399,6 +403,37 @@ describe('Brunch menu command', () => {
       [],
     );
     expect(harness.sent).toEqual([]);
+  });
+
+  it('fails closed to Prepare-only when consult availability resolution throws', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      customResult: undefined,
+      processMoveAvailabilityError: new Error('unreadable'),
+    });
+    harness.entries.push({
+      type: 'custom',
+      customType: BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+      data: {
+        schemaVersion: 1,
+        reason: 'switch',
+        source: 'user',
+        state: { schemaVersion: 1, operationalMode: 'execute' },
+      },
+    });
+
+    await harness.commands.get(BRUNCH_CONSULT_COMMAND)?.handler('', harness.ctx);
+
+    const rendered = (
+      harness.customCalls[0]!.factory(undefined, createTestLabTheme(), undefined, () => {}) as {
+        render(width: number): string[];
+      }
+    )
+      .render(80)
+      .join('\n');
+    expect(rendered).toContain('Prepare execution');
+    expect(rendered).not.toContain('Compile a plan');
+    expect(rendered).not.toContain('Execute the plan');
   });
 
   it('reports unavailable resume when no incomplete structured exchange exists and no kick seam is bound', async () => {

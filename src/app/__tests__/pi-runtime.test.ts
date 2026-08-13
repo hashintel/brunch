@@ -1,9 +1,14 @@
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { createTestLabTheme } from '../../.pi/__tests__/support/tui-theme.js';
+import { buildCurrentProjectionForSpec } from '../../.pi/extensions/executor/current-projection.js';
+import { projectExecuteGraph } from '../../executor/execute-projection.js';
+import { writePlanFile } from '../../executor/plan-file.js';
+import { resolveDeterministicProcessMoveAvailability } from '../../executor/process-move-availability.js';
 import { openWorkspaceGraphRuntime } from '../../graph/index.js';
 import { createProductUpdatePublisher } from '../../rpc/product-updates.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
@@ -138,6 +143,124 @@ describe('Brunch Pi runtime', () => {
       ]);
     } finally {
       unsubscribe();
+      created.session.dispose();
+    }
+  });
+
+  it('composes brownfield Execute availability read-only from the current graph and plan', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-availability-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinator.createSetupSession({
+      specTitle: 'Availability runtime',
+      createNewSpec: true,
+    });
+    const graph = await openWorkspaceGraphRuntime(cwd);
+    const requirement = graph.commandExecutor.createNode({
+      specId: workspace.spec.id,
+      plane: 'intent',
+      kind: 'requirement',
+      title: 'Build it',
+      basis: 'explicit',
+    });
+    const criterion = graph.commandExecutor.createNode({
+      specId: workspace.spec.id,
+      plane: 'intent',
+      kind: 'criterion',
+      title: 'It works',
+      basis: 'explicit',
+    });
+    graph.commandExecutor.createNode({
+      specId: workspace.spec.id,
+      plane: 'oracle',
+      kind: 'vv_method',
+      title: 'Project execution harness',
+      body: 'execute.verify: npm test',
+      basis: 'explicit',
+    });
+    if (requirement.status !== 'success' || criterion.status !== 'success') throw new Error('graph seed failed');
+    const mutation = graph.commandExecutor.mutateGraph({
+      specId: workspace.spec.id,
+      ops: [
+        {
+          op: 'create_edge',
+          category: 'witness',
+          oracle: { existing: criterion.nodeId },
+          claim: { existing: requirement.nodeId },
+          stance: 'for',
+        },
+      ],
+    });
+    expect(mutation.status).toBe('success');
+    const graphBefore = graph
+      .forSpec(workspace.spec.id)
+      .queryGraph(undefined, { visibility: 'active' });
+    const projection = projectExecuteGraph({
+      specId: workspace.spec.id,
+      graphLsn: graphBefore.lsn,
+      nodes: graphBefore.nodes,
+      edges: graphBefore.edges,
+      mode: 'brownfield',
+    });
+    expect(projection.check).toMatchObject({ status: 'ok' });
+    await writePlanFile({ cwd, preview: projection.planPreview, source: projection.source });
+    const rebuilt = await buildCurrentProjectionForSpec({
+      cwd,
+      specId: workspace.spec.id,
+      reads: graph.forSpec(workspace.spec.id),
+    });
+    expect(rebuilt.current.mode).toBe('brownfield');
+    expect(await resolveDeterministicProcessMoveAvailability({ cwd, ...rebuilt })).toMatchObject({
+      compile_plan: true,
+      execute_plan: true,
+    });
+    appendBrunchAgentRuntimeSwitch(
+      workspace.session.manager,
+      { schemaVersion: 1, operationalMode: 'execute' },
+      'user',
+    );
+    const specsDir = join(cwd, '.brunch', 'cook', 'specs', String(workspace.spec.id));
+    const specFilesBefore = await readdir(specsDir);
+    const specBytesBefore = await Promise.all(specFilesBefore.map((file) => readFile(join(specsDir, file))));
+    const runsDir = join(cwd, '.brunch', 'cook', 'runs');
+    const runsBefore = await readdir(runsDir).catch(() => [] as string[]);
+    const createRuntime = createBrunchAgentSessionRuntimeFactory({ workspace, coordinator });
+    const created = await createRuntime({ cwd, agentDir, sessionManager: workspace.session.manager });
+    const branchBefore = JSON.stringify(workspace.session.manager.getBranch());
+    const customFactories: Array<(...args: unknown[]) => unknown> = [];
+
+    try {
+      const consult = created.session.extensionRunner.getCommand('brunch:consult') as
+        | { handler: (args: string, ctx: unknown) => Promise<void> }
+        | undefined;
+      expect(consult).toBeDefined();
+      const ctx = created.session.createReplacedSessionContext();
+      await consult!.handler('', {
+        ...ctx,
+        hasUI: true,
+        ui: {
+          ...ctx.ui,
+          custom: async (factory: (...args: unknown[]) => unknown) => {
+            customFactories.push(factory);
+            return undefined;
+          },
+        },
+      });
+
+      const rendered = (customFactories[0]!(undefined, createTestLabTheme(), undefined, () => {}) as {
+        render(width: number): string[];
+      })
+        .render(80)
+        .join('\n');
+      expect(rendered).toContain('Compile a plan');
+      expect(rendered).toContain('Execute the plan');
+      expect(JSON.stringify(workspace.session.manager.getBranch())).toBe(branchBefore);
+      expect(graph.forSpec(workspace.spec.id).queryGraph()).toEqual(graphBefore);
+      expect(await readdir(specsDir)).toEqual(specFilesBefore);
+      const specBytesAfter = await Promise.all(specFilesBefore.map((file) => readFile(join(specsDir, file))));
+      expect(specBytesAfter.map(String)).toEqual(specBytesBefore.map(String));
+      expect(await readdir(runsDir).catch(() => [] as string[])).toEqual(runsBefore);
+    } finally {
       created.session.dispose();
     }
   });
