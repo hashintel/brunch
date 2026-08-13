@@ -2,9 +2,9 @@
 
 ## Current status — FE-1348 alpha usage and verification sweep
 
-Current row status, owners, evidence gates, and execution order live in the [FE-1348 sweep ledger](memory/cards/post-hardening-alpha-validation--usage-and-verification-sweep.md). This file records only walkthrough observations that need a durable fixed, promoted, or retired disposition. The older entries below remain provenance, not an active checklist.
+Current row status, owners, evidence gates, and execution order live in the [FE-1348 sweep ledger](memory/cards/post-hardening-alpha-validation--usage-and-verification-sweep.md). This file records walkthrough observations with durable fixed, promoted, or retired dispositions; older entries remain provenance, not an active checklist.
 
-The A51-L colleague walkthrough completed on 2026-08-11. It retired SA1/SA2 without implementation and closed the `TUI-companion semantic usefulness` row. The successful standalone-web and public-stdio witnesses fixed their owned defects and closed those rows. `Cross-surface graph/session settlement` is now built: the successful post-SW3 journey carried exactly one approval through receipt LSN 2 and exactly one reload, with React, canonical JSONL, byte-equal public presentation/graph A/B reads, and stopped-host SQLite converging on one settled requirement and zero edges. CS1/SW2/SW3 are fixed and outer-witnessed. `Execute mode interaction` is the sole open required product row, so FE-1348 remains active.
+A51-L retired SA1/SA2 without implementation. The successful standalone-web, public-stdio, and cross-surface witnesses fixed their owned defects; the final settlement journey carried exactly one approval through receipt LSN 2 and one reload, with React, canonical JSONL, byte-equal public presentation/graph reads, and stopped-host SQLite converging on one settled requirement and zero edges. `Execute mode interaction` remains the sole open required product row: the retained E1 journey honestly exposed Prepare on a thin Execute seed and agreed with public runtime/run reads, but its frozen oracle requires a suitable readable plan/run before Compile/Execute promises can be compared. Richer FE-1187 A48-L work does not substitute for this FE-1348 re-entry witness.
 
 ### 2026-08-10 retained-corpus reconciliation
 
@@ -13,11 +13,11 @@ The A51-L colleague walkthrough completed on 2026-08-11. It retired SA1/SA2 with
 | [Authless bare-workspace entry](testing/walkthroughs/2026-08-10/authless-bare-workspace-entry.md) | No finding: creation, `/login` recovery, and no-provider authority checks agreed. |
 | [Populated-workspace posture entry](testing/walkthroughs/2026-08-10/populated-workspace-posture-entry.md) | No finding: dialog choices, public readback, and canonical posture state agreed. |
 | [Specify session interaction](testing/walkthroughs/2026-08-10/specify-session-interaction.md) | No finding: the one invalid provider attempt was quiet, mutation-free, and immediately recovered under the already-settled R6 contract. |
-| [Execute mode interaction](testing/walkthroughs/2026-08-10/execute-mode-interaction-owned-gate.md) | Not a finding: retained as the ledger's owned `partial` product-evidence gate; no unsupported Compile/Execute state was manufactured. |
+| [Execute mode interaction](testing/walkthroughs/2026-08-10/execute-mode-interaction-owned-gate.md) | Not a finding: retained as FE-1348's sole `partial` product-evidence gate. The thin-seed E1 path was capability-honest, but closure still requires a supported readable plan/run witness; no unsupported Compile/Execute state was manufactured. |
 | [Session resume and active-tree continuity](testing/walkthroughs/2026-08-10/session-resume-active-tree-continuity.md) | No finding: active-branch projections remained stable across relaunch and rejected the append-order rival. |
 | [TUI-companion semantic usefulness](testing/walkthroughs/2026-08-11/tui-companion-semantic-usefulness.md) | SA1/SA2 retired: the colleague found the companion useful and its honest TUI-owned ask refusal understandable; no ownership marker or dual-answer authority is currently warranted. |
 | [Cross-composition writer transfer](testing/walkthroughs/2026-08-10/cross-composition-writer-transfer.md) | No finding: refusal, release, reacquisition, continuity, and cleanup matched the single-writer contract. |
-| [Standalone-web driven session](testing/walkthroughs/2026-08-10/standalone-web-driven-session.md) | SW1 fixed by `b1fa177f8`, `d632ff82a`, `b2df18f8e`, and `08c7f2b87`, focused regressions, and the successful final live/reload/cleanup witness. No graph effect was accepted, so cross-surface settlement remains open. |
+| [Standalone-web driven session](testing/walkthroughs/2026-08-10/standalone-web-driven-session.md) | SW1 fixed by `b1fa177f8`, `d632ff82a`, `b2df18f8e`, and `08c7f2b87`, focused regressions, and the successful final live/reload/cleanup witness. This journey accepted no graph effect; the separate 2026-08-13 cross-surface journey later closed settlement. |
 | [Stdio public RPC](testing/walkthroughs/2026-08-10/stdio-public-rpc-owned-gate.md) | Prior recovery defect fixed by `f6053d605`, `f741f94df`, `bd77c277f`, and `3cddae4eb`, then proved through the fresh [final same-workspace witness](testing/walkthroughs/2026-08-10/stdio-public-rpc-final/walkthrough.md). The separate duplicate React question rendering is promoted as SW2. |
 | [Print projection](testing/walkthroughs/2026-08-10/print-projection-owned-gate.md) | No finding: source and installed foreign-cwd projections were byte-stable. |
 | [Cross-surface graph/session settlement](testing/walkthroughs/2026-08-13/cross-surface-graph-session-settlement-post-sw3-success/walkthrough.md) | Built. A persistent user-owned host satisfied WI1's re-entry trigger and carried one settled one-requirement/zero-edge proposal through exactly one Approve action and one reload. React, JSONL, public presentation/graph A/B, and stopped-host read-only SQLite agree on receipt LSN 2, one settled explicit REQ1, zero edges, exactly one `accept_review_set`, no `mutate_graph`, and no second acceptance. CS1/SW2/SW3 are fixed and outer-witnessed; prior failed journeys remain immutable provenance. The JSONL's `Do  │ not` is blockquote-gutter harness contamination, recorded as conduct `met-with-divergence`, not a product finding. |
@@ -50,7 +50,7 @@ Concern: a supported standalone-web session must survive browser reload and rele
 Evidence: [`testing/walkthroughs/2026-08-10/standalone-web-driven-session.md`](testing/walkthroughs/2026-08-10/standalone-web-driven-session.md), failed rerun at commit `2b217b865`, focused projection/process/React regressions, and the successful final outer witness at commit `08c7f2b87`.
 Observation: the retained 2026-08-11 run proved the defect: reload failed and graceful shutdown left `owner.json`. Repairs landed as `b1fa177f8`, `d632ff82a`, `b2df18f8e`, and `08c7f2b87`. On 2026-08-12, the user reported the requested live/reload flow looked correct; coordinator inspection of the two named screenshots found the same first assistant turn, one answered first ask, assistant follow-up, and second live ask in order, with no stale form or duplicate. The exact 13-entry canonical JSONL preserves one `validation_failed` intermediate ask result that structured React correctly omits, and contains no accepted graph effect. SIGTERM cleanup for PID `88536` stopped the process/listener and removed the target writer owner on bounded attempt 2 without manual repair.
 Expected: reload reattaches to the existing standalone runtime and projects the same active branch; bounded shutdown releases the writer owner without manual state repair.
-Disposition: fixed by the four named repair commits, their focused regressions, and the successful final outer witness. This closes SW1 and the standalone-web row only; `Cross-surface graph/session settlement` remains `partial` under its existing owner/re-entry trigger because no graph effect was accepted.
+Disposition: fixed by the four named repair commits and their focused regressions. This journey closed SW1 and standalone-web only because it accepted no graph effect; the separate 2026-08-13 cross-surface journey subsequently closed settlement without rewriting this provenance.
 
 #### SW2 · duplicate standalone React actionable controls · product-critical · fixed in code
 
@@ -78,13 +78,13 @@ Disposition: historical witness-infrastructure divergence retained. It was promo
 
 ### 2026-07-28 Secure Drop pilot — greenfield elicitation → plan synthesis
 
-#### SD1 · Execute plan preparation · demo-critical · fix in progress
+#### SD1 · Execute plan preparation · demo-critical · fixed
 
 Concern: a review-approved four-scope Secure Drop graph must compile into `plan.json` without manual graph repair.
 Evidence: session `019fa95a-bf25-76b1-afd1-82375712e85f`; `.fixtures/scratch/greenfield-secure-drop-demo/pilot-1/secure-drop-spec.md`; repeated `execute_plan_file` results at 2026-07-28T16:07–16:14 UTC.
 Observation: Specify declared the graph fully covered, but every scope lacked one or more direct D126-L admission edges. Execute-mode preparation tried to backfill them, duplicated REQ3 across scopes, then accumulated superseded scopes/frontiers/milestones and cyclic oracle packaging because settled bad edges could not be removed. Five high-thinking planner rounds timed out at the fixed 120-second deadline. A controlled medium-thinking probe against the retained active graph subsequently wrote `plan.json` in two bounded rounds.
 Expected: plan authoring directly packages each requirement into exactly one active scope and gives every scope direct criterion, design, and verification anchors; the sealed planner returns a structured candidate within the existing timeout without graph mutation.
-Disposition: FE-1289 narrows the planner to medium thinking, makes the direct D126-L scope-edge preflight explicit in mapping guidance, and derives plan-readiness criterion coverage from the canonical scope package rather than future-evidence witness edges. Fresh-workspace rerun remains required before this row closes.
+Disposition: fixed under FE-1289. The planner uses medium thinking, mapping guidance makes the direct D126-L scope-edge preflight explicit, and plan readiness derives criterion coverage from the canonical scope package rather than future-evidence witness edges. The later fresh run reached `promotion_prepared`; SD9 remains the separate open final-application gate.
 
 #### SD2 · Assurance projection wording · demo-critical · fixed
 
@@ -94,13 +94,13 @@ Observation: the read-only check counted only legacy positive criterion witness 
 Expected: plan readiness should recognize direct criterion + requirement co-packaging in a D126-L scope without asking planned assertions to counterfeit evidence.
 Disposition: corrected in FE-1289 by deriving readiness coverage from direct scope packages while retaining readable legacy witnesses; no schema or graph-kind change.
 
-#### SD3 · Parallel greenfield repository foundation · demo-critical · fix in progress
+#### SD3 · Parallel greenfield repository foundation · demo-critical · fixed
 
 Concern: the first independent frontend/crypto and backend slices must run in parallel without inventing incompatible repository roots.
 Evidence: fresh session graph LSN 10; run `run-ms55kdd2`; `reports.jsonl` through `slice_integration_conflict`; Petrinaut terminal marking at 2026-07-28T21:28:04.373Z.
 Observation: S1.1 and S2.1 both started from the same empty base, independently passed `npm test` on repair cycle 3, and then conflicted while integrating separately-created `package.json` files. Adding a shared project-foundation anchor allowed one correct regenerated plan and clean post-foundation parallel firing, but graph LSN 12 later produced an admitted rival with two initially runnable MOD8 carriers. Planner prompt guidance alone is therefore nondeterministic.
 Expected: one accepted design anchor owns the complete root manifest, lockfile, dependency set, build/test configuration, and layout; one foundation slice materializes it before independent crypto/backend slices start in parallel.
-Disposition: FE-1289 retains the shared-root authoring/planner guidance and adds deterministic candidate admission: exactly one shared `Project foundation` carrier is allowed, and every other carrier must transitively depend on it. A fresh regenerated run must demonstrate the repaired dependency shape and conflict-free integration before this row closes.
+Disposition: fixed under FE-1289. Deterministic candidate admission permits exactly one shared `Project foundation` carrier and requires every other carrier to transitively depend on it. Run `run-ms671oww` then fired S2/S3 in parallel and integrated both cycle-1 results without conflict; SD9 remains the separate open final-application gate.
 
 #### SD4 · Worker result artifact leaked into target worktree · demo-critical · fixed
 
@@ -277,7 +277,7 @@ Concern: Richer graph context overload.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-C.md` §whether richer graph context overloads prompt/skill routing.
 Observation: User was not sure how to evaluate overload from this run.
 Expected: Future runs need a sharper oracle for prompt overload, such as repeated tool-call schema errors, missed required skill reads, failure to summarize graph state, excessive latency, or generic-agent behavior despite specific context.
-Disposition: audit-method gap — owner: SPEC §Verification Design blind-spot row "prompt-overload oracle", to be added in the FE-1187 `ln-spec` pass (2026-07-13); until then FE-1187 entry work carries it. Fold the overload markers into the prompt/skill/model audit rather than treating as product failure.
+Disposition: audit-method gap owned by SPEC §Verification Design's prompt-overload blind spot. Fold overload markers into prompt/skill/model audits rather than treating them as a product failure; admit a sharper oracle only when repeated schema errors, missed required resource reads, latency, or generic conduct creates a concrete claim.
 
 ### 2026-07-10 FE-1180 review/witness audit
 
@@ -401,7 +401,7 @@ Concern: cancelled and invalid structured-exchange tool results.
 Evidence: `remediations-3a.md` §§1–2 and screenshots; actual session JSONLs `2026-07-14T08-29-24-216Z_…` and `2026-07-14T08-45-39-646Z_…` under the `workspace-alpha-grounding` workbench.
 Observation: the cancelled `ask` terminal did not read as an intentionally cancelled exchange. The invalid-input errors were diagnosed separately: the model authored reserved option id `other` while enabling `allowOther`, then twice supplied body/options fields that D116-L continuing asks must inherit from the referenced offer. The adapter correctly returned themed `TOOL_INPUT_INVALID` results; this was not raw renderer corruption.
 Expected: cancelled, unavailable, and answered results have deliberately distinct compact rendering. Provider argument rejection remains exact model-facing feedback for retry but creates no persistent human-visible transcript artifact; it is not a user-owned terminal outcome.
-Disposition: reopened by the 2026-07-17 authenticated walkthrough. The valid Answered/Cancelled/Unavailable rail landed in `229c7abc`; `c8f15b3b`'s warning-toned Input rejected presentation is superseded by direct human judgment after the live screenshot showed internal provider retry feedback dominating the transcript. D104-L now preserves validation content/details for the model while requiring empty TUI rendering. Owner: [`walkthrough-remediation-2--tui-presentation-corrections.md`](memory/cards/walkthrough-remediation-2--tui-presentation-corrections.md); the consolidated outer checkpoint judges the corrected live-TUI result.
+Disposition: the valid Answered/Cancelled/Unavailable rail landed in `229c7abc`; `c8f15b3b`'s warning-toned Input rejected presentation is superseded by direct human judgment after the live screenshot showed internal provider retry feedback dominating the transcript. D104-L preserves validation content/details for the model while requiring empty TUI rendering. Mechanical zero-line rendering is built under R14; only authenticated visual judgment remains at the [`consolidated outer checkpoint`](memory/cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md).
 
 #### R7 · offer continuation rendering · high · fixed
 
@@ -530,13 +530,13 @@ Expected: the private-mission boundary holds without a separate actor process.
 Residual risk: `private-mission.md` is stored at the run root, two levels **above** the Brunch target cwd (`targets/brunch`), and the Brunch agent's active tools include generic `read`/`ls`/`find`/`grep` (per `debug/system-prompt.md`). Isolation held **behaviorally** (the agent did not traverse up), not by a filesystem jail; a differently-behaved contender or retry could `read ../../private-mission.md`.
 Disposition: closed by FE-1320. `/compare-specs` now gives each harness a fresh system-temporary external target root outside controller checkout, scratch, and retained trees; actual-entry-point tests reject the `../../private-mission.md` rival and preserve exact controller evidence through target cleanup. This closes ordinary target-relative ancestor traversal, not unrestricted absolute-path or whole-host discovery. The real Brunch + Claude conduct witness remains owned by `saved-mission-comparison-witness`.
 
-#### CS3 · harness cleanup · medium · unverified
+#### CS3 · harness cleanup · medium · retired
 
 Concern: no comparison/background process remains after the run.
 Evidence: run artifacts stopped being written ~19:25Z (last `trajectory.ndjson`/session write); `ps` is not permitted in the reconciling shell, so lingering-process absence could not be independently confirmed from the artifact side.
 Observation: operator reported the run completed; scratch tree is quiescent.
 Expected: the direct shell and any child process are dismissed after cleanup.
-Disposition: logged — process-cleanup confirmation remains the operator/top-level session's responsibility for this scratch run; not a code defect. Re-entry trigger: confirm process teardown in the operator session at run end.
+Disposition: retired as an unverifiable historical scratch-run limitation, not a product defect. Current comparison procedures require bounded cleanup and retained cleanup evidence for each new run; no live frontier can reconstruct this old process state.
 
 ### 2026-08-07 FE-1321 shared-session-host-tracer — structured-ask companion questions
 

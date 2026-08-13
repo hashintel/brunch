@@ -18,7 +18,7 @@ rpc handler surfaces:
 │   ├── /rpc/driver: transitional targetless handle methods + raw live events
 │   └── /petrinaut/stream: artifact replay followed by same-process live journal wake-ups
 └── standalone web combined host
-    └── /rpc: target-required session.open/close/presentation/openAsks/driveTurn/answerExchange + semantic live events
+    └── /rpc: shared read-only registry + target-required session.open/close/presentation/openAsks/driveTurn/answerExchange + semantic live events
 ```
 
 The full CLI/RPC host includes mutation-capable workspace/session methods. The TUI-started web sidecar is an attachment to the TUI-owned runtime: canonical `/rpc` exposes the same target-addressed hosted-session registry and validated `brunch.liveSessionEvent` stream as standalone web, adapting the exact `InteractiveMode` session rather than constructing another runtime. The transitional `/rpc/driver` connection preserves the older targetless process-local handles and raw `brunch.sessionEvent` stream only until `shared-session-host-cutover`; new browser work must not depend on it. Browser clients, CLI probes, and TUI adapters speak Brunch method names; they do not coordinate raw Pi RPC plus Brunch product RPC themselves.
@@ -169,6 +169,19 @@ TUI-started transitional driver connection (/rpc/driver) with live driver handle
     execute.replanAbandonRun
 
 standalone web combined host (/rpc):
+  common reads (shared read-only registry):
+    rpc.discover
+    workspace.state
+    workspace.selectionState
+    session.pendingExchange
+    session.exchanges
+    session.runtimeState
+    graph.overview
+    graph.nodeNeighborhood
+    execute.runs
+    execute.run
+    execute.runTraceIndex
+    execute.replanRecommendation
   target-required lifecycle:
     session.open
     session.close
