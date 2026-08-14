@@ -1,3 +1,4 @@
+import { SettingsManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
 import { projectBrunchPiSessionOptions } from '../pi-session-options.js';
@@ -21,6 +22,18 @@ describe('Brunch Pi session options', () => {
       noTools: 'builtin',
       excludeTools: ['bash', 'edit', 'write'],
       thinkingLevel,
+    });
+  });
+
+  it('keeps ambient default tools from widening Brunch tool authority', () => {
+    const ambientSettings = SettingsManager.inMemory({
+      defaultTools: ['bash', 'edit', 'write'],
+    });
+    expect(ambientSettings.getDefaultTools()).toEqual(['bash', 'edit', 'write']);
+
+    expect(projectBrunchPiSessionOptions({ thinkingLevel: 'medium' })).toMatchObject({
+      noTools: 'builtin',
+      excludeTools: ['bash', 'edit', 'write'],
     });
   });
 

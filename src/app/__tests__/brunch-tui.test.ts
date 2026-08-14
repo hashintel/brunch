@@ -1890,6 +1890,24 @@ describe('Brunch TUI boot', () => {
       enableAnalytics: false,
     });
     expect(getterNames.sort()).toEqual([...BRUNCH_SETTINGS_AUDITED_GETTERS].sort());
+
+    const settingsManager = createBrunchSettingsManager('/tmp/project', '/tmp/agent');
+    expect(settingsManager.getDefaultTools()).toBeUndefined();
+    expect(settingsManager.getTuiMode()).toBe('regular');
+    expect(settingsManager.getFullscreenExitOutput()).toBe('transcript');
+    expect(settingsManager.getFullscreenScrollbar()).toBe('auto');
+    expect(settingsManager.getMermaidRenderingMode()).toBe('streaming');
+    expect(settingsManager.getCodeBlockIndent()).toBe('  ');
+    for (const unpinnedSetting of [
+      'defaultTools',
+      'tuiMode',
+      'fullscreenExitOutput',
+      'fullscreenScrollbar',
+      'mermaidRenderingMode',
+    ]) {
+      expect(BRUNCH_SETTINGS_POLICY).not.toHaveProperty(unpinnedSetting);
+    }
+
     expect(launcherSource).not.toContain('SettingsManager.inMemory');
     expect(launcherSource).not.toContain('createBrunchModelRegistry');
     expect(launcherSource).not.toContain('scopedModels');
