@@ -112,7 +112,7 @@ The closed enumeration derives from three inputs, all available now: the distinc
 
 | Capability | Status | Req | Fill | Owner / next | Notes |
 | --- | --- | --- | --- | --- | --- |
-| agent-core v4 `Session`/`SessionStorage`/`SessionRepo` | `have` | ● | `earned` | — | Largest changelog item. Zero call sites: no `AgentHarness`, `SessionRepo`, `JsonlSessionRepo`, or `InMemorySessionRepo` anywhere in `src/`. Re-confirm by grep after the bump; do not re-audit. |
+| agent-core v4 `Session`/`SessionStorage`/`SessionRepo` | `have` | ● | `earned` | — | Largest changelog item. Zero call sites: no `AgentHarness`, `SessionRepo`, `JsonlSessionRepo`, or `InMemorySessionRepo` anywhere in `src/`. **Post-bump reconfirmed on Pi 0.84.2:** production `src/` grep for all four symbols returned zero matches (`rg` exit 1), so `have` is preserved without re-audit or adapters. |
 | Required `FileSystem.renameFile()` | `have` | ● | `earned` | — | No custom harness `FileSystem` implementation exists. |
 | `ModelsStreamTransforms` → `ModelsRequestTransforms` | `have` | ● | `earned` | — | Zero call sites. |
 | `setRuntimeApiKey()` signature | `have` | ● | `earned` | — | Zero call sites on `next`; this is `main`/PR #422's migration, not ours. |
