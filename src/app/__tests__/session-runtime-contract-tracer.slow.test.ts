@@ -111,7 +111,7 @@ describe('session runtime contract production tracer', () => {
           listener({ type: 'agent_start' } as never);
           listener({
             type: 'message_update',
-            message: { role: 'assistant', content: [{ type: 'text', text: 'semantic companion' }] },
+            assistantMessageEvent: { type: 'text_delta', delta: 'semantic companion' },
           } as never);
           listener({ type: 'agent_settled' } as never);
         }
