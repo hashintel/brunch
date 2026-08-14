@@ -1,5 +1,5 @@
 import { getSelectListTheme } from '@earendil-works/pi-coding-agent';
-import { TUI } from '@earendil-works/pi-tui';
+import { TuiMainScreen } from '@earendil-works/pi-tui';
 import type { EditorTheme } from '@earendil-works/pi-tui';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -18,7 +18,7 @@ const stripLines = (lines: readonly string[]) => lines.map(stripAnsi);
 
 function createComponent(onDone = vi.fn(), body = 'What problem are we solving?') {
   const terminal = new VirtualTerminal(80, 24);
-  const tui = new TUI(terminal);
+  const tui = new TuiMainScreen(terminal);
   return {
     terminal,
     tui,
@@ -58,7 +58,7 @@ describe('ExchangeAnswerEditorComponent', () => {
     const lines = stripLines(component.render(72));
 
     // Every rendered element must be a single physical line: an embedded newline
-    // breaks the rounded-box borders and the TUI's differential height accounting
+    // breaks the rounded-box borders and the TuiMainScreen's differential height accounting
     // (the walkthrough-observed free-text corruption).
     expect(lines.some((line) => line.includes('\n'))).toBe(false);
     const nameLine = lines.find((line) => line.includes('What is your name?'));

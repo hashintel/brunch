@@ -1,4 +1,4 @@
-import { TUI } from '@earendil-works/pi-tui';
+import { TuiMainScreen } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
 import { operationalModeLabel, type OperationalModeId } from '../../../session/schema/kinds.js';
@@ -31,10 +31,10 @@ function isActiveInTrack(line: string, label: string): boolean {
 }
 
 /**
- * Drive the runtime mode picker through a real pi-tui TUI backed by the
+ * Drive the runtime mode picker through a real pi-tui TuiMainScreen backed by the
  * shared VirtualTerminal harness. This complements the fast direct-render test
  * in runtime-axis-picker.test.ts by exercising focus + input routing through
- * the actual TUI input path.
+ * the actual TuiMainScreen input path.
  *
  * Presented via `tui.addChild` + `tui.setFocus` (inline swap), matching the
  * real call site (`commands/index.ts`'s `openModePicker` calls `ctx.ui.custom`
@@ -42,9 +42,9 @@ function isActiveInTrack(line: string, label: string): boolean {
  * never actually ships as.
  */
 describe('runtime posture picker harness', () => {
-  it('cycles highlight with arrow and hjkl keys through real TUI input routing', async () => {
+  it('cycles highlight with arrow and hjkl keys through real TuiMainScreen input routing', async () => {
     const terminal = new VirtualTerminal(120, 32);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
     const selected: Array<OperationalModeId | undefined> = [];
 
     const picker = createRuntimeModePickerComponent({
@@ -90,9 +90,9 @@ describe('runtime posture picker harness', () => {
     }
   });
 
-  it('commits the selected mode on Enter routed through real TUI input routing', async () => {
+  it('commits the selected mode on Enter routed through real TuiMainScreen input routing', async () => {
     const terminal = new VirtualTerminal(120, 32);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
     const selected: Array<OperationalModeId | undefined> = [];
 
     const picker = createRuntimeModePickerComponent({
@@ -121,9 +121,9 @@ describe('runtime posture picker harness', () => {
     }
   });
 
-  it('cancels without a value on Esc routed through real TUI input routing', async () => {
+  it('cancels without a value on Esc routed through real TuiMainScreen input routing', async () => {
     const terminal = new VirtualTerminal(120, 32);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
     const selected: Array<OperationalModeId | undefined> = [];
 
     const picker = createRuntimeModePickerComponent({

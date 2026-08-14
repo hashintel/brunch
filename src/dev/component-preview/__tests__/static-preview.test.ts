@@ -1,4 +1,4 @@
-import { TUI } from '@earendil-works/pi-tui';
+import { TuiMainScreen } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
 import { VirtualTerminal } from '../../../.pi/__tests__/support/virtual-terminal.js';
@@ -11,7 +11,7 @@ const theme = createComponentPreviewTheme();
 describe('previewStaticComponent', () => {
   it('mounts the component and resolves + unmounts on the next keypress', async () => {
     const terminal = new VirtualTerminal(80, 24);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
     tui.start();
 
     const resultPromise = previewStaticComponent(tui, {
@@ -57,7 +57,7 @@ describe('captureMessageRenderer', () => {
     expect(component).toBeDefined();
 
     const terminal = new VirtualTerminal(100, 30);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
     tui.start();
 
     try {

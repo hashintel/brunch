@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { Theme } from '@earendil-works/pi-coding-agent';
-import { TUI } from '@earendil-works/pi-tui';
+import { TuiMainScreen } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
 import { VirtualTerminal } from '../../../.pi/__tests__/support/virtual-terminal.js';
@@ -208,7 +208,7 @@ describe('SwitchableComponentPreviewTheme', () => {
 describe('registerComponentPreviewThemeToggle', () => {
   it('consumes ctrl+t, reskins the open component in place, and never delivers the key to it', async () => {
     const terminal = new VirtualTerminal(80, 24);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
     const theme = new SwitchableComponentPreviewTheme('dark');
     const received: string[] = [];
 
@@ -265,7 +265,7 @@ describe('registerComponentPreviewThemeToggle', () => {
 
   it('recognizes the kitty-protocol ctrl+t press and ignores its release', async () => {
     const terminal = new VirtualTerminal(80, 24);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
     const theme = new SwitchableComponentPreviewTheme('dark');
 
     tui.addChild({ render: () => ['plain'], invalidate: () => {} });
@@ -289,7 +289,7 @@ describe('registerComponentPreviewThemeToggle', () => {
 
   it('leaves other input untouched', async () => {
     const terminal = new VirtualTerminal(80, 24);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
     const theme = new SwitchableComponentPreviewTheme('dark');
     const received: string[] = [];
 

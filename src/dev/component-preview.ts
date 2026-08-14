@@ -2,7 +2,7 @@ import type { KeybindingsManager } from '@earendil-works/pi-coding-agent';
 import {
   KeybindingsManager as PiTuiKeybindingsManager,
   ProcessTerminal,
-  TUI,
+  TuiMainScreen,
   TUI_KEYBINDINGS,
   type KeybindingDefinitions,
 } from '@earendil-works/pi-tui';
@@ -44,7 +44,7 @@ function createComponentPreviewKeybindings(): KeybindingsManager {
 /**
  * Standalone real-terminal preview loop for `.pi/components` — no workspace,
  * session, or DB. See `src/dev/TOPOLOGY.md`'s "Component Preview Harness"
- * section for the design rationale (why a bare `ProcessTerminal` + `TUI` is
+ * section for the design rationale (why a bare `ProcessTerminal` + `TuiMainScreen` is
  * the right truth environment, and why entries mirror their real production
  * presentation contract instead of a uniform overlay assumption).
  */
@@ -53,7 +53,7 @@ export async function runComponentPreviewGallery(
 ): Promise<void> {
   const theme = new SwitchableComponentPreviewTheme();
   const terminal = createThemePaintingTerminal(new ProcessTerminal(), theme);
-  const tui = new TUI(terminal);
+  const tui = new TuiMainScreen(terminal);
   const keybindings = createComponentPreviewKeybindings();
 
   if (options.entryId) {

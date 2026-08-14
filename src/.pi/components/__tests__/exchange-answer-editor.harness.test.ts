@@ -1,5 +1,5 @@
 import { getSelectListTheme } from '@earendil-works/pi-coding-agent';
-import { TUI } from '@earendil-works/pi-tui';
+import { TuiMainScreen } from '@earendil-works/pi-tui';
 import type { EditorTheme } from '@earendil-works/pi-tui';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -14,9 +14,9 @@ const editorTheme: EditorTheme = {
 };
 
 describe('ExchangeAnswerEditorComponent harness', () => {
-  it('routes typing, newline, submit, and cancel through the real TUI focus path', async () => {
+  it('routes typing, newline, submit, and cancel through the real TuiMainScreen focus path', async () => {
     const terminal = new VirtualTerminal(80, 24);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
     const onDone = vi.fn();
     const component = new ExchangeAnswerEditorComponent(tui, editorTheme, {
       body: 'What should Brunch remember?',
@@ -53,7 +53,7 @@ describe('ExchangeAnswerEditorComponent harness', () => {
 
   it('resolves undefined on escape', async () => {
     const terminal = new VirtualTerminal(80, 24);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
     const onDone = vi.fn();
     const component = new ExchangeAnswerEditorComponent(tui, editorTheme, {
       body: 'Cancel?',
