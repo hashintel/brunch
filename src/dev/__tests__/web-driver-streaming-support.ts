@@ -157,13 +157,9 @@ export function assembleAssistantTextFromStream(events: readonly AgentSessionEve
   let text = '';
   for (const event of events) {
     if (event.type !== 'message_update' && event.type !== 'message_end') continue;
-    const message = (event as { message?: { role?: string; content?: unknown } }).message;
-    if (!message || message.role !== 'assistant' || !Array.isArray(message.content)) continue;
-    const joined = message.content
-      .flatMap((block: { type?: string; text?: string }) =>
-        block.type === 'text' && typeof block.text === 'string' ? [block.text] : [],
-      )
-      .join('\n');
+    const message = event.message;
+    if (message.role !== 'assistant') continue;
+    const joined = message.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n');
     if (joined.length >= text.length) text = joined;
   }
   return text;
@@ -175,18 +171,19 @@ export function hasToolEvent(
   phase: 'start' | 'end',
 ): boolean {
   const type = phase === 'start' ? 'tool_execution_start' : 'tool_execution_end';
-  return events.some((event) => {
-    const candidate = event as { type?: unknown; toolName?: unknown };
-    return candidate.type === type && candidate.toolName === toolName;
-  });
+  return events.some(
+    (event) =>
+      (event.type === 'tool_execution_start' || event.type === 'tool_execution_end') &&
+      event.type === type &&
+      event.toolName === toolName,
+  );
 }
 
 export function requestAnswerArgsFromStream(events: readonly AgentSessionEvent[]): unknown {
-  const event = events.find((candidate) => {
-    const shaped = candidate as { type?: unknown; toolName?: unknown };
-    return shaped.type === 'tool_execution_start' && shaped.toolName === 'ask';
-  }) as { args?: unknown } | undefined;
-  return event?.args;
+  const event = events.find(
+    (candidate) => candidate.type === 'tool_execution_start' && candidate.toolName === 'ask',
+  );
+  return event?.type === 'tool_execution_start' ? event.args : undefined;
 }
 
 export function requestAnswerFromJsonl(jsonl: string): string | undefined {
