@@ -155,6 +155,36 @@ describe('BrunchEditorComponent harness', () => {
     }
   });
 
+  it('routes an Alt-prefixed word movement sequence without treating it as lone Escape', async () => {
+    const terminal = new VirtualTerminal(60, 24);
+    const tui = new TuiMainScreen(terminal);
+
+    const editor = new BrunchEditorComponent(tui, editorTheme, keybindings, () => ({}));
+    let escapeCount = 0;
+    editor.onEscape = () => {
+      escapeCount++;
+    };
+    tui.addChild(editor);
+    tui.setFocus(editor);
+    editor.focused = true;
+    terminal.clearScreen();
+    tui.start();
+
+    try {
+      await terminal.waitForRender();
+      terminal.sendInput('alpha beta');
+      terminal.sendInput('\x1bb'); // alt+b: move one word left
+      terminal.sendInput('X');
+      await terminal.waitForRender();
+
+      expect(editor.getText()).toBe('alpha Xbeta');
+      expect(escapeCount).toBe(0);
+    } finally {
+      terminal.stop();
+      tui.stop();
+    }
+  });
+
   it('fires the inherited CustomEditor onEscape hook on the real escape byte', async () => {
     const terminal = new VirtualTerminal(60, 24);
     const tui = new TuiMainScreen(terminal);
