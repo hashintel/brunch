@@ -1,3 +1,4 @@
+import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
 import { describe, expect, it } from 'vitest';
 
@@ -70,6 +71,60 @@ describe('runSubagent structured output', () => {
     expect(sessionOptions?.customTools?.map(({ name }) => name)).toContain('submit_candidate_plan');
     expect(terminations).toEqual([true]);
     expect(result).toEqual({ agent: 'planner', status: 'ok', text: '', output: candidate });
+  });
+
+  it('produces stream previews from typed assistant text deltas and rejects rivals', async () => {
+    const updates: Array<{ kind: string; message: string }> = [];
+
+    const result = await runSubagent({
+      definition: definition as never,
+      task: 'plan',
+      ctx,
+      deps,
+      onUpdate: (update) => updates.push(update),
+      createServices: async () => ({}) as never,
+      createSession: async () => {
+        let listener: ((event: AgentSessionEvent) => void) | undefined;
+        return {
+          session: {
+            subscribe: (nextListener: (event: AgentSessionEvent) => void) => {
+              listener = nextListener;
+              return () => undefined;
+            },
+            prompt: async () => {
+              listener?.({
+                type: 'message_update',
+                message: {} as never,
+                assistantMessageEvent: {
+                  type: 'text_delta',
+                  contentIndex: 0,
+                  delta: 'Preview from the child',
+                  partial: {} as never,
+                },
+              });
+              listener?.({
+                type: 'message_update',
+                message: {} as never,
+                assistantMessageEvent: { type: 'thinking_delta', delta: 'private' } as never,
+              });
+              listener?.({ type: 'message_update', message: {} } as never);
+              listener?.({
+                type: 'message_update',
+                message: {} as never,
+                assistantMessageEvent: { type: 'text_delta', delta: 42 } as never,
+              });
+            },
+            getLastAssistantText: () => 'final response',
+            dispose: () => undefined,
+          },
+        } as never;
+      },
+    });
+
+    expect(result).toMatchObject({ status: 'ok', text: 'final response' });
+    expect(updates.filter(({ kind }) => kind === 'message')).toEqual([
+      { kind: 'message', message: 'Preview from the child' },
+    ]);
   });
 
   it('fails closed when the planner submits zero or multiple outputs', async () => {
