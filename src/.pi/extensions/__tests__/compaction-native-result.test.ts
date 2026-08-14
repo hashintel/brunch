@@ -18,6 +18,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { createBrunchFauxHarness } from '../../../dev/faux-harness.js';
 import { registerBrunchCompaction } from '../compaction/index.js';
+import { materializeProviderHeaders } from '../compaction/registrar.js';
 
 const temporaryDirectories: string[] = [];
 afterEach(async () => {
@@ -25,6 +26,15 @@ afterEach(async () => {
 });
 
 describe('Brunch native compaction result', () => {
+  it('materializes provider headers by preserving strings and consuming null deletion markers', () => {
+    expect(
+      materializeProviderHeaders({
+        authorization: null,
+        'x-provider-version': '2026-08-14',
+      }),
+    ).toEqual({ 'x-provider-version': '2026-08-14' });
+  });
+
   it('persists one native result and rebuilds provider context with continuity immediately', async () => {
     const fixture = await createFixture([
       fauxAssistantMessage('seed response'),
