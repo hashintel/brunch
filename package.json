@@ -75,9 +75,9 @@
     "verify:full": "npm run fix && npm run test:full && npm run build"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "0.83.0",
-    "@earendil-works/pi-coding-agent": "0.83.0",
-    "@earendil-works/pi-tui": "0.83.0",
+    "@earendil-works/pi-ai": "0.84.2",
+    "@earendil-works/pi-coding-agent": "0.84.2",
+    "@earendil-works/pi-tui": "0.84.2",
     "@mozilla/readability": "^0.6.0",
     "@toon-format/toon": "^2.3.0",
     "better-sqlite3": "12.11.1",

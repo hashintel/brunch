@@ -7,7 +7,7 @@ Created:  2026-08-11
 
 ## Orientation
 
-- The containing seam is brunch's entire consumption surface over `@earendil-works/pi-coding-agent`, `pi-ai`, and `pi-tui` — 210 importing files and ~110 distinct imported symbols, pinned at `0.83.0` on `next`.
+- The containing seam is brunch's entire consumption surface over `@earendil-works/pi-coding-agent`, `pi-ai`, and `pi-tui` — 210 importing files and ~110 distinct imported symbols, pinned at `0.83.0` on `next`; the execution-start target is the current common package-family release, `0.84.2`.
 - FE-1352 `pi-084-upgrade` is the containing coverage frontier. It stacks on completed FE-1348 and uses that frontier's closed inventory as its regression oracle; the evidence gate is satisfied.
 - No `HANDOFF.md` exists. `main`'s PR #422 is a separate trunk's bump and is not this frontier's work; its migration target (`src/orchestrator/src/pi-actions.ts`) does not exist on `next`.
 - Main risk: **the changelog is not the inventory.** Scoping found a hard breaking change absent from the published Breaking Changes section (row C1), so rows are enumerated from brunch's import graph — which is closed and derivable — not from changelog entries.
@@ -32,7 +32,14 @@ Cross-cutting obligations:
 
 ### Source-of-truth inputs
 
-The closed enumeration derives from three inputs, all available now: the distinct symbol set brunch imports from `@earendil-works/*` (import graph); the published 0.84.0 and 0.84.1 release notes; and a direct `.d.ts` diff of 0.83.0 (installed) against 0.84.1 (packed to scratch). The third input is what caught row C1, and is why the first two alone are not sufficient.
+The closed enumeration derives from three inputs, all available now: the distinct symbol set brunch imports from `@earendil-works/*` (import graph); the published 0.84.0–0.84.2 release notes; and direct `.d.ts` diffs of 0.83.0 (installed) against 0.84.1 plus 0.84.1 against 0.84.2 (both packed to scratch). The type surfaces caught row C1 and the 0.84.2 SettingsManager row even though neither appeared as a published breaking change, which is why release notes and imports alone are insufficient.
+
+### 0.84.2 execution-start refresh — 2026-08-14
+
+- npm reports `0.84.2` as the latest common release of all three pinned packages; this sweep therefore targets exactly `0.84.2`, not the `0.84.1` available when it was first scoped.
+- The incremental 0.84.1→0.84.2 `.d.ts` diff found no removal or required-signature break on a Brunch callsite. In-process `MessageUpdateEvent.message` remains required; Pi's JSON/RPC event instead regains constant-size cumulative `usage`.
+- One new required adaptation surfaced: Pi added `SettingsManager.getDefaultTools()` and `getFullscreenExitOutput()`. Brunch deliberately audits the complete getter surface, so `BRUNCH_SETTINGS_AUDITED_GETTERS` must acknowledge both and the tool-default policy must remain sealed.
+- Other additions amend existing component, runtime, and disposition rows below rather than opening another sub-seam: fullscreen search/exit behavior and optional search theme roles; explicit `sendUserMessage(..., { expandPromptTemplates })`; experimental strict schema sampling for default built-ins; and optional `ToolCall.namespace` / `AssistantMessage.endTurn` diagnostics.
 
 ### Classification
 
@@ -41,11 +48,11 @@ The closed enumeration derives from three inputs, all available now: the distinc
 ### Aggregate definition of done
 
 - Every `●` row is `have` or `built`; none remains `partial`, `spec`, or `new`.
-- `npm run check` and `npm run verify:full` pass on `0.84.1`.
+- `npm run check` and `npm run verify:full` pass on `0.84.2`.
 - The four `session-runtime-contract-*.slow.test.ts` witnesses and the required FE-1348 subset re-pass on the moved baseline.
 - Every `G` row carries a recorded verdict — adopted, promoted with a named owner, or declined with rationale.
 - No `●` row's closure rests on an untyped structural cast.
-- `npm run check:release-pack` passes and the three advisory families are absent from `package-lock.json`.
+- `npm run check:release-pack` passes and the two Pi-local advisory families are cleared in `package-lock.json`.
 - A25-L is updated to validated or falsified with evidence.
 
 ## Ledger
@@ -54,21 +61,22 @@ The closed enumeration derives from three inputs, all available now: the distinc
 
 | Capability | Status | Req | Fill | Owner / next | Notes |
 | --- | --- | --- | --- | --- | --- |
-| Version pins + lockfile move to 0.84.1 | `spec` | ● | `earned` | `package.json`, `package-lock.json` | Three pins: `pi-ai`, `pi-coding-agent`, `pi-tui`. Closure oracle: `npm run check` clean and 0 occurrences of `brace-expansion-5.0.7`, `undici-8.5.0` in the lockfile. |
-| `ModelRuntime` / `ModelRegistry` construction + `refresh()` | `partial` | ● | `earned` | `src/probes/faux-provider.ts:35`, `src/probes/executor-agent-runner-witness.ts:99` | `refresh()` now returns `ModelsRefreshResult`; `allowNetwork` survives in `ModelsRefreshOptions` (verified in pi-ai 0.84.1 `dist/models.d.ts:29`). Both sites discard the result. Closure: existing probe tests green + result's `errors` map surfaced or explicitly declined. |
+| Version pins + lockfile move to 0.84.2 | `built` | ● | `earned` | `package.json`, `package-lock.json` | Three exact pins moved to 0.84.2. `npm run check` and `npm run verify` pass. Parsed `package-lock.json` `packages` evidence: Pi-local `brace-expansion` is 5.0.9 and Pi-local `undici` is 8.9.0. Release intent: patch changeset `.changeset/fresh-pi-baseline.md`. |
+| `ModelRuntime` / `ModelRegistry` construction + `refresh()` | `partial` | ● | `earned` | `src/probes/faux-provider.ts:35`, `src/probes/executor-agent-runner-witness.ts:99` | `refresh()` now returns `ModelsRefreshResult`; `allowNetwork` survives in `ModelsRefreshOptions` (verified in pi-ai 0.84.2 `dist/models.d.ts`). Both sites discard the result. Closure: existing probe tests green + result's `errors` map surfaced or explicitly declined. |
 | `getApiKeyAndHeaders()` null-preserving `ProviderHeaders` | `partial` | ● | `earned` | `src/.pi/extensions/compaction/registrar.ts:24` | Values are now `string \| null`, preserving deletion markers; brunch forwards `auth.headers` into `compact()` → `provider.streamSimple`. Closure: compaction tests green **and** a check that nothing strips nulls en route. |
 | Direct `compact()` call site | `have` | ● | `earned` | `src/.pi/extensions/compaction/registrar.ts` | 0.84.0 changed compaction dispatch to route extension model calls through the coding-agent model runtime. Closure: existing compaction suite green; confirm brunch's direct call is still the sanctioned shape. |
 | Session construction factories | `have` | ● | `earned` | `src/app/`, `src/dev/tier-2-harness.ts` | `createAgentSession*`, `CreateAgentSessionRuntimeFactory`, `createAgentSessionServices`. Closure: type-check plus `brunch-tui` and `tier-2-harness` suites. |
 | `SessionManager` / JSONL entry types | `have` | ● | `earned` | `src/session/` | `SessionEntry`, `SessionHeader`, `SessionMessageEntry`, `CustomEntry`. 0.84.0 changed JSONL fork/torn-tail publication to be atomic and scoped session ids per-cwd. Closure: `src/session/__tests__/jsonl-session-viability.test.ts` green. |
 | `InMemoryCredentialStore` | `have` | ● | `earned` | `src/dev/`, probes | 0.84.0 serialized concurrent credential mutations and added `CredentialSynchronizationError`. Closure: type-check + dev-harness suites. |
+| `SettingsManager` getter/default-policy refresh | `spec` | ● | `earned` | `src/app/pi-settings.ts`, `src/app/__tests__/brunch-tui.test.ts` | 0.84.2 adds `getDefaultTools()` and `getFullscreenExitOutput()`. Brunch's completeness oracle intentionally fails on every unaudited getter. Closure: acknowledge both getters; prove ambient `defaultTools` cannot widen Brunch's explicit `noTools`/allowlist policy; pin neither default unless a product requirement needs it. |
 
 ### B · Event and projection seam — highest risk
 
 | Capability | Status | Req | Fill | Owner / next | Notes |
 | --- | --- | --- | --- | --- | --- |
-| In-process cumulative `message` on `message_update` | `partial` | ● | `proving` | `src/projections/session/live-session-events.ts` | **The central hazard.** 0.84.0 strips cumulative `message`/`partial` from the **JSON/RPC wire only**; the in-process `MessageUpdateEvent` still declares `message: AgentMessage` (0.84.1 `dist/core/extensions/types.d.ts:568`). This projection is fed in-process from `tui-live-session-adapter.ts` and `brunch-web.ts`, so it likely survives — but it reads the field through `event as { message?: … }`, so a shape change returns `null` for every update and silently emits zero deltas. Closure oracle: `session-runtime-contract-companion.slow.test.ts` + `-structured-ask` re-pass, **not** the type checker. |
+| In-process cumulative `message` on `message_update` | `partial` | ● | `proving` | `src/projections/session/live-session-events.ts` | **The central hazard.** 0.84.0 strips cumulative `message`/`partial` from the **JSON/RPC wire only**; the in-process `MessageUpdateEvent` still declares `message: AgentMessage` in 0.84.2. This projection is fed in-process from `tui-live-session-adapter.ts` and `brunch-web.ts`, so it likely survives — but it reads the field through `event as { message?: … }`, so a shape change returns `null` for every update and silently emits zero deltas. Closure oracle: `session-runtime-contract-companion.slow.test.ts` + `-structured-ask` re-pass, **not** the type checker. |
 | Subagent stream-update read | `partial` | ● | `proving` | `src/.pi/extensions/subagents/session.ts:509` | Same hazard, fully untyped (`asRecord(shaped['message'])`). Failure mode is silent loss of subagent stream previews. Closure: subagent suite green **with** an assertion that a preview is actually produced, not merely that nothing throws. |
-| Wire-side JSON/RPC event consumers | `partial` | ● | `proving` | `src/dev/__tests__/web-driver-streaming*.ts` | These read relay frames (`frame.params.event.type`) and sit on the side the breaking change actually targets. brunch never calls `toJsonEvent`, so its own semantic projection is what crosses the wire — confirm, do not assume. Closure: streaming + reconnect suites green. |
+| Wire-side JSON/RPC event consumers | `partial` | ● | `proving` | `src/dev/__tests__/web-driver-streaming*.ts` | These read relay frames (`frame.params.event.type`) and sit on the side the breaking change actually targets. 0.84.2 restores cumulative `usage` to Pi JSON/RPC `message_update` while still omitting cumulative `message`; Brunch imports neither `toJsonEvent` nor Pi's JSON-event types, so its own semantic projection should cross the wire. Confirm, do not assume. Closure: streaming + reconnect suites green and prove the relay carries Brunch deltas rather than raw Pi JSON events. |
 | Typed-seam hardening for B1–B3 | `spec` | ● | `earned` | `docs/praxis/pi-types.md` | Convert the load-bearing casts to typed imports so the *next* bump fails at the type checker instead of at runtime. This is the row that discharges A25-L's real cost. Closure: no `●` row above retains a structural cast as its only guard. |
 
 ### C · pi-tui component surface
@@ -78,9 +86,9 @@ The closed enumeration derives from three inputs, all available now: the distinc
 | `TUI` class → interface | `spec` | ● | `earned` | 13 files, 30 `new TUI(` sites | **Breaking, and absent from the published Breaking Changes list.** 0.83.0: `export declare class TUI extends Container`. 0.84.1: `export interface TUI extends Component`, with `TuiMainScreen implements TUI` and `TuiAltScreen implements ViewportTUI` as the concrete classes. 14 value-imports break at import, not just at type. Production sites: `src/.pi/components/workspace-dialog/preflight.ts:24`, `src/dev/component-preview.ts`. Closure: all sites construct a named concrete class and the component/harness suites are green. Fails loudly — that is the good case. |
 | `Markdown` / `MarkdownTheme` / `getMarkdownTheme` | `partial` | ● | `proving` | `src/.pi/components/exchange-markdown-body.ts`, `cards.ts` | 0.84.0 added Mermaid and LaTeX rendering inside markdown. brunch renders exchange bodies through this; goldens may shift. Closure: existing golden/preview suites green, or goldens deliberately regenerated per the repo's pre-release posture. |
 | `Editor` / `CustomEditor` / autocomplete | `partial` | ● | `earned` | `src/.pi/components/brunch-editor.ts`, `mode-input.ts`, `exchange-answer-editor.ts` | 0.84.0 fixed custom editors not inheriting the default autocomplete dropdown limit, and added Ctrl-modified editor bindings. Closure: editor harness suites green. |
-| Keybindings surface | `have` | ● | `earned` | `src/app/pi-keybindings.ts` | `KeybindingsManager`, `TUI_KEYBINDINGS`, `matchesKey`, `isKeyRelease`. 0.84.0/0.84.1 added prompt-history and fullscreen-viewport bindings. Closure: keybinding suite green; confirm no brunch binding is shadowed by a new default. |
-| `Terminal` / `ProcessTerminal` / width utils | `have` | ● | `earned` | `src/.pi/components/`, `virtual-terminal.ts` | `truncateToWidth`, `visibleWidth` retained; 0.84.1 adds `stripTerminalSequences`, `getOsc8LinkAtColumn`. Indic grapheme width and OSC 8 truncation changed. Closure: virtual-terminal-backed component suites green. |
-| Theme surface | `have` | ○ | `earned` | `src/.pi/components/mode-border-theme.ts`, `tui-lab/` | New optional `scrollbarThumb` color; additive. Deferred unless C1 forces a theme touch. |
+| Keybindings surface | `have` | ● | `earned` | `src/app/pi-keybindings.ts` | `KeybindingsManager`, `TUI_KEYBINDINGS`, `matchesKey`, `isKeyRelease`. 0.84.0–0.84.2 added prompt-history, fullscreen viewport line-scroll, and transcript-search bindings. Closure: keybinding suite green; confirm no Brunch binding is shadowed by a new default. |
+| `Terminal` / `ProcessTerminal` / width utils | `have` | ● | `earned` | `src/.pi/components/`, `virtual-terminal.ts` | `truncateToWidth`, `visibleWidth` retained; 0.84.1 adds OSC helpers and 0.84.2 splits lone-Escape latency from general sequence buffering through `PI_TUI_ESC_TIMEOUT`. Indic grapheme width and OSC 8 truncation also changed. Closure: virtual-terminal-backed component/editor suites green, including Escape/Alt handling. |
+| Theme surface | `partial` | ○ | `earned` | `src/.pi/themes/`, `src/dev/component-preview/theme.ts` | 0.84.x adds optional `scrollbarThumb`, `searchMatchText`, and `searchMatchBg` roles. Brunch's preview palette casts parsed colors to a total `Record<ThemeColor, string>` although shipped themes omit the new optional search role; safe for the current main-screen preview but worth a focused compile/render check. Do not add colors merely for symmetry. |
 
 ### D · Extension surface
 
@@ -89,14 +97,15 @@ The closed enumeration derives from three inputs, all available now: the distinc
 | `ExtensionAPI` / context shape / event-bus disposal | `have` | ● | `earned` | `src/.pi/extensions/` | 0.84.0 fixed extension event-bus listeners surviving session reloads and disposal — brunch registers many. Closure: extension suites green, including `ask-runtime-mount.test.ts`. |
 | Tool definitions and built-in tool factories | `have` | ● | `earned` | `src/.pi/extensions/`, executor | `defineTool`, `create{Find,Grep,Ls,Read}Tool*`. 0.84.0 changed `find` glob/root path handling and tool argument validation for `anyOf`/`oneOf` unions. Closure: tool suites green. |
 | Skills and resource loading | `have` | ● | `earned` | `src/agents/skills/registry.ts` | `loadSkills`, `ResourceLoader`, `DefaultResourceLoader`. 0.84.0 fixed recursive skill loading paths and malformed resource arrays crashing startup. Closure: skills registry suite green. |
+| 0.84.2 session dispatch and system-prompt fixes | `partial` | ● | `earned` | `src/.pi/extensions/`, `src/agents/runtime/`, `src/app/` | `sendUserMessage()` gains explicit command/skill/template expansion control; `sendMessage(..., { triggerTurn: false })` and custom-system-prompt concatenation are fixed upstream. Brunch's public RPC prompts already use `session.prompt(..., { expandPromptTemplates: false })`, and its only extension `sendUserMessage` call sends literal proof text. Closure: existing command/runtime-system-prompt suites green and no product path opts into ambient expansion. |
 
 ### E · Test substrate and witnesses
 
 | Capability | Status | Req | Fill | Owner / next | Notes |
 | --- | --- | --- | --- | --- | --- |
 | Faux provider registration | `have` | ● | `earned` | `src/probes/faux-provider.ts` | **Verified no-impact at scope time:** brunch's `ProviderConfig` is a static `models` array plus an optional `streamSimple` override — no `refreshModels`, no `context.store`. The provider-refresh `store`→`stored`/`publish()` break does not reach it. Closure: faux-harness suite green. |
-| `InteractiveMode` production composition | `partial` | ● | `proving` | `src/app/brunch-tui.ts` | D141-L's normal-TUI composition and the `process.on('exit')` writer release (I64-L carried finding) both ride this. 0.84.0's fullscreen work refactored the TUI base classes underneath it. Closure: `session-runtime-contract-tracer.slow.test.ts` re-passes including the bounded-cleanup leaf. |
-| The four convergence witnesses | `partial` | ● | `proving` | `src/app/__tests__/session-runtime-contract-*.slow.test.ts` | tracer · companion · structured-ask · authority. These are the only oracles that would catch a silent B1 regression. Closure: all four green on 0.84.1 under `npm run test:slow:core`. |
+| `InteractiveMode` production composition | `partial` | ● | `proving` | `src/app/brunch-tui.ts` | D141-L's normal-TUI composition and the `process.on('exit')` writer release (I64-L carried finding) both ride this. 0.84.0 refactored the TUI base classes; 0.84.2 adds optional fullscreen exit output and mounts managed-tool download status inside the TUI. Closure: `session-runtime-contract-tracer.slow.test.ts` re-passes including startup and bounded-cleanup leaves. |
+| The four convergence witnesses | `partial` | ● | `proving` | `src/app/__tests__/session-runtime-contract-*.slow.test.ts` | tracer · companion · structured-ask · authority. These are the only oracles that would catch a silent B1 regression. Closure: all four green on 0.84.2 under `npm run test:slow:core`. |
 | Required FE-1348 subset re-run | `spec` | ● | `proving` | FE-1348 ledger | Differential against the frozen 0.83.0 baseline. Closure: the required rows that touch Pi surfaces re-pass; divergences become findings, not silent updates. |
 
 ### F · Verified no-impact (closed at scope time, evidence recorded)
@@ -108,6 +117,7 @@ The closed enumeration derives from three inputs, all available now: the distinc
 | `ModelsStreamTransforms` → `ModelsRequestTransforms` | `have` | ● | `earned` | — | Zero call sites. |
 | `setRuntimeApiKey()` signature | `have` | ● | `earned` | — | Zero call sites on `next`; this is `main`/PR #422's migration, not ours. |
 | `RemoteSession.sessions` → `SessionMetadata` | `have` | ● | `earned` | — | Zero call sites; relevant only if G1 adopts the client surface. |
+| 0.84.2 no-impact type surface | `have` | ● | `earned` | — | Zero direct callsites for breaking `ensureTool()` callback-signature change or additive `ScrollView.scrollTo()` options, Cloudflare binding helpers, constrained-sampling helpers, and fullscreen search classes. Optional `ToolCall.namespace` and `AssistantMessage.endTurn` are safely ignored by current transcript/projection readers. Re-confirm by grep after the bump; do not create adapters. |
 
 ### G · New-API disposition — verdict required, adoption not assumed
 
@@ -122,22 +132,24 @@ Each row closes on a recorded verdict: **adopted** (folded into this sweep), **p
 | `AGENTS.override.md` per-directory context | `new` | ● | `earned` | comparison harness | Bears on target isolation in `/compare-specs`. Verdict only; adoption would belong to `comparison-machine-interface-cutover`. |
 | `pi auth check` | `new` | ● | `earned` | comparison harness, release-pack smoke | Credential preflight. Verdict only. |
 | `AgentOptions.shouldStopAfterTurn` | `new` | ● | `earned` | executor | Graceful stop after a completed turn. Verdict only. |
-| Vendor-neutral telemetry contracts | `new` | ● | `earned` | Horizon `mechanism-trace` / `agent-tracing` | Verdict only; those Horizon items are trigger-gated and this is a candidate trigger. |
-| `samplingParams` / vLLM `thinking_token_budget` | `new` | ○ | `earned` | model config | Deferred — no current brunch need. Record the decline. |
-| Fullscreen TUI mode as a product feature | `new` | ○ | `earned` | Horizon | Deferred and explicitly out of boundary. Row C1 covers only the *forced* construction change, not adopting the mode. |
+| Vendor-neutral telemetry contracts | `new` | ● | `earned` | Horizon `mechanism-trace` / `agent-tracing` | Verdict only; those Horizon items are trigger-gated and this is a candidate trigger. 0.84.2's optional `ToolCall.namespace` and `AssistantMessage.endTurn` are related diagnostics inputs, not reasons to build telemetry here. |
+| Configurable `defaultTools` + experimental strict built-in sampling | `new` | ● | `earned` | row A8, tool policy | Verdict required. Brunch currently disables built-ins or supplies explicit allowlists, and strict sampling covers Pi's default read/bash/edit/write tools only; adoption must not widen Brunch tool authority. |
+| `sendUserMessage(..., { expandPromptTemplates })` | `new` | ● | `earned` | row D4 | Verdict required. Product machine-control paths intentionally suppress ambient command/resource expansion; adopt only if a named Brunch-owned command-dispatch path needs it. |
+| `samplingParams` / vLLM `thinking_token_budget` | `new` | ○ | `earned` | model config | Deferred — no current Brunch need. Record the decline. |
+| Fullscreen TUI mode, transcript search, exit output, and per-run theme | `new` | ○ | `earned` | Horizon | Deferred and explicitly out of boundary. Rows C1/C4/C6 and E2 cover only forced compatibility and regression checks, not adopting fullscreen product behavior. |
 
 ## Row discipline
 
-- Rows E2, E3, and F re-confirm existing contracts; they close by re-running named suites, never by re-auditing.
+- Rows E2 and E3 re-confirm existing contracts by rerunning their named witnesses. F rows remain closed unless their named post-bump grep/reconfirmation contradicts the recorded no-impact evidence.
 - Rows B1–B3 do **not** close on a green type-check. Their oracle is a witness that asserts output is *produced*, not merely that nothing throws.
 - A row that turns out to need its own full card spawns a sibling `single` file under `memory/cards/`; leave the pointer in that row's Owner cell rather than fattening this ledger.
-- The list is closed. Scoping already widened it once (C1, and the C/D/E sub-seams generally) relative to the frontier's original changelog-driven framing — that reconciliation is recorded in `memory/PLAN.md`. If execution discovers **more than one** further genuinely-missing row or a new sub-seam, stop and route back through `ln-plan`.
+- The list is closed at the 0.84.2 execution-start target. Scoping first widened it for C1 and the C/D/E sub-seams; the 2026-08-14 refresh added only the required SettingsManager policy row and folded every other 0.84.2 delta into existing sub-seams. If execution discovers **more than one** further genuinely-missing row or a new sub-seam, stop and route back through `ln-plan`.
 
 ## Execution order
 
 1. Land the version pins and lockfile (row A1); capture the advisory-clearance evidence immediately, before any adaptation muddies the diff.
 2. Take the loud failures first: row C1, then the rest of C and D. These fail at the type checker and bound the mechanical work.
-3. Take A2–A7 — small, settled, type-guided.
+3. Take A2–A8 — small, settled, type-guided; the SettingsManager completeness test should make A8 loud.
 4. Take B1–B3 with witnesses, not types. Then B4 hardens the seams so the next bump is loud.
 5. Re-run E2/E3, then the required FE-1348 subset as a differential.
 6. Record every G verdict. Promote what needs design; decline what does not, with rationale.
@@ -164,7 +176,10 @@ src/
 ├── probes/
 │   ├── faux-provider.ts                                  ~   # A2
 │   └── executor-agent-runner-witness.ts                  ~   # A2
-└── app/__tests__/session-runtime-contract-*.slow.test.ts ?   # E3, only if contracts move
+└── app/
+    ├── pi-settings.ts                                    ~   # A8
+    ├── __tests__/brunch-tui.test.ts                      ~   # A8
+    └── __tests__/session-runtime-contract-*.slow.test.ts ?   # E3, only if contracts move
 memory/
 ├── PLAN.md                                               ~
 ├── SPEC.md                                               ~   # A25-L disposition
