@@ -293,4 +293,56 @@ describe('validateCandidatePlan', () => {
 
     expect(result.findings.filter((f) => f.code === 'unknown_verification_item')).toEqual([]);
   });
+
+  it('rejects sibling slices that do not honor projected requirement.dependsOn', () => {
+    const base = coherentCandidate();
+    const independent = {
+      ...base,
+      slices: [base.slices[0]!, { ...base.slices[1]!, dependsOn: [] }],
+    };
+
+    expect(codes(independent)).toContain('requirement_dependency_unhonored');
+  });
+
+  it('admits a candidate whose slice DAG honors projected requirement.dependsOn', () => {
+    expect(codes(coherentCandidate())).not.toContain('requirement_dependency_unhonored');
+  });
+
+  it('treats a slice that carries both ends of a requirement dependency as covering the edge', () => {
+    const base = coherentCandidate();
+    const combined = {
+      ...base,
+      slices: [
+        {
+          ...base.slices[0]!,
+          requirementIds: ['REQ1', 'REQ2'],
+          criterionIds: ['AC1', 'AC2'],
+          dependsOn: [],
+        },
+      ],
+    };
+
+    expect(codes(combined)).not.toContain('requirement_dependency_unhonored');
+  });
+
+  it('accepts a transitive slice chain that honors projected requirement.dependsOn', () => {
+    const base = coherentCandidate();
+    const first = base.slices[0]!;
+    const terminal = base.slices[1]!;
+    const transitive = {
+      ...base,
+      slices: [
+        first,
+        {
+          ...first,
+          id: 'task-mid',
+          title: 'Continue feature core',
+          dependsOn: ['task-1'],
+        },
+        { ...terminal, dependsOn: ['task-mid'] },
+      ],
+    };
+
+    expect(codes(transitive)).not.toContain('requirement_dependency_unhonored');
+  });
 });

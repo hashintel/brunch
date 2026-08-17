@@ -2116,13 +2116,31 @@
       "rationale": "The app shell requirement depends on the naming decision to know what to render."
     },
     {
-      "category": "dependency",
+      "category": "refinement",
       "source_local_id": 53,
       "target_local_id": 58,
       "stance": null,
       "basis": "explicit",
       "settlement": "settled",
       "rationale": "The app shell extends the existing visual-design system (REQ9) rather than introducing a separate one."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 58,
+      "target_local_id": 53,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Sender and recipient visual system and routes mount inside the shared Wisp shell; the shell must exist before those views."
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 58,
+      "target_local_id": 48,
+      "stance": null,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Sender and recipient accessible controls and routes mount inside the shared Wisp shell; the shell must exist before those views."
     },
     {
       "category": "realization",
