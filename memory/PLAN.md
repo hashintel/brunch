@@ -20,6 +20,7 @@
 - **Current seams and discipline:** Brunch ships on `1.0.0-alpha.x`. D125-L's live ask registry is the structured-exchange headless surface; the transcript-backed pending projection remains compatibility-only. Sweep classification remains fail-closed on exchange-schema terminal names (D117-L); the larger capture-conditional watermark question remains A40-L. Co-located `src/**/TOPOLOGY.md` files own current topology; scratch evidence is not durable until promoted to `.fixtures/runs/`.
 - **Harness baseline:** `next` is pinned to Pi `0.84.2` across `pi-ai` / `pi-coding-agent` / `pi-tui`; Pi-local `brace-expansion` and `undici` advisory paths are cleared. FE-1352 closed the full 0.80.8→0.84.2 import/type surface and replaced cumulative-message prefix diffing with typed `assistantMessageEvent.text_delta` consumption in both production event consumers. Future bumps follow D67-L: release notes plus import-graph and `.d.ts` enumeration, typed seams, retained differentials, the full gate, and the release-pack smoke.
 - **Post-hardening validation:** FE-1348 is complete. Its closed alpha inventory outer-witnessed every required product and verification path, including the final state-aware Execute mode-switch and explicit-consult journey against canonical plan/run authority. Optional provider campaigns, KA evidence, comparison witnesses, legacy-data migration, cross-platform rendering, and actual publication retain their existing owners and gates.
+- **Current strategic sequence:** close the lower-stack `shared-session-host-convergence` arc before extending runtime entry, then run its triggered canonical-memory paydown before `cli-mode-entry` starts the machine-control chain through comparison cutover and the saved-mission witness. This prevents new callers from attaching to the raw sidecar path and gives the next architecture-sensitive frontier a reconciled SPEC/topology baseline. `capture-ledger-tracer` remains useful parallel product learning; paused FE-1187 evidence does not block this chain. The KA evidence queue is a separate owner stream and is not sequenced here.
 
 ## Initiatives
 
@@ -62,10 +63,11 @@ Older completion history and archived completed frontier definitions live in [`d
 
 ### Next
 
-- `shared-session-host-cutover` — **first:** close the lower-stack session-host through-line now that FE-1321, FE-1348, and FE-1352 have supplied every prerequisite and the final upstream-client verdict. The cutover retires the remaining raw sidecar/driver dual path without forcing physical host unification. Definition below.
-- `cli-mode-entry` — next proving frontier on the completed Pi 0.84.2 baseline: make `brunch specify [spec-id]` / `brunch execute <spec-id>` select operational mode before either TUI or hosted-web composition starts, so machine control does not need to synthesize a TUI-only process-move entry. D98-L/D109-L are materialized; the former FE-1187 implementation block is retired. Definition below.
-- `comparison-machine-interface-cutover` — replace eligible Brunch/Claude `interactive_shell` conduct with hosted Brunch JSON-RPC and Claude stream-JSON, reusing existing adapters; depends on `cli-mode-entry` for Brunch Execute. Definition below.
-- `saved-mission-comparison-witness` — operator-owned real Brunch + Claude `/compare-specs` witness after the machine-interface cutover, then mission revision/rerun proving historical snapshots remain immutable. Definition below.
+- `shared-session-host-cutover` — **first, closure:** close the lower-stack session-host through-line now that FE-1321, FE-1348, and FE-1352 have supplied every prerequisite and the final upstream-client verdict. Retire the raw sidecar/driver dual path before later CLI, web, or RPC work can add callers to it. Definition below.
+- **Canonical-memory paydown — mandatory inter-frontier gate, not a separate frontier:** when `shared-session-host-cutover` closes, run the bounded `ln-sync` pass over the SPEC register and affected topology homes before opening another architecture-sensitive frontier. The cutover must settle D141-L's current state first; doing the paydown immediately afterward avoids both cleaning a moving seam and carrying its superseded architecture into the next branch.
+- `cli-mode-entry` — **then, capability:** on the canonical session-host contract and Pi 0.84.2 baseline, make `brunch specify [spec-id]` / `brunch execute <spec-id>` select operational mode before either TUI or hosted-web composition starts. This creates the presentation-neutral machine entry needed downstream without preserving or extending the retired raw path. Definition below.
+- `comparison-machine-interface-cutover` — **then, verification leverage:** replace eligible Brunch/Claude `interactive_shell` conduct with hosted Brunch JSON-RPC and Claude stream-JSON, reusing existing adapters; depends on `cli-mode-entry` for Brunch Execute. This makes later comparison evidence deterministic before another expensive witness is captured. Definition below.
+- `saved-mission-comparison-witness` — **then, outer proof:** run the operator-owned real Brunch + Claude `/compare-specs` witness only after the machine-interface cutover, then revise and rerun the mission to prove historical snapshots remain immutable. Definition below.
 
 ### Parallel / Low-conflict
 
@@ -84,7 +86,6 @@ Older completion history and archived completed frontier definitions live in [`d
 - `executor-slice-verification-repair` ([FE-1254](https://linear.app/hash/issue/FE-1254/repair-failed-slice-verification-before-halting)) — **KA stream · owner: Kostandin.** Owes its unchanged Petri comparison rerun after the merged finite repair ladder. Re-enter only for the owned, explicitly authorized unchanged rerun. Pointers: SPEC D112-L/D127-L–D130-L/I58-L; `src/executor/TOPOLOGY.md`; PR #370 evidence.
 - `greenfield-secure-drop-demo` ([FE-1289](https://linear.app/hash/issue/FE-1289/close-the-greenfield-secure-drop-demo)) — **KA stream · owner: Kostandin.** Owes one fresh full Secure Drop run proving the corrected graph/harness/build path on the current runtime baseline before any diagonal comparison claim. Re-enter from the retained witness card after the merged corrections; SD9 remains failed evidence. Pointers: [`memory/cards/greenfield-secure-drop-demo--mission-and-witness.md`](cards/greenfield-secure-drop-demo--mission-and-witness.md); `TESTING_FINDINGS.md` SD9; SPEC D120-L/D126-L/D127-L/D130-L and I58-L/I69-L.
 - **Conditional comparison gate witness:** [`memory/cards/tooling--conditional-comparison-gate.md`](cards/tooling--conditional-comparison-gate.md) remains an active non-frontier evidence card for D1-K. Re-enter on the first pull request whose complete diff is wholly inside the closed non-runtime allowlist; capture that the stable `Full gate` succeeds without executing the comparison lane, then reconcile and retire the card. Do not delete it as completed FE-1266 residue before that witness exists.
-- **Canonical-memory paydown (trigger-gated):** after `shared-session-host-convergence` closes, and before admitting another architecture-sensitive frontier, run a bounded `ln-sync` pass over the 500KB SPEC register: migrate current-state bodies to co-located topology homes, preserve only durable event/rationale pointers, merge equivalent live rows, and retire embedded history. Do not churn the register while D141-L and its cutover are still actively changing it.
 - **Planning / instrumentation later:** `planning-process-model`, `tier-2-regression-probes`, `mechanism-trace`, and `agent-tracing` re-enter only with an explicit trigger.
 - **Standing obligations:** the colleague-facing [`Brunch 1.x data-model handoff`](../docs/architecture/BRUNCH_1X_DATA_MODEL_HANDOFF.md) is delivered; `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them rather than standing as their own buckets.
 
@@ -109,7 +110,7 @@ Legacy link target; see Horizon.
 - **Remaining routes:** extractor/oracle reconciliation; the fresh R8–R10 campaign (current count 0/3); A48-L after that campaign; and the [`consolidated outer checkpoint`](cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md). Execute O7–O9 remain KA-owned D120-L evidence.
 - **Live scope files:** paused [`R8–R10 controlled provider-conduct evidence`](cards/walkthrough-remediation-2--provider-conduct-evidence.md); paused [`consolidated outer checkpoint`](cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md).
 - **Stabilizes:** the final provider-conduct and outer-evidence closure of `deterministic-orientation`; A48-L remains an optional bounded improvement whose campaign may admit or retire only the model path.
-- **Dependencies:** closes `deterministic-orientation` jointly with the KA-carved Execute evidence; `cli-mode-entry` remains stacked after this frontier.
+- **Dependencies:** closes `deterministic-orientation` jointly with the KA-carved Execute evidence. Its paused provider/human evidence is not a dependency of `shared-session-host-cutover` or the subsequent machine-control chain; re-entry remains an explicit user decision.
 - **Verification:** one normalized 17-node/11-edge semantic fixture; compact text and live/persisted render equivalence with visible per-node/per-edge settlement; exact local/RPC preservation in one atomic effect; three fresh controlled provider runs; a normal-width human walkthrough on question materiality, settlement honesty, proposition cohesion, inspectability, and fatigue; Ask matrix coverage; lexical negative-space audit rejecting live misuse of “continue”; both-theme human outer evidence. See SPEC §Verification Design.
 - **Traceability:** WR18 closure record in `TESTING_FINDINGS.md`; evidence at `testing/walkthroughs/2026-07-10/WR18-manual.md`; D98-L, D109-L, D119-L, D120-L, I62-L; D113-L–D115-L; D99-L; TESTING_PLAN concerns 1/3/4/6/7.
 
@@ -117,7 +118,7 @@ Legacy link target; see Horizon.
 
 - **Name:** Direct operational-mode entry — `brunch specify [spec-id]` / `brunch execute <spec-id>`
 - **Linear:** unassigned (create at pickup, FE team / brunch project)
-- **Branch:** tbd at pickup; FE-1352 is complete, so this frontier starts on the typed Pi 0.84.2 baseline.
+- **Branch:** tbd at pickup; stack after `shared-session-host-cutover` and its mandatory canonical-memory paydown, on the typed Pi 0.84.2 baseline.
 - **Kind:** structural bounded feature — one presentation-neutral activation decision with CLI subcommands as its product-facing entry.
 - **Certainty:** proving.
 - **Status:** next; the revised D98-L/D109-L entry semantics are materialized, so the former FE-1187 implementation block is retired.
@@ -125,7 +126,7 @@ Legacy link target; see Horizon.
 - **Objective:** add `specify [spec-id]` (default new spec) and `execute <spec-id>` subcommands, reserve `develop`, and apply one explicit workspace/spec/session/operational-mode activation decision before launching either TUI or hosted web. Preserve revised style/process-move policy without requiring a controller to append a TUI-only process-move entry. Do not add a second runtime or raw Pi transport.
 - **Acceptance:** source and installed CLIs validate spec ids and select the same canonical session/mode under TUI and `--mode web`; a hosted-web `execute <spec-id>` open reports Execute runtime state and can accept a public `session.driveTurn` without terminal input; ordinary bare `brunch` behavior is unchanged. This frontier establishes entry and one driven-turn proof only—it does not run a provider execution campaign or add a generic remote command API.
 - **Verification:** inner — argv→activation-decision mapping, mode/session persistence, invalid-id and unchanged-default rivals, orientation/kick composition, hosted-runtime state and driver contracts; outer — one bounded TUI entry observation and one machine-facing hosted-web entry/turn observation.
-- **Why now / unlocks:** D142-L's Execute RPC spike proved that stdio has no live session and hosted web has no process-move method. Pre-runtime mode selection is the smallest existing-seam path to machine-controlled Execute entry and unblocks the comparison adapter cutover without exposing TUI mechanics as product RPC.
+- **Why now / unlocks:** after the host cutover removes the raw runtime dual path and the triggered sync reconciles its architecture, D142-L's result becomes the next load-bearing unknown: stdio has no live session and hosted web has no process-move method. Pre-runtime mode selection is the smallest existing-seam path to machine-controlled Execute entry and unblocks the comparison adapter cutover without exposing TUI mechanics as product RPC.
 - **Traceability:** D98-L, D109-L, D101-L, D102-L, D132-L, D142-L; req 4, req 24, req 28.
 
 ### comparison-machine-interface-cutover
@@ -535,9 +536,10 @@ next:
     unblocked_by: FE-1321 tracer | FE-1348 product evidence | FE-1352 Pi-client verdict
     required_input: evaluate PiClient/RemoteSession before deleting raw relay/driver surfaces
     deletes: SessionEventRelay | brunch.sessionEvent | /rpc/driver | targetless live-session handles
+    -[completion gate: canonical-memory ln-sync]-> cli-mode-entry
   cli-mode-entry
     lights_up: presentation-neutral Specify/Execute activation -> TUI | hosted web RPC
-    unblocked_by: revised D98-L/D109-L entry semantics materialized | FE-1352 Pi 0.84.2 baseline complete
+    unblocked_by: shared-session-host-cutover + canonical-memory paydown | revised D98-L/D109-L | FE-1352 Pi 0.84.2 baseline
     -[hard]-> comparison-machine-interface-cutover
   comparison-machine-interface-cutover
     lights_up: hosted Brunch RPC + Claude stream-JSON control for nonvisual comparison conduct
