@@ -70,7 +70,7 @@ npm run dev-cli -- trajectory --workspace .fixtures/workbenches/workspace-alpha-
 ## Component Preview Harness
 
 `npm run dev:components` boots a
-real `ProcessTerminal` + `TUI` and shows a gallery of every registered `.pi/components` entry
+real `ProcessTerminal` + regular-screen `TuiMainScreen` and shows a gallery of every registered `.pi/components` entry
 (`src/dev/component-preview/registry.ts`) — no seeded workbench, session, or DB required, since these
 components are render-only with injectable `theme`/props.
 
