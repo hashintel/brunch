@@ -62,10 +62,10 @@ Older completion history and archived completed frontier definitions live in [`d
 
 ### Next
 
-- `cli-mode-entry` — first proving frontier after completed FE-1352: make `brunch specify [spec-id]` / `brunch execute <spec-id>` select operational mode before either TUI or hosted-web composition starts, so machine control does not need to synthesize a TUI-only process-move entry. D98-L/D109-L are materialized; the former FE-1187 implementation block is retired. Definition below.
+- `shared-session-host-cutover` — **first:** close the lower-stack session-host through-line now that FE-1321, FE-1348, and FE-1352 have supplied every prerequisite and the final upstream-client verdict. The cutover retires the remaining raw sidecar/driver dual path without forcing physical host unification. Definition below.
+- `cli-mode-entry` — next proving frontier on the completed Pi 0.84.2 baseline: make `brunch specify [spec-id]` / `brunch execute <spec-id>` select operational mode before either TUI or hosted-web composition starts, so machine control does not need to synthesize a TUI-only process-move entry. D98-L/D109-L are materialized; the former FE-1187 implementation block is retired. Definition below.
 - `comparison-machine-interface-cutover` — replace eligible Brunch/Claude `interactive_shell` conduct with hosted Brunch JSON-RPC and Claude stream-JSON, reusing existing adapters; depends on `cli-mode-entry` for Brunch Execute. Definition below.
 - `saved-mission-comparison-witness` — operator-owned real Brunch + Claude `/compare-specs` witness after the machine-interface cutover, then mission revision/rerun proving historical snapshots remain immutable. Definition below.
-- `shared-session-host-cutover` — tracer, A51-L, standalone-web, and cross-surface settlement evidence are complete; FE-1348's CS1/SW2/SW3 contracts are fixed and outer-witnessed. Cutover still closes the remaining enumerated shared-contract surface without forcing physical host unification; this evidence does not claim the cutover is implemented. Definition below.
 
 ### Parallel / Low-conflict
 
@@ -108,6 +108,7 @@ Legacy link target; see Horizon.
 - **Next action:** paused at user direction after `remediation-4` tie-off. On explicit re-entry, reconcile the accepted provider-conduct extractor/oracle against the landed mixed-settlement contract, then restart Card 2 from 0/3. No provider run counts precede extractor/oracle reconciliation.
 - **Remaining routes:** extractor/oracle reconciliation; the fresh R8–R10 campaign (current count 0/3); A48-L after that campaign; and the [`consolidated outer checkpoint`](cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md). Execute O7–O9 remain KA-owned D120-L evidence.
 - **Live scope files:** paused [`R8–R10 controlled provider-conduct evidence`](cards/walkthrough-remediation-2--provider-conduct-evidence.md); paused [`consolidated outer checkpoint`](cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md).
+- **Stabilizes:** the final provider-conduct and outer-evidence closure of `deterministic-orientation`; A48-L remains an optional bounded improvement whose campaign may admit or retire only the model path.
 - **Dependencies:** closes `deterministic-orientation` jointly with the KA-carved Execute evidence; `cli-mode-entry` remains stacked after this frontier.
 - **Verification:** one normalized 17-node/11-edge semantic fixture; compact text and live/persisted render equivalence with visible per-node/per-edge settlement; exact local/RPC preservation in one atomic effect; three fresh controlled provider runs; a normal-width human walkthrough on question materiality, settlement honesty, proposition cohesion, inspectability, and fatigue; Ask matrix coverage; lexical negative-space audit rejecting live misuse of “continue”; both-theme human outer evidence. See SPEC §Verification Design.
 - **Traceability:** WR18 closure record in `TESTING_FINDINGS.md`; evidence at `testing/walkthroughs/2026-07-10/WR18-manual.md`; D98-L, D109-L, D119-L, D120-L, I62-L; D113-L–D115-L; D99-L; TESTING_PLAN concerns 1/3/4/6/7.
@@ -161,13 +162,17 @@ Legacy link target; see Horizon.
 
 - **Name:** Session runtime contract cutover — retire raw sidecar divergence
 - **Linear:** unassigned (create at pickup in the FE team / brunch project; no parent unless the then-current plan names one)
-- **Branch:** tbd; stacks on `shared-session-host-tracer`.
+- **Branch:** tbd; stack after completed FE-1352, which follows the FE-1321/FE-1348 session-host evidence and supplies the final Pi-client input.
 - **Kind:** coverage-shaped architectural replacement over the closed TUI/web host capability surface.
 - **Certainty:** earned; A51-L retired and the reshaped tracer landed. Regress to proving if cross-process writer exclusion or semantic companion coverage becomes unknown.
-- **Classification:** tracer, A51-L, standalone-web, and cross-surface settlement evidence complete. CS1/SW2/SW3 are fixed and outer-witnessed through one canonical settled review set, exactly one approval, receipt LSN 2, and exactly one reload. The remaining cutover inventory is still unbuilt; settlement evidence does not claim raw-relay retirement or cutover completion.
-- **Objective:** make the traced runtime/projection/writer contracts canonical across normal TUI and standalone web, preserve every required presentation capability, and delete the singleton raw relay, raw event contract, `/rpc/driver`, and duplicate driver/broker semantics without forcing one physical host process.
+- **Classification:** buildable-now. Tracer, A51-L, standalone-web, cross-surface settlement, and Pi-client disposition evidence are complete; CS1/SW2/SW3 are fixed and outer-witnessed through one canonical settled review set, exactly one approval, receipt LSN 2, and exactly one reload. The remaining cutover surface is bounded and its inventory is derivable from production compositions/registries plus existing oracles, but still unbuilt.
+- **Closes:** the `shared-session-host-convergence` arc and the raw-sidecar divergence between legitimate normal-TUI and standalone-web runtime compositions.
+- **Deletes / retires:** `SessionEventRelay`, raw `brunch.sessionEvent`, `/rpc/driver`, targetless live-session handles, and duplicate browser driver/broker semantics.
+- **Objective:** make the traced runtime/projection/writer contracts canonical across normal TUI and standalone web, preserve every required presentation capability, and retire the dual path without forcing one physical host process.
 - **Inventory authority:** create `memory/cards/shared-session-host-cutover--surface-ledger.md` (`Mode: sweep`) at scope time from the production composition/registries plus existing TUI, RPC, standalone-host, and web-route oracles.
 - **Required input from FE-1352:** evaluate Pi 0.84.2's public `PiClient` / `RemoteSession` / framed-CBOR / Unix-socket surface as the Pi-facing control layer before permitting deletion of `SessionEventRelay`, `brunch.sessionEvent`, or `/rpc/driver`. Upstream provides material transport/control capability but does not replace Brunch semantic RPC/projections, graph authority, JSONL settlement/refetch, or writer exclusion.
+- **Why now / unlocks:** this is the last open member of an active lower-stack arc, and all three proving inputs have landed. Closing it now prevents `cli-mode-entry` and later web/RPC work from adding callers to the transitional raw path, then leaves one canonical session-host contract for those frontiers to extend.
+- **Promotion / disposal:** row-sized adaptations stay in the sweep; a genuinely new product/API design promotes to its owning frontier and keeps the source row open until that owner lands. Delete the ledger only after every required row closes and the arc's topology/residue done-definition holds.
 - **Aggregate DoD:** no required row remains `spec` / `new` / `partial`; normal TUI and standalone web use the same target-addressed semantic contract and enforce one writable runtime per durable target; the deletion list is absent from production and test code; no topology or onboarding doc teaches the retired raw-sidecar architecture.
 - **Verification:** per-row inner tests; middle differentials prove both launch compositions project the same durable JSONL meaning while each owns its own runtime lifetime, including active-branch/reconnect and graph-update rivals; full `npm run verify`; outer colleague walkthrough of the TUI companion plus normal TUI shutdown and standalone reopen. A deletion oracle rejects `SessionEventRelay`, `brunch.sessionEvent`, `/rpc/driver`, and targetless live-session calls outside archive/history docs.
 - **Traceability:** D84-L retirement; D132-L, D133-L; I64-L, I65-L; `shared-session-host-convergence` arc done-definition; [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md).
@@ -525,6 +530,11 @@ active:
     blocked_reentry: extractor/oracle reconciliation -> fresh R8–R10 0/3 campaign -> A48-L -> consolidated outer checkpoint
     cross_stream: O7/O8/O9 + carved Execute beats stay KA-owned
 next:
+  shared-session-host-cutover
+    closes_arc: shared-session-host-convergence
+    unblocked_by: FE-1321 tracer | FE-1348 product evidence | FE-1352 Pi-client verdict
+    required_input: evaluate PiClient/RemoteSession before deleting raw relay/driver surfaces
+    deletes: SessionEventRelay | brunch.sessionEvent | /rpc/driver | targetless live-session handles
   cli-mode-entry
     lights_up: presentation-neutral Specify/Execute activation -> TUI | hosted web RPC
     unblocked_by: revised D98-L/D109-L entry semantics materialized | FE-1352 Pi 0.84.2 baseline complete
@@ -536,12 +546,6 @@ next:
   saved-mission-comparison-witness
     gated_by: comparison-machine-interface-cutover | operator availability
     dependencies_satisfied: FE-1215 direct control | FE-1320 external target placement
-  shared-session-host-cutover
-    classification: FE-1348 CS1/SW2/SW3 repairs fixed and outer-witnessed; remaining cutover surface unbuilt
-    required_input: evaluate FE-1352's PiClient/RemoteSession verdict before deleting
-                    SessionEventRelay | brunch.sessionEvent | /rpc/driver
-    closes: raw-event/driver divergence across legitimate TUI-owned and standalone-web runtime compositions
-    deletes: SessionEventRelay | brunch.sessionEvent | /rpc/driver | sidecar handle wiring
 
 parallel:
   capture-ledger-tracer
