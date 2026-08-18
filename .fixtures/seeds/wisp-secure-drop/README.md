@@ -256,7 +256,9 @@ Vitest owns the authored `npm test` command:
 2. Express and SQLite core with client-id validation, expiry, revocation, and
    integration tests.
 3. Combined sender and recipient journeys inside the shared secure-terminal
-   shell, with mocked crypto at the component boundary.
+   shell, with mocked crypto at the component boundary. Graph scheduling treats
+   the shell requirement as predecessor of the sender/recipient UI requirements
+   so those views mount inside the shell rather than introducing it later.
 4. End-to-end security witness, sentinel scanning, development proxy proof, and
    clean build verification.
 

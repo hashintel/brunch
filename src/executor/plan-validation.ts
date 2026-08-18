@@ -29,6 +29,7 @@ export type PlanValidationFindingCode =
   | 'unknown_commitment_source'
   | 'dependency_unknown'
   | 'dependency_cycle'
+  | 'requirement_dependency_unhonored'
   | 'shared_foundation_unsequenced'
   | 'epic_integration_unreconciled'
   | 'scope_requirement_uncovered'
@@ -224,6 +225,24 @@ export function validateCandidatePlan(args: {
   }
 
   const sliceById = new Map(candidate.slices.map((slice) => [slice.id, slice]));
+  for (const requirement of projection.requirements) {
+    for (const predecessorId of requirement.dependsOn) {
+      if (!requirementIds.has(predecessorId)) continue;
+      const slicesA = candidate.slices.filter((slice) => slice.requirementIds.includes(predecessorId));
+      const slicesB = candidate.slices.filter((slice) => slice.requirementIds.includes(requirement.itemId));
+      for (const sliceB of slicesB) {
+        if (sliceB.requirementIds.includes(predecessorId)) continue;
+        for (const sliceA of slicesA) {
+          if (collectDependencyClosure(sliceB.id, sliceById).has(sliceA.id)) continue;
+          error(
+            'requirement_dependency_unhonored',
+            `Slice ${sliceB.id} covers ${requirement.itemId}, which depends on ${predecessorId}, but does not transitively depend on slice ${sliceA.id} that covers ${predecessorId}.`,
+            sliceB.id,
+          );
+        }
+      }
+    }
+  }
   const foundationOwnerById = new Map<string, CandidatePlan['slices'][number]>();
   if (projection.mode === 'greenfield') {
     for (const [foundationId, foundation] of sharedFoundations) {
