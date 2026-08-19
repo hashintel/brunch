@@ -3,6 +3,12 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-08-06 FE-1316 system reorientation audit closeout
+
+`system-reorientation-audit` closed a bounded six-lane review of thirteen post-cleanup concerns. It found no deleted or stranded required behavior, separated merged executor mechanisms from their still-open outer witnesses, confirmed the comparison scenario layers are distinct, and routed tracing, dual-host, theme, and KA evidence work to their existing owners.
+
+The audit fixed one row-sized defect: stale `present_digest` provider guidance that contradicted the conversational correction flow. It admitted exactly two new frontiers: `canonical-document-reconciliation` for enumerated normative-document drift and `host-landing-oracle-identity` for omitted behavior-bearing PTY inputs. The temporary ledger was deleted after every row reached `closed` or `promoted`; no parallel audit queue remains.
+
 ## 2026-08-05 FE-1311 integrity cleanup closeout
 
 `integrity-cleanup` completed its verified deletion/consolidation sweep and final five-row closure on `ln/fe-1311-integrity-cleanup`. The closing pass made `dist-web` the sole published browser artifact, kept locally built probes out of the package while documenting their topology, routed external end-to-end comparison consumers through the public root, removed the final byte-identical `fileExists` clone, and renamed DB column round-trip coverage for what it proves.

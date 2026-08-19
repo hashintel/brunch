@@ -52,14 +52,16 @@
 
 ### Recently Completed
 
+- 2026-08-06 `system-reorientation-audit` (FE-1316) — **✓ complete:** thirteen post-cleanup concerns received evidence-backed dispositions; one stale exchange-guidance defect was fixed, two bounded frontiers were admitted, and existing owners absorbed the remaining promoted work without creating a parallel queue.
 - 2026-08-05 `integrity-cleanup` (FE-1311) — **✓ complete:** the verified deletion/consolidation sweep and final five-row closure aligned the published package, probe topology, comparison public root, path-existence ownership, DB test naming, and portable repo-root Pi extension discovery without reopening falsified deletion targets.
 - 2026-07-22 `brownfield-comparison-cases` (FE-1241) — **✓ complete, learning-first:** frozen Brunch and Petrinaut packets, pinned-source preparation, deterministic oracles, publication-compatible attempt evidence, and portable CI are built.
-- 2026-07-22 `comparison-publication-workflow` (FE-1251) — **✓ complete:** PR #364 landed immutable comparison provenance plus guarded, idempotent Comparison Reports publication and schema reconciliation.
 
 Older completion history and archived completed frontier definitions live in [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
 
 ### Next
 
+- `canonical-document-reconciliation` — earned closure over the exact normative-looking drift promoted by FE-1316: demote the unadopted PLAN-replacement prescription, archive/thin the enumerated superseded design notes, and correct comparison case/profile prose. Definition below.
+- `host-landing-oracle-identity` — close the immutable host-landing oracle pack over every behavior-bearing PTY input before its next comparison use. Definition below.
 - `saved-mission-comparison-witness` — later operator-owned frontier: FE-1215 is landed, so the remaining work is scheduling the real Brunch + Claude `/compare-specs` witness, then revising/rerunning the saved mission to prove historical snapshots remain immutable. Definition below.
 - `comparison-mission-isolation-hardening` — admitted from FE-1215 smoke (`TESTING_FINDINGS.md` CS2): move the private mission outside the target-reachable tree (or equivalently jail the target's file tools) so the D134-L/I67-L mission boundary is structural, not conduct-dependent. Definition below.
 - `shared-session-host-tracer` — prove the one-host TUI attachment seam that FE-1200 deliberately left open. Definition below.
@@ -91,6 +93,35 @@ Legacy link target; see Horizon.
 ## Frontier Definitions
 
 <!-- Closed frontier definitions live in docs/archive/PLAN_HISTORY.md. Keep live definitions for active/next pickup items. -->
+
+### canonical-document-reconciliation
+
+- **Name:** Reconcile canonical documentation with current topology
+- **Linear:** unassigned — create at pickup in Frontend / brunch.
+- **Branch:** tbd at pickup; stack after FE-1316.
+- **Kind / classification:** coverage-shaped documentation closure · buildable-now.
+- **Certainty:** earned.
+- **Objective:** make every retained active planning/design/comparison document in the FE-1316 inventory point at current authority without preserving normative-looking superseded architecture.
+- **Boundary:** the planning-substrate assessment; `ELICITATION_QUESTIONS.md`; `ELICITATION_LENSES.md`; `STRUCTURED_EXCHANGE_COLLAPSE.md`; `SESSION_HOST_DECISION_CANDIDATE.md`; `MULTI_SESSION_DAEMON_ARCHITECTURE.md`; stale `REVIEW_SETS.md` future-work text; and comparison guide/runbook case/profile drift. No SPEC rewrite, product implementation, or new aggregate status document.
+- **Closes:** FE-1316 R06, R07, and R12.
+- **Acceptance:** the planning assessment labels its PLAN-replacement proposal unadopted; each enumerated historical design note is archived or thinned to history plus a current pointer; active comparison prose lists four execution cases, distinguishes three configured E2E contracts from retained witnesses, and does not imply an E2E operator command; Markdown links pass.
+- **Verification:** exact retired-vocabulary/current-authority searches, archive/link census, `npm run check:markdown-links`, and final diff review against the frozen inventory.
+- **Depends on:** FE-1316 disposition audit.
+- **Traceability:** AGENTS.md §topology files; `docs/praxis/ln-skills.md` canonical-state ownership; D98-L, D110-L, D116-L, D132-L–D134-L.
+
+### host-landing-oracle-identity
+
+- **Name:** Close host-landing oracle identity over PTY behavior
+- **Linear:** unassigned — create at pickup in Frontend / brunch.
+- **Branch:** tbd at pickup; stack after FE-1316 independently of the docs closure.
+- **Kind:** bounded verification hardening.
+- **Certainty:** earned.
+- **Objective:** make the immutable host-landing oracle-pack hash change for every behavior-bearing `tui-driver` input.
+- **Closes:** FE-1316 R13's concrete identity gap; it does not redesign or split the PTY driver.
+- **Acceptance:** the compiled host-landing implementation set includes `tui-driver.ts`, `session.ts`, `screen.ts`, `keys.ts`, and `driver.exp`; changing any one changes `oraclePackSha256`; identical inputs produce a stable hash.
+- **Verification:** focused oracle-pack identity regression plus current host-landing oracle contract tests.
+- **Depends on:** FE-1316 disposition audit; must land before the next retained host-landing comparison attempt or any claim that its current oracle identity covers PTY behavior.
+- **Traceability:** FE-1230 execution-comparison oracle boundary; `src/dev/TOPOLOGY.md`; `src/dev/execution-comparison-operator.ts`.
 
 ### walkthrough-remediation-2
 
@@ -532,6 +563,14 @@ active:
     -[stack]-> cli-mode-entry
 
 next:
+  canonical-document-reconciliation
+    dependency_satisfied: FE-1316 disposition audit
+    closes: FE-1316 R06 | R07 | R12
+    classification: buildable-now earned docs closure
+  host-landing-oracle-identity
+    dependency_satisfied: FE-1316 disposition audit
+    closes: FE-1316 R13
+    blocks: next retained host-landing comparison attempt
   saved-mission-comparison-witness
     gated_by: operator availability
     depends_on: landed FE-1215 workflow
