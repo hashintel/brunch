@@ -15,6 +15,16 @@ import { loadControllerOraclePack } from '../oracle-pack.js';
 const petrinautCaseDir = fileURLToPath(
   new URL('../../../../testing/execution-comparisons/cases/petrinaut-optimization/', import.meta.url),
 );
+const hostLandingCaseDir = fileURLToPath(
+  new URL('../../../../testing/execution-comparisons/cases/brunch-host-landing/', import.meta.url),
+);
+const hostLandingPtyInputNames = [
+  'tui-driver.ts',
+  'session.ts',
+  'screen.ts',
+  'keys.ts',
+  'driver.exp',
+] as const;
 
 describe('execution comparison compiled oracle dispatch', () => {
   it('keeps shared framing neutral across browser and backend delivery contracts', () => {
@@ -133,6 +143,40 @@ describe('execution comparison compiled oracle dispatch', () => {
     ]);
 
     expect(rivalPack.packSha256).not.toBe(knownPack.packSha256);
+  });
+
+  it('content-addresses every behavior-bearing host-landing PTY input independently', async () => {
+    const oracle = resolveCompiledExecutionOracle('brunch-host-landing-oracles-v1');
+    const ptyInputs = oracle.implementationFiles.filter((path) =>
+      hostLandingPtyInputNames.some((name) => path.endsWith(name)),
+    );
+    expect(ptyInputs.map((path) => path.split('/').at(-1))).toEqual(hostLandingPtyInputNames);
+
+    const [knownPack, identicalPack] = await Promise.all([
+      loadControllerOraclePack({
+        caseDir: hostLandingCaseDir,
+        implementationFiles: oracle.implementationFiles,
+      }),
+      loadControllerOraclePack({
+        caseDir: hostLandingCaseDir,
+        implementationFiles: oracle.implementationFiles,
+      }),
+    ]);
+    expect(identicalPack.packSha256).toBe(knownPack.packSha256);
+
+    for (const inputPath of ptyInputs) {
+      const root = await mkdtemp(join(tmpdir(), 'brunch-host-landing-pty-rival-'));
+      const rivalPath = join(root, inputPath.split('/').at(-1) ?? '');
+      await writeFile(rivalPath, Buffer.concat([await readFile(inputPath), Buffer.from('\n')]));
+      const rivalPack = await loadControllerOraclePack({
+        caseDir: hostLandingCaseDir,
+        implementationFiles: oracle.implementationFiles.map((path) =>
+          path === inputPath ? rivalPath : path,
+        ),
+      });
+
+      expect(rivalPack.packSha256, inputPath).not.toBe(knownPack.packSha256);
+    }
   });
 });
 

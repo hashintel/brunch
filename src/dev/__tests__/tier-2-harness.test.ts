@@ -6,7 +6,7 @@
 
 import { readFile } from 'node:fs/promises';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { openWorkspaceGraphRuntime } from '../../graph/index.js';
 import { assistantMessage, userMessage } from '../../probes/test-helpers.js';
@@ -211,21 +211,25 @@ describe('origination-kick-live — the product originates the opening turn on i
   });
 
   it('a boot with no available model does not kick (content boots stay deterministic)', async () => {
-    const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
+    vi.stubEnv('ANTHROPIC_API_KEY', 'ambient-key-must-not-enable-tier-2-models');
     try {
-      // No auth/provider in this boot — the model-availability guard must keep
-      // the trigger silent rather than firing a turn that errors at startup.
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      const entries = boot.runtime.session.sessionManager.getBranch();
-      expect(customEntries(entries, 'brunch.kick')).toHaveLength(0);
-      // The synthetic present_* pair includes a sentinel-provenance assistant
-      // toolCall; "no kick turn ran" means no provider-produced assistant message.
-      expect(
-        messagesByRole(entries, 'assistant').filter((message) => message.provider !== 'brunch'),
-      ).toHaveLength(0);
+      const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
+      try {
+        // Ambient provider credentials must not turn this deterministic content boot into a live turn.
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        const entries = boot.runtime.session.sessionManager.getBranch();
+        expect(customEntries(entries, 'brunch.kick')).toHaveLength(0);
+        // The synthetic present_* pair includes a sentinel-provenance assistant
+        // toolCall; "no kick turn ran" means no provider-produced assistant message.
+        expect(
+          messagesByRole(entries, 'assistant').filter((message) => message.provider !== 'brunch'),
+        ).toHaveLength(0);
+      } finally {
+        await boot.runtime.dispose();
+        boot.restoreEnv();
+      }
     } finally {
-      await boot.runtime.dispose();
-      boot.restoreEnv();
+      vi.unstubAllEnvs();
     }
   });
 

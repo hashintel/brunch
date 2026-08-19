@@ -297,11 +297,14 @@ export async function withTier2FauxAgentServices<T>(
 }
 
 async function createNoModelAgentServices(): Promise<BrunchAgentServicesOverride> {
+  const modelRuntime = await ModelRuntime.create({
+    credentials: new InMemoryCredentialStore(),
+    modelsPath: null,
+  });
+  modelRuntime.getAvailable = async () => [];
+  modelRuntime.getAvailableSnapshot = () => [];
   return {
-    modelRuntime: await ModelRuntime.create({
-      credentials: new InMemoryCredentialStore(),
-      modelsPath: null,
-    }),
+    modelRuntime,
   };
 }
 

@@ -81,6 +81,8 @@ const COMPILED_ORACLES: Readonly<Record<CompiledOracleId, CompiledOracle>> = {
       fileURLToPath(new URL('./tui-driver.ts', import.meta.url)),
       fileURLToPath(new URL('./tui-driver/session.ts', import.meta.url)),
       fileURLToPath(new URL('./tui-driver/screen.ts', import.meta.url)),
+      fileURLToPath(new URL('./tui-driver/keys.ts', import.meta.url)),
+      fileURLToPath(new URL('./tui-driver/driver.exp', import.meta.url)),
     ],
     run: async ({ appDir }) => await runBrunchHostLandingOracle({ candidateRoot: appDir }),
   },
