@@ -477,14 +477,14 @@ Observation: the interview advanced well past the splash into a populated graph 
 Expected: one direct normal-width shell exposes a usable Brunch Specify exchange while preserving mission isolation and cleanup.
 Disposition: pass — meets FE-1215's focused stock-Pi/direct-Brunch smoke leaf (scope card consumed on completion; status in `memory/PLAN.md` §operator-comparison-workflow).
 
-#### CS2 · private-mission isolation · high · pass with residual risk
+#### CS2 · private-mission isolation · high · pass; placement risk closed
 
 Concern: whether the private mission leaked into target-visible input or was ingested from disk.
 Evidence: transcript scan of the session/`debug/trajectory.ndjson` — zero occurrences of mission-only phrasings (`private-mission`, `top-level-session-only`, `The PM wants`, `Decision latitude`, `Conversational and disclosure posture`) and zero references to the `private-mission.md`/`harness-setup.md` paths; the one matching phrase is the mission's sanctioned natural opening. Full tool-call audit: 20 calls (12 `ask`, 4 `mutate_graph`, 2 `present_digest`, 1 `present_candidates`, 1 `read`); the sole `read` targeted `src/agents/skills/propose/SKILL.md`; no `ls`/`find`/`grep` were used.
 Observation: no mission text, path, or wholesale payload entered the Brunch cwd/session; the spec content came from the elicitation exchanges, not file ingestion.
 Expected: the private-mission boundary holds without a separate actor process.
 Residual risk: `private-mission.md` is stored at the run root, two levels **above** the Brunch target cwd (`targets/brunch`), and the Brunch agent's active tools include generic `read`/`ls`/`find`/`grep` (per `debug/system-prompt.md`). Isolation held **behaviorally** (the agent did not traverse up), not by a filesystem jail; a differently-behaved contender or retry could `read ../../private-mission.md`.
-Disposition: pass for this run; residual isolation-hardening routed to `ln-plan` as `comparison-mission-isolation-hardening` (`memory/PLAN.md`). Owner: that follow-up frontier. Re-entry trigger: any future comparison run, before treating placement isolation as guaranteed.
+Disposition: closed by FE-1320. `/compare-specs` now gives each harness a fresh system-temporary external target root outside controller checkout, scratch, and retained trees; actual-entry-point tests reject the `../../private-mission.md` rival and preserve exact controller evidence through target cleanup. This closes ordinary target-relative ancestor traversal, not unrestricted absolute-path or whole-host discovery. The real Brunch + Claude conduct witness remains owned by `saved-mission-comparison-witness`.
 
 #### CS3 · harness cleanup · medium · unverified
 

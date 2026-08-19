@@ -3,6 +3,12 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-08-05 FE-1320 comparison mission isolation closeout
+
+`comparison-mission-isolation-hardening` ([FE-1320](https://linear.app/hash/issue/FE-1320/structural-private-mission-isolation-for-compare-specs)) closed the CS2 placement risk without introducing a controller runtime or generic sandbox. The prompt-owned `/compare-specs` procedure now allocates each harness a fresh system-temporary external target root outside controller checkout, scratch, and retained trees; Brunch still launches from the repository root and receives the target through `--workspace`.
+
+The actual-entry-point contract proves target-root `read`/`ls`/`find`/`grep` visibility excludes controller-private mission material, the known `../../private-mission.md` rival fails, controller snapshots and exact target-authored output survive process and target cleanup, and historical FE-1215 retained bytes remain untouched. This boundary covers ordinary target-relative ancestor traversal only; it does not claim unrestricted absolute-path or whole-host isolation. The real Brunch + Claude run and revision-immutability evidence remain owned by `saved-mission-comparison-witness`.
+
 ## 2026-08-05 FE-1318 canonical document reconciliation closeout
 
 `canonical-document-reconciliation` closed FE-1316 rows R06, R07, and R12 without creating another planning or comparison status store. The planning-substrate assessment now records its PLAN-replacement prescription as unadopted; PLAN, SPEC, Linear/Graphite, and co-located topology retain their established authority split.
