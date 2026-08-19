@@ -268,7 +268,7 @@ describe('production normal-TUI PTY tracer', () => {
     expect(reply).toContain(TRACER_PROBE_REPLY);
     // By settle time the footer names the resolved provider, so the turn was
     // served by the substituted backend inside the real runtime.
-    expect(reply).toMatch(/model \(brunch-faux\)/u);
+    expect(reply).toMatch(/model brunch-faux-model/u);
 
     expect(journey.sessionFilesAfterQuit).toHaveLength(1);
     const messages = jsonlMessages(journey.jsonl);
