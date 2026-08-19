@@ -157,9 +157,17 @@ export function assembleAssistantTextFromStream(events: readonly AgentSessionEve
   let text = '';
   for (const event of events) {
     if (event.type !== 'message_update' && event.type !== 'message_end') continue;
-    const message = event.message;
-    if (message.role !== 'assistant') continue;
-    const joined = message.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n');
+    const message: unknown = event.message;
+    if (!message || typeof message !== 'object') continue;
+    const { role, content } = message as { readonly role?: unknown; readonly content?: unknown };
+    if (role !== 'assistant' || !Array.isArray(content)) continue;
+    const joined = content
+      .flatMap((block: unknown) => {
+        if (!block || typeof block !== 'object') return [];
+        const { type, text: blockText } = block as { readonly type?: unknown; readonly text?: unknown };
+        return type === 'text' && typeof blockText === 'string' ? [blockText] : [];
+      })
+      .join('\n');
     if (joined.length >= text.length) text = joined;
   }
   return text;
