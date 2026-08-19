@@ -494,6 +494,26 @@ Observation: operator reported the run completed; scratch tree is quiescent.
 Expected: the direct shell and any child process are dismissed after cleanup.
 Disposition: logged — process-cleanup confirmation remains the operator/top-level session's responsibility for this scratch run; not a code defect. Re-entry trigger: confirm process teardown in the operator session at run end.
 
+### 2026-08-07 FE-1321 shared-session-host-tracer — structured-ask companion questions
+
+Both entries are design questions raised by the structured-ask slice, not defects. The slice proved the correctness half automatically (`src/app/__tests__/session-runtime-contract-structured-ask.slow.test.ts`); the presentation half needs a human judgment the slice deliberately did not make. Owner frontier: `shared-session-host-tracer`. Re-entry trigger for both: A51-L's colleague walkthrough, which is a precondition of retiring A51-L.
+
+#### SA1 · consult menu / chrome carryover · medium · open design question
+
+Concern: under the normal-TUI composition the companion browser renders a TUI-owned ask with its ordinary answer form, but submitting it is refused as `ask_closed` and surfaces as a visible error.
+Evidence: `src/app/__tests__/session-runtime-contract-structured-ask.slow.test.ts` (single-answering-authority leaf); the refusal path is `src/session/tui-live-session-adapter.ts` `answerExchange` → `ask_closed`, rendered by the `Ask` form's error branch in `src/web/routes/session.tsx`.
+Observation: the refusal is honest and requires no contract change, but a colleague sees an inviting form that cannot succeed.
+Expected: a human judges whether that is confusing enough to warrant the deliberately excluded ownership marker on `OpenAsk` (e.g. `owner: 'tui'` / `answerable: false`) so the companion can render a TUI-owned ask read-only.
+Disposition: deferred — owner frontier `shared-session-host-tracer` (`memory/PLAN.md`), re-entry trigger the A51-L colleague walkthrough. Cost/value: the marker is a small field but ripples through `zOpenAsk`, the `SessionPresentationEntry` ask variant, the overlay reducer, and the `Ask` component — perhaps half a day — for a UX-polish gain the automated oracle does not require; cheap to defer because the correctness half is already guarded.
+
+#### SA2 · consult menu / chrome carryover · medium · open design question
+
+Concern: whether observation-without-answering is sufficient companion value for structured asks.
+Evidence: the same witness — the companion observes the ask and converges at settlement, but the TUI is the sole answering authority (assumption A51-L in `memory/SPEC.md`).
+Observation: the slice chose observation over dual-answer because dismissing a TUI picker from outside is not reachable — the extension holds only Pi's tool-execution `AbortSignal`, and aborting it cancels the whole turn.
+Expected: a human judges whether a colleague watching an ask they cannot answer is useful, or whether dual-answer authority is a real product requirement.
+Disposition: deferred — owner frontier `shared-session-host-tracer`, re-entry trigger the A51-L colleague walkthrough. Cost/value: if dual-answer is required, picker dismissal becomes upstream Pi work and the answering-authority design changes, shifting `shared-session-host-cutover`'s semantic-contract sweep rows; expensive to build speculatively, cheap to answer with one walkthrough.
+
 Use future entries like:
 
 ```md

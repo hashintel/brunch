@@ -10,6 +10,7 @@ import {
   type LiveSessionRuntime,
   type SessionTarget,
 } from '../session/live-session-host.js';
+import { acquireSessionWriter } from '../session/session-writer-guard.js';
 import type { WorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { inspectCanonicalSessionFiles } from '../session/workspace-session-coordinator/canonical-session-files.js';
 import { createBrunchAgentSessionRuntimeFactory, type BrunchAgentServicesOverride } from './brunch-tui.js';
@@ -72,48 +73,86 @@ async function createStandaloneSessionRuntime(
   target: SessionTarget,
   agentServices?: BrunchAgentServicesOverride,
 ): Promise<LiveSessionRuntime> {
-  const workspace = await coordinator.openTargetSession(target);
+  const writer = await acquireSessionWriter({ cwd, target });
+  let runtime: Awaited<ReturnType<typeof createAgentSessionRuntime>> | undefined;
+  let runtimeDisposed = false;
+  try {
+    const workspace = await coordinator.openTargetSession(target);
 
-  const liveExchange = createLiveAskRegistry();
-  const liveAgentSession = { current: null };
-  const runtime = await createAgentSessionRuntime(
-    createBrunchAgentSessionRuntimeFactory({
-      workspace,
-      coordinator: {
-        inspectWorkspace: () => coordinator.inspectWorkspace(),
-        activateWorkspace: (decision) => coordinator.activateWorkspace(decision),
-        bindCurrentSpecToReplacementSession: (manager) =>
-          coordinator.bindTargetSpecToReplacementSession(target, manager),
+    const liveExchange = createLiveAskRegistry();
+    const liveAgentSession = { current: null };
+    const createdRuntime = await createAgentSessionRuntime(
+      createBrunchAgentSessionRuntimeFactory({
+        workspace,
+        coordinator: {
+          inspectWorkspace: () => coordinator.inspectWorkspace(),
+          activateWorkspace: (decision) => coordinator.activateWorkspace(decision),
+          bindCurrentSpecToReplacementSession: (manager) =>
+            coordinator.bindTargetSpecToReplacementSession(target, manager),
+        },
+        liveExchange,
+        liveAgentSession,
+        allowSubagents: true,
+        ...(agentServices ? { agentServices } : {}),
+      }),
+      { cwd, agentDir: getAgentDir(), sessionManager: workspace.session.manager },
+    );
+    runtime = createdRuntime;
+    await createdRuntime.session.bindExtensions({});
+    const listeners = new Set<Parameters<LiveSessionRuntime['subscribe']>[0]>();
+    const unsubscribeAsk = liveExchange.subscribe((ask) => {
+      for (const listener of listeners) listener({ type: 'ask_opened', ask });
+    });
+    const project = createLiveSessionEventProjection();
+    const unsubscribe = createdRuntime.session.subscribe((event) => {
+      const delta = project(event);
+      if (delta) for (const listener of listeners) listener(delta);
+    });
+    return {
+      prompt: (text) => createdRuntime.session.prompt(text, { expandPromptTemplates: false, source: 'rpc' }),
+      openAsks: () => liveExchange.reader.openAsks(),
+      answerExchange: (exchangeId, answer) => liveExchange.answerer.submitAnswer({ exchangeId, answer }),
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
       },
-      liveExchange,
-      liveAgentSession,
-      allowSubagents: true,
-      ...(agentServices ? { agentServices } : {}),
-    }),
-    { cwd, agentDir: getAgentDir(), sessionManager: workspace.session.manager },
-  );
-  await runtime.session.bindExtensions({});
-  const listeners = new Set<Parameters<LiveSessionRuntime['subscribe']>[0]>();
-  const unsubscribeAsk = liveExchange.subscribe((ask) => {
-    for (const listener of listeners) listener({ type: 'ask_opened', ask });
-  });
-  const project = createLiveSessionEventProjection();
-  const unsubscribe = runtime.session.subscribe((event) => {
-    const delta = project(event);
-    if (delta) for (const listener of listeners) listener(delta);
-  });
-  return {
-    prompt: (text) => runtime.session.prompt(text, { expandPromptTemplates: false, source: 'rpc' }),
-    openAsks: () => liveExchange.reader.openAsks(),
-    answerExchange: (exchangeId, answer) => liveExchange.answerer.submitAnswer({ exchangeId, answer }),
-    subscribe(listener) {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    async dispose() {
-      unsubscribe();
-      unsubscribeAsk();
-      await runtime.dispose();
-    },
-  };
+      async dispose() {
+        if (runtimeDisposed) return;
+        runtimeDisposed = true;
+        unsubscribe();
+        unsubscribeAsk();
+        await createdRuntime.dispose();
+        await writer.release();
+      },
+    };
+  } catch (error) {
+    const cleanupErrors: unknown[] = [];
+    let runtimeCleanupFailed = false;
+    if (runtime && !runtimeDisposed) {
+      runtimeDisposed = true;
+      try {
+        await runtime.dispose();
+      } catch (cleanupError) {
+        runtimeCleanupFailed = true;
+        cleanupErrors.push(cleanupError);
+      }
+    }
+    if (!runtimeCleanupFailed) {
+      try {
+        await writer.release();
+      } catch (cleanupError) {
+        cleanupErrors.push(cleanupError);
+      }
+    }
+    if (cleanupErrors.length > 0) {
+      throw new AggregateError(
+        [error, ...cleanupErrors],
+        'Standalone runtime initialization and cleanup failed',
+        {
+          cause: error,
+        },
+      );
+    }
+    throw error;
+  }
 }

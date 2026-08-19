@@ -14,7 +14,7 @@
 ## Context
 
 - **Ship gate:** FE-1187 `walkthrough-remediation-2` is still the sole remaining ship-gate frontier. `remediation-4` landed the mixed-settlement review contract, populated-only Impact Ledger rendering, terminal-adaptive shell, persistent Specify elicitation style, deterministic menus, Ask mechanics, Continue-language cleanup, KA handoff, and the R6 terminal-status rail; extractor/oracle hardening and the fresh R8–R10 0/3 campaign remain paused at user direction. Execute evidence O7–O9 is still KA-owned.
-- **Shared host follow-through:** FE-1200 proved the standalone web foundation, but the TUI still owns a separate live `AgentSession`, `SessionEventRelay`, and `/rpc/driver` sidecar path. The open architecture arc is `shared-session-host-convergence`.
+- **Session-runtime convergence:** FE-1200 proved the standalone web foundation. FE-1321 then falsified the stronger independent-host attachment premise against Pi 0.83.0: public `InteractiveMode.stop()` preserves the runtime but leaves `run()` and its input callback pending. The selected replacement converges contracts rather than forcing one process shape: normal TUI mode owns its real Pi runtime and exposes a Brunch-semantic React companion; standalone web owns its `LiveSessionHost`; both use the same runtime factory, semantic projections/RPC vocabulary, JSONL truth, and a per-target cross-process writer guard. Independent TUI-detach survival and remote terminal presentation are deferred until real demand.
 - **Comparison lanes:** the repo keeps two distinct evaluation doors: seed-based intra-product testing and mission-driven cross-product comparison. FE-1241 closed the brownfield comparison cases; FE-1215 landed the approachable operator workflow; FE-1320 structurally separated controller-private mission material from fresh external harness targets. The remaining operator residue is the later real Brunch+Claude saved-mission witness.
 - **Executor / Execute evidence queue:** several KA fronts are implementation-merged but still carry explicit outer evidence: `host-landing`, `executor-plan-synthesis`, `execution-comparison-tracer`, `executor-plan-coherence`, `executor-slice-verification-repair`, and `greenfield-secure-drop-demo`.
 - **Current seams and discipline:** Brunch ships on `1.0.0-alpha.x`. D125-L's live ask registry is the structured-exchange headless surface; the transcript-backed pending projection remains compatibility-only. Sweep classification remains fail-closed on exchange-schema terminal names (D117-L); the larger capture-conditional watermark question remains A40-L. Co-located `src/**/TOPOLOGY.md` files own current topology; scratch evidence is not durable until promoted to `.fixtures/runs/`.
@@ -27,13 +27,13 @@
 - **exchange-presentation** — ✓ done 2026-07-06. Durable truth: D104-L/D108-L, `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`, exchange topology homes. Full closure record: `docs/archive/PLAN_HISTORY.md`.
 - **capture-ingest-throughline** — ✓ done 2026-07-06. Durable truth: I57-L, D110-L, ingest/map conduct homes. Full closure record: `docs/archive/PLAN_HISTORY.md`.
 
-### shared-session-host-convergence — planned
+### shared-session-host-convergence — ◐ active, reshaped
 
-- **Goals:** preserve first-class TUI and web presentations while collapsing runtime authority onto one cwd-scoped host; keep Pi behind Brunch product RPC/semantic projections; retire the TUI-owned raw relay and sidecar-only driver surface.
-- **Members:** `shared-session-host-tracer` → `shared-session-host-cutover`.
-- **Done-definition:** one host owns each writable Pi runtime, JSONL writer, graph command authority, driver lease/handoff, and semantic live-event stream; TUI and React remain useful clients/adapters; `SessionEventRelay`, `brunch.sessionEvent`, `/rpc/driver`, and TUI-owned parallel host wiring are deleted; `memory/SPEC.md`, `README.md`, `CONTRIBUTING.md`, `docs/design/WEB_UI_ARCHITECTURE.md`, and the app/session/rpc/web topology homes describe only the canonical host plus presentation adapters.
-- **Anchors:** A47-L; D39-L, D84-L (to retire), D132-L, D133-L; I64-L, I65-L.
-- **Confirmation (2026-08-03):** an independent architecture review re-derived this arc unprompted as the top structural priority (split roots: `brunch-tui.ts` raw `SessionEventRelay` vs `LiveSessionHost`); it also flagged `workspace-session-coordinator.ts` breadth (782 lines, 27 interface/type declarations) — that decomposition rides this arc, not a separate frontier.
+- **Goals:** preserve first-class TUI and web presentations while converging runtime construction, semantic browser contracts, durable truth, and single-writer authority; do not require one physical process shape where Pi's real TUI lifecycle makes that costly; retire the raw relay and sidecar-only driver vocabulary.
+- **Members:** `shared-session-host-tracer` (inner contracts, production wiring, and every automated witness built — PTY boot/turn, companion React, structured ask, rival refusal, and ownership transfer; only A51-L's colleague walkthrough remains) → `shared-session-host-cutover` (wait-gated).
+- **Done-definition:** normal TUI and standalone web each own exactly one legitimate runtime composition; both use the same sealed runtime factory, target-addressed Brunch RPC/semantic projection contract, JSONL truth, and per-target cross-process writer exclusion; companion React remains useful beside the real TUI without raw Pi events; `SessionEventRelay`, `brunch.sessionEvent`, `/rpc/driver`, and duplicate browser semantics are deleted; `memory/SPEC.md`, `README.md`, `CONTRIBUTING.md`, `docs/design/WEB_UI_ARCHITECTURE.md`, and the app/session/rpc/web topology homes describe the two compositions and their shared contracts without claiming an independent shared daemon.
+- **Anchors:** A51-L; D39-L, D84-L (to retire), D132-L, D133-L, D141-L; I64-L, I65-L.
+- **Confirmation (2026-08-03):** an independent architecture review re-derived this arc unprompted as the top structural priority (split roots: `brunch-tui.ts` raw `SessionEventRelay` vs `LiveSessionHost`). Its separate observation about `workspace-session-coordinator.ts` breadth is not an obligation of this arc; re-enter decomposition only when concrete coordinator change pressure justifies it.
 
 ### deterministic-orientation — ◐ active
 
@@ -46,6 +46,7 @@
 
 ### Active
 
+- `shared-session-host-tracer` ([FE-1321](https://linear.app/hash/issue/FE-1321/prove-shared-session-host-attachment-for-tui-and-react)) — **active:** writer authority, the TUI semantic adapter, production composition wiring, the semantic-only `/rpc` transport, and the deterministic PTY journey through the production normal-TUI `InteractiveMode` are built. Companion React semantic convergence over that PTY composition is now witnessed too, and so are the structured ask, the TUI-only product interaction, the rival standalone-web refusal under live TUI ownership, and the standalone-web takeover of the released target. PR review repairs enforce TUI adapter driver leases and standalone-runtime cleanup ordering; disposal failure now retains fail-closed writer authority rather than admitting a rival runtime. A51-L's colleague walkthrough remains the final outer evidence. Definition below.
 - `walkthrough-remediation-2` ([FE-1187](https://linear.app/hash/issue/FE-1187/walkthrough-remediation-sweep-2-wr18-follow-up-closure)) — **paused after `remediation-4` tie-off:** mixed-settlement review preservation and populated-group-only Impact Ledger rendering are built. Re-entry requires an explicit decision to resume extractor/oracle hardening, then restart R8–R10 from 0/3; A48-L, the separate web graph audit, and the consolidated outer checkpoint remain behind that gate. Execute O7–O9 stay KA-owned. Closing member of arc `deterministic-orientation`. Definition below.
 - `cli-mode-entry` — direct-mode CLI subcommands (`brunch specify [spec-id]` / `brunch execute <spec-id>`, reserving `develop`); admitted 2026-07-13, stacked after FE-1187's entry-surface work. Definition below.
 - **Alpha walkthrough lane** — post-publish outer-loop audit over the merged surface (`TESTING_PLAN.md` concern groups; findings in `TESTING_FINDINGS.md`). Runs A, C, and WR18 are source evidence; run D waits on FE-1187's reshaped surfaces. Not a frontier itself.
@@ -64,8 +65,7 @@ Older completion history and archived completed frontier definitions live in [`d
 ### Next
 
 - `saved-mission-comparison-witness` — later operator-owned frontier: FE-1215 is landed, so the remaining work is scheduling the real Brunch + Claude `/compare-specs` witness, then revising/rerunning the saved mission to prove historical snapshots remain immutable. Definition below.
-- `shared-session-host-tracer` — prove the one-host TUI attachment seam that FE-1200 deliberately left open. Definition below.
-- `shared-session-host-cutover` — wait-gated on the tracer; close the enumerated TUI/web host surface, then delete the raw sidecar relay and `/rpc/driver`. Definition below.
+- `shared-session-host-cutover` — wait-gated on the reshaped tracer; close the enumerated shared-contract surface only after the tracer lands, then delete the raw sidecar relay and `/rpc/driver` without forcing physical host unification. Definition below.
 
 ### Parallel / Low-conflict
 
@@ -79,10 +79,12 @@ Older completion history and archived completed frontier definitions live in [`d
 - **Release automation later:** FE-1050 closed the reviewed Changesets alpha path on `next` → npm `alpha`; the still-intended `main`/`latest` stable-release automation remains a separate deferred promotion follow-on rather than part of the current alpha automation. Pointer: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#recently-completed-entries-archived-from-live-plan).
 - `host-landing` ([FE-1201](https://linear.app/hash/issue/FE-1201/mode-aware-host-landing-of-promoted-runs)) — **KA stream · owner: Kostandin.** Owes the real TUI+RPC `/brunch:land` walkthrough from `promotion_prepared` into a fresh target (A42-L live half / FE-1197 oracle 9 landing leg). Re-enter at the next live FE-1197 walkthrough. Pointers: SPEC A42-L, D111-L/I58-L; `src/app/TOPOLOGY.md`.
 - `executor-plan-synthesis` ([FE-1197](https://linear.app/hash/issue/FE-1197/synthesize-and-validate-executor-plans-from-approved-scopes)) — **KA stream · owner: Kostandin.** Owes live-capability oracles 1–5 on real elicited specs plus oracle 9's committed-scope → conforming-promotion tail. Re-enter in the next model-backed FE-1197 walkthrough. Pointers: SPEC D130-L and A42-L; `src/executor/TOPOLOGY.md`; `docs/praxis/manual-testing.md`.
-- `execution-comparison-tracer` ([FE-1230](https://linear.app/hash/issue/FE-1230/greenfield-execution-comparison-tracer)) — **KA stream · owner: Kostandin.** Owes replay of unchanged `petri-editor-browser-v2` against both retained outputs and bounded evidence promotion. Re-enter when the exact immutable attempt/output paths are restored. Pointers: SPEC “FE-1230 execution-comparison oracle boundary”; `testing/execution-comparisons/cases/minimal-petri-net-editor/spec.md`; `docs/praxis/comparison-runs.md`.
+- `execution-comparison-tracer` ([FE-1230](https://linear.app/hash/issue/FE-1230/greenfield-execution-comparison-tracer)) — **KA stream · owner: Kostandin.** Owes replay of unchanged `petri-editor-browser-v2` against both retained outputs and bounded evidence promotion. Re-enter when the exact immutable attempt/output paths are restored. Pointers: [`memory/cards/execution-comparison-tracer--brunch-oracle-smoke.md`](cards/execution-comparison-tracer--brunch-oracle-smoke.md); SPEC “FE-1230 execution-comparison oracle boundary”; `testing/execution-comparisons/cases/minimal-petri-net-editor/spec.md`; `docs/praxis/comparison-runs.md`.
 - `executor-plan-coherence` ([FE-1250](https://linear.app/hash/issue/FE-1250/build-coherent-execution-plans)) — **KA stream · owner: Kostandin.** Owes one explicitly authorized unchanged frozen-Petri rerun with the controller-owned browser oracle. Re-enter only on that explicit authorization. Pointers: SPEC I69-L and Verification Design “I69-L unchanged frozen Petri comparison witness”; `testing/execution-comparisons/cases/minimal-petri-net-editor/spec.md`.
 - `executor-slice-verification-repair` ([FE-1254](https://linear.app/hash/issue/FE-1254/repair-failed-slice-verification-before-halting)) — **KA stream · owner: Kostandin.** Owes its unchanged Petri comparison rerun after the merged finite repair ladder. Re-enter only for the owned, explicitly authorized unchanged rerun. Pointers: SPEC D112-L/D127-L–D130-L/I58-L; `src/executor/TOPOLOGY.md`; PR #370 evidence.
 - `greenfield-secure-drop-demo` ([FE-1289](https://linear.app/hash/issue/FE-1289/close-the-greenfield-secure-drop-demo)) — **KA stream · owner: Kostandin.** Owes one fresh full Secure Drop run proving the corrected graph/harness/build path on the current runtime baseline before any diagonal comparison claim. Re-enter from the retained witness card after the merged corrections; SD9 remains failed evidence. Pointers: [`memory/cards/greenfield-secure-drop-demo--mission-and-witness.md`](cards/greenfield-secure-drop-demo--mission-and-witness.md); `TESTING_FINDINGS.md` SD9; SPEC D120-L/D126-L/D127-L/D130-L and I58-L/I69-L.
+- **Conditional comparison gate witness:** [`memory/cards/tooling--conditional-comparison-gate.md`](cards/tooling--conditional-comparison-gate.md) remains an active non-frontier evidence card for D1-K. Re-enter on the first pull request whose complete diff is wholly inside the closed non-runtime allowlist; capture that the stable `Full gate` succeeds without executing the comparison lane, then reconcile and retire the card. Do not delete it as completed FE-1266 residue before that witness exists.
+- **Canonical-memory paydown (trigger-gated):** after `shared-session-host-convergence` closes, and before admitting another architecture-sensitive frontier, run a bounded `ln-sync` pass over the 500KB SPEC register: migrate current-state bodies to co-located topology homes, preserve only durable event/rationale pointers, merge equivalent live rows, and retire embedded history. Do not churn the register while D141-L and its cutover are still actively changing it.
 - **Planning / instrumentation later:** `planning-process-model`, `tier-2-regression-probes`, `mechanism-trace`, and `agent-tracing` re-enter only with an explicit trigger.
 - **Standing obligations:** the colleague-facing [`Brunch 1.x data-model handoff`](../docs/architecture/BRUNCH_1X_DATA_MODEL_HANDOFF.md) is delivered; `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them rather than standing as their own buckets.
 
@@ -140,30 +142,34 @@ Legacy link target; see Horizon.
 
 ### shared-session-host-tracer
 
-- **Name:** Shared session host tracer — one runtime authority for TUI and React
-- **Linear:** unassigned (create at pickup, FE team / brunch project)
-- **Branch:** tbd at pickup; stack from the FE-1200 foundation after reconciling the current Graphite stack.
-- **Kind:** structural — new process/lifecycle and TUI-adapter seam over the materialized `LiveSessionHost`.
+- **Name:** Session runtime contract tracer — TUI companion and standalone web
+- **Linear:** [FE-1321](https://linear.app/hash/issue/FE-1321/prove-shared-session-host-attachment-for-tui-and-react)
+- **Branch:** `ln/fe-1321-shared-session-host-tracer`; stacked after FE-1320 on the current frontier sequence.
+- **Kind:** structural — converge runtime construction, semantic browser presentation, and writer authority across the real-TUI and standalone-web compositions.
 - **Certainty:** proving.
-- **Status:** not started; design entry point is [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md).
-- **Objective:** retire A47-L with the thinnest production-cover proof that one independently-lived cwd-scoped Brunch host can own the sole writable sealed Pi runtime for a target while both a real Pi TUI presentation and the React client attach to that same runtime authority.
-- **Why now / unlocks:** FE-1200 proved the host inventory and semantic browser contract but left `InteractiveMode` embedded in a separate TUI-owned runtime. Landing this unlocks an earned deletion-driven cutover instead of preserving dual host architectures.
-- **Acceptance:** the host can remain alive while either presentation attaches/detaches; exactly one sealed runtime writes target JSONL; the TUI remains a real Brunch/Pi interactive presentation; React receives only target-addressed Brunch semantic deltas and rehydrates from the same JSONL; one host-owned driver policy admits the TUI and rejects or hands off a conflicting React driver; a client crash/detach does not counterfeit runtime ownership; the winning TUI attachment shape is recorded in SPEC/design/topology before cutover scoping.
-- **Verification:** inner host/adapter contract tests and duplicate-writer/driver rivals; middle production entry subprocess witness with one host + TUI + browser attachment, semantic stream↔JSONL differential, detach/reconnect, and target identity; outer colleague walkthrough proving that the TUI still supports one normal Brunch workflow while the browser observes/continues it.
-- **Traceability:** A47-L; req 4/12/17/31/32; D39-L, D132-L, D133-L; I64-L, I65-L.
+- **Status:** active; inner writer-authority and TUI semantic-adapter contracts, production composition wiring, semantic-only canonical `/rpc`, and split-transport regressions are built in FE-1321. The deterministic PTY journey through the production real `InteractiveMode` is now witnessed end to end — production boot chrome and Pi editor, one ordinary turn, that exact exchange in the sole canonical JSONL, and bounded Ctrl-D cleanup — with the provider backend substituted through a `runBrunchTui` option that mirrors `runBrunchWeb`'s, never through a replacement launcher. Companion React convergence is now witnessed on top of that journey: the production React app attaches to the real TUI's sidecar over a real WebSocket, watches a PTY-typed ordinary turn arrive as target-addressed semantic deltas without ever driving it, converges its rendered transcript with a parent-computed fresh canonical-JSONL projection at `agent_settled`, and detaches without disturbing the TUI-owned session. The structured-ask limb is now witnessed too: under a real `InteractiveMode` the ask collector takes its UI branch, so the ask is *announced* to the live registry as observed-but-not-answerable — the companion receives one target-addressed `ask_opened`, renders the question while the real ask editor still holds it, is refused `ask_closed` when it tries to answer, and converges on the TUI-typed answer at settlement; the same witness commits an elicitation style through `/brunch:consult`, whose `brunch.elicitation_style` entry has no browser affordance and is dropped identically by both sides. Writer authority under contention is now witnessed as well: while the PTY TUI holds the per-target lock, a production `runBrunchWeb` composition in a second process starts fine against the same cwd but is refused `session.open` with the guard's own `-32020` / "already has a writer" identity before any second runtime exists, leaving the canonical JSONL byte-unchanged and the incumbent's `owner.json` byte-identical, after which the TUI completes a further ordinary turn. Lifecycle transfer landed with it: once Ctrl-D releases ownership the same standalone composition opens the TUI's own session file, re-acquires the lock under its own pid, keeps the TUI-era transcript as a prefix of what `session.presentation` returns, appends an RPC-driven turn to that one JSONL, and releases the lock again on close — with no orientation kick interleaved, because a standalone open on a session that already has conversational history does not fire one. PR review repairs enforce TUI adapter driver leases and standalone-runtime cleanup ordering, including retained fail-closed authority when disposal itself fails; the colleague walkthrough remains the only open evidence. The rejected independent-host evidence: Pi 0.83.0's public `InteractiveMode.stop()` leaves `AgentSessionRuntime` alive, but `run()` remains pending forever with its unresolved `getUserInput()` callback. Design history: [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md).
+- **Carried finding (2026-08-07):** the PTY witness exposed that Pi's `InteractiveMode` ends every interactive quit with `process.exit(0)`, so `runBrunchTui`'s `finally` never ran and the fail-closed per-target writer lock survived a normal Ctrl-D — permanently stranding the target for later TUI and standalone-web processes. Fixed in the same commit with a synchronous `process.on('exit')` release. The authority witness has now put that hook under load and discharged the debt: the lock survives a refused rival intact, is released by the same Ctrl-D path afterwards, and the released target is immediately re-acquirable by a standalone composition.
+- **Live scope files:** none. The failed-disposal authority review scope was consumed; the user's colleague walkthrough remains.
+- **Deferred with owner:** two companion-presentation questions from the structured-ask slice are recorded as `TESTING_FINDINGS.md` SA1/SA2 — whether a companion answer form on a TUI-owned ask warrants the excluded `OpenAsk` ownership marker, and whether observation-without-answering is sufficient companion value. Owner: this frontier; re-entry trigger: A51-L's colleague walkthrough. Cost/value: both are cheap to answer with one walkthrough and expensive to build speculatively, and the correctness half is already guarded by the automated witness.
+- **Objective:** prove that the harmful TUI/web divergence can close without an independent shared daemon: normal TUI mode owns one real `InteractiveMode` runtime and exposes a target-addressed Brunch-semantic React companion; standalone web owns its `LiveSessionHost`; both share the sealed runtime factory, semantic projections/RPC vocabulary, JSONL truth, and per-target cross-process writer exclusion.
+- **Retires / revises:** A47-L's independent-host premise is retired. D141-L preserves two legitimate runtime compositions; A51-L carries the open product-sufficiency claim; I64-L/I65-L preserve cross-process single-writer and semantic convergence obligations.
+- **Why now / unlocks:** the rejected shape would have required upstream Pi lifecycle work before proving user value. The selected shape is buildable now, preserves both existing presentations, and targets the actual duplication: raw event/driver contracts and unguarded cross-process runtime ownership.
+- **Acceptance:** a real TUI-driven ordinary turn and structured ask appear in companion React only through target-addressed Brunch semantic deltas and converge with a fresh JSONL projection; normal TUI and standalone web use the same sealed runtime construction and projection contracts; a rival process cannot create a second writable runtime for the same target; after TUI shutdown releases ownership, standalone web can reopen the same JSONL; no detachable TUI, remote terminal protocol, or second truth store is introduced.
+- **Verification:** inner semantic-adapter and writer-guard contracts; middle PTY production witness spanning real TUI + companion React + fresh JSONL, followed by rival standalone-web rejection and successful post-shutdown reopen; outer colleague walkthrough confirming that the real TUI and companion browser remain useful without independent-host survival.
+- **Traceability:** A51-L; req 4/12/17/31/32; D39-L, D132-L, D133-L, D141-L; I64-L, I65-L.
 
 ### shared-session-host-cutover
 
-- **Name:** Shared session host cutover — migrate both presentations and retire the sidecar host
-- **Linear:** unassigned (create only after the tracer chooses the TUI attachment seam)
+- **Name:** Session runtime contract cutover — retire raw sidecar divergence
+- **Linear:** unassigned (create only after the tracer proves the selected TUI attachment seam and A51-L is resolved)
 - **Branch:** tbd; stacks on `shared-session-host-tracer`.
 - **Kind:** coverage-shaped architectural replacement over the closed TUI/web host capability surface.
-- **Certainty:** earned after A47-L retires; regress to proving if the tracer leaves a real attachment unknown.
+- **Certainty:** earned after A51-L retires and the reshaped tracer lands; regress to proving if cross-process writer exclusion or semantic companion coverage remains unknown.
 - **Classification:** wait-gated on `shared-session-host-tracer`.
-- **Objective:** make the traced host the sole live-session authority for both TUI and React, preserve every required presentation capability, and delete the TUI-owned singleton relay, raw event contract, `/rpc/driver`, and parallel driver/broker wiring.
+- **Objective:** make the traced runtime/projection/writer contracts canonical across normal TUI and standalone web, preserve every required presentation capability, and delete the singleton raw relay, raw event contract, `/rpc/driver`, and duplicate driver/broker semantics without forcing one physical host process.
 - **Inventory authority:** create `memory/cards/shared-session-host-cutover--surface-ledger.md` (`Mode: sweep`) at scope time from the production composition/registries plus existing TUI, RPC, standalone-host, and web-route oracles.
-- **Aggregate DoD:** no required row remains `spec` / `new` / `partial`; both presentations pass through the one host authority; the deletion list is absent from production and test code; no topology or onboarding doc teaches the retired sidecar architecture.
-- **Verification:** per-row inner tests; middle production-host differential across TUI and React with one JSONL/runtime identity, active-branch/reconnect and graph-update rivals; full `npm run verify`; outer colleague walkthrough of TUI-driven and browser-driven handoff plus client restart. A deletion oracle rejects `SessionEventRelay`, `brunch.sessionEvent`, `/rpc/driver`, and targetless live-session calls outside archive/history docs.
+- **Aggregate DoD:** no required row remains `spec` / `new` / `partial`; normal TUI and standalone web use the same target-addressed semantic contract and enforce one writable runtime per durable target; the deletion list is absent from production and test code; no topology or onboarding doc teaches the retired raw-sidecar architecture.
+- **Verification:** per-row inner tests; middle differentials prove both launch compositions project the same durable JSONL meaning while each owns its own runtime lifetime, including active-branch/reconnect and graph-update rivals; full `npm run verify`; outer colleague walkthrough of the TUI companion plus normal TUI shutdown and standalone reopen. A deletion oracle rejects `SessionEventRelay`, `brunch.sessionEvent`, `/rpc/driver`, and targetless live-session calls outside archive/history docs.
 - **Traceability:** D84-L retirement; D132-L, D133-L; I64-L, I65-L; `shared-session-host-convergence` arc done-definition; [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md).
 
 ### capture-ledger-tracer
@@ -514,6 +520,30 @@ Legacy link target; see Horizon.
 
 ```text
 active:
+  shared-session-host-tracer (FE-1321)
+    open: A51-L
+    built: writer guard + TUI semantic adapter + production contract wiring + semantic-only /rpc
+           + production PTY boot/turn/cleanup witness through real InteractiveMode
+           + companion React convergence witness: production React app over a real WebSocket
+             against the TUI sidecar, semantic-only intake, settled equality with a fresh
+             canonical-JSONL projection, inert browser detach
+           + structured-ask + TUI-only-interaction witness: observe-only ask announcement,
+             one ask_opened, live browser render, browser answer refused as ask_closed,
+             TUI answer in canonical truth, /brunch:consult elicitation-style commit
+           + rival-refusal witness: a production standalone-web host started against the
+             TUI-owned cwd, session.open refused as -32020 "already has a writer" before
+             runtime construction, JSONL and owner.json unchanged, TUI turn continuing after
+           + transfer witness: after Ctrl-D, standalone web opens the TUI's own session file,
+             re-acquires the lock under its own pid, keeps the TUI-era transcript as a prefix
+             of session.presentation, appends a driven turn to that same JSONL, releases on close
+    proves: real TUI companion React + cross-process single-writer exclusion + post-shutdown reopen
+    next: run A51-L's colleague walkthrough (owner: the user) — the last open evidence on this
+          frontier, carrying TESTING_FINDINGS.md SA1/SA2; every automated limb is witnessed
+    finding: the ask extension resolves collectors UI-first, so a real-TUI ask never reached
+             D125-L's live registry; closed by opener.announceAsk, which grants discovery
+             without answering authority (D125-L widened 2026-08-07)
+    completion_retires: A51-L
+    -[hard]-> shared-session-host-cutover
   walkthrough-remediation-2 (FE-1187)
     closes_arc: deterministic-orientation
     blocked_reentry: extractor/oracle reconciliation -> fresh R8–R10 0/3 campaign -> A48-L -> consolidated outer checkpoint
@@ -523,13 +553,9 @@ next:
   saved-mission-comparison-witness
     gated_by: operator availability
     dependencies_satisfied: FE-1215 direct control | FE-1320 external target placement
-  shared-session-host-tracer
-    retires: A47-L
-    proves: one host-owned writable runtime + real TUI + React attachment
-    -[hard]-> shared-session-host-cutover
   shared-session-host-cutover
-    classification: wait-gated until tracer lands
-    closes: dual standalone-host / TUI-sidecar topology
+    classification: wait-gated until tracer landing
+    closes: raw-event/driver divergence across legitimate TUI-owned and standalone-web runtime compositions
     deletes: SessionEventRelay | brunch.sessionEvent | /rpc/driver | sidecar handle wiring
 
 parallel:

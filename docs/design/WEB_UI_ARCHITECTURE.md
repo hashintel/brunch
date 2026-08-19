@@ -1,6 +1,6 @@
 # Web UI and live-session host architecture
 
-Status: accepted design synthesis and transition guide; input to `memory/SPEC.md`, not a second product contract or plan. FE-1200 materialized the standalone host, concurrent target isolation, and I65-L's full required presentation-family sweep: ordinary messages; all supported ask modes; candidate, review-set, and digest offers/continuations; and receipt-bearing review settlement. It did **not** complete the architecture replacement: the TUI still owns a separate live Pi runtime plus the raw `SessionEventRelay`/`/rpc/driver` sidecar path. The planned `shared-session-host-convergence` arc must prove a real TUI against one independent host, then retire that duplicate path. Current state authority is `memory/SPEC.md` plus the co-located `src/**/TOPOLOGY.md` homes; this doc keeps the rationale, colleague entry path, and intended transition.
+Status: historical design synthesis and FE-1200 implementation guide. Its standalone-host design remains materialized, but FE-1321 superseded the later recommendation that TUI and React must converge on one independently-lived host. Current authority is `memory/SPEC.md` D141-L plus `memory/PLAN.md` and the co-located `src/**/TOPOLOGY.md` homes.
 
 This document supersedes the architectural recommendations in:
 
@@ -9,7 +9,31 @@ This document supersedes the architectural recommendations in:
 - [`SESSION_HOST_DECISION_CANDIDATE.md`](SESSION_HOST_DECISION_CANDIDATE.md)
 - [`MULTI_SESSION_DAEMON_ARCHITECTURE.md`](MULTI_SESSION_DAEMON_ARCHITECTURE.md)
 
-The comparative documents remain useful historical evidence. This document owns the current synthesis now that a standalone, interactive web UI is again a priority feature.
+The comparative documents remain useful historical evidence.
+
+## 2026-08-05 supersession: converge contracts, not process shape
+
+FE-1321 tested this document's remaining independent-host premise against Pi 0.83.0. Public `InteractiveMode.stop()` preserves the runtime, but `run()` remains pending in `getUserInput()` and retains its callback; clean detach/re-attachment would therefore require upstream Pi lifecycle work before demonstrating current product value.
+
+The selected D141-L architecture keeps two legitimate runtime compositions:
+
+```pseudo
+normal TUI
+  -> owns one sealed Pi runtime + real InteractiveMode
+  -> serves companion React through target-addressed Brunch semantic RPC/events
+
+standalone web
+  -> owns LiveSessionHost runtimes
+  -> serves React through the same semantic RPC/events
+
+both
+  -> same sealed runtime factory
+  -> same presentation projections and RPC vocabulary
+  -> same JSONL truth
+  -> per-target cross-process writer exclusion before runtime construction
+```
+
+The active work now converges contracts and writer authority, then deletes `SessionEventRelay`, raw `brunch.sessionEvent`, and `/rpc/driver`. It does **not** require companion React or the TUI presentation to survive TUI process exit, and it does not introduce a daemon, remote terminal protocol, raw Pi browser surface, or second truth store. Sections below retain FE-1200's implementation history and the superseded independent-host reasoning; where they conflict with this correction, D141-L and the co-located topology files win.
 
 ## 1. Purpose
 

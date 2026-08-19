@@ -147,6 +147,12 @@ export async function registerKeptFauxProvider(
   return { provider, agentServices: { modelRuntime, model: registeredModel } };
 }
 
+export function assembleLiveAssistantText(frames: readonly LiveSessionEventFrame[]): string {
+  return frames
+    .flatMap((frame) => (frame.params.delta.type === 'assistant_text_delta' ? [frame.params.delta.text] : []))
+    .join('');
+}
+
 export function assembleAssistantTextFromStream(events: readonly AgentSessionEvent[]): string {
   let text = '';
   for (const event of events) {

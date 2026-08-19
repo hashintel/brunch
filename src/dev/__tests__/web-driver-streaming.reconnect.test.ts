@@ -7,12 +7,13 @@ import { createAgentSessionRuntime, type AgentSessionEvent } from '@earendil-wor
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { createBrunchAgentSessionRuntimeFactory, runBrunchTui } from '../../app/brunch-tui.js';
+import type { LiveSessionEventFrame } from '../../rpc/live-session-contract.js';
 import type { SessionEventRelayFrame } from '../../rpc/session-event-relay.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
 import { emitStartupOrientationForHarness } from '../tier-2-harness.js';
 import {
-  assembleAssistantTextFromStream,
+  assembleLiveAssistantText,
   contiguousRange,
   latestAssistantTextFromJsonl,
   registerKeptFauxProvider,
@@ -75,12 +76,13 @@ describe('web-driver-streaming reconnect/resume', () => {
           throw new Error('runBrunchTui did not provide a sidecar URL');
         }
         const rpcUrl = `${context.webSidecarUrl.replace(/^http/u, 'ws').replace(/\/spec\/\d+$/u, '')}/rpc`;
+        const driverUrl = `${rpcUrl}/driver`;
         const projectionParams = {
           sessionId: context.workspace.session.id,
           specId: context.workspace.spec.id,
         };
 
-        const control = await RpcSocket.open(rpcUrl);
+        const control = await RpcSocket.open(driverUrl);
         cleanups.push(() => control.close());
         const controlFrames: SessionEventRelayFrame[] = [];
         let droppedAtMidTurn = false;
@@ -93,7 +95,7 @@ describe('web-driver-streaming reconnect/resume', () => {
           }
         });
 
-        droppedMidTurn = await RpcSocket.open(rpcUrl);
+        droppedMidTurn = await RpcSocket.open(driverUrl);
         cleanups.push(() => droppedMidTurn?.close());
         const droppedFrames: SessionEventRelayFrame[] = [];
         droppedMidTurn.onSessionEvent((frame) => {
@@ -129,16 +131,13 @@ describe('web-driver-streaming reconnect/resume', () => {
           TURN_1_TEXT,
         );
 
-        const maxTurnOneSeq = Math.max(...controlFrames.map((frame) => frame.params.seq));
         const postTurnProjection = await readProjection(control, projectionParams);
         control.close();
 
         const reconnected = await RpcSocket.open(rpcUrl);
         cleanups.push(() => reconnected.close());
-        const reconnectedFrames: SessionEventRelayFrame[] = [];
-        reconnected.onSessionEvent((frame) => reconnectedFrames.push(frame));
         await settle(150);
-        expect(reconnectedFrames).toEqual([]);
+        expect(reconnected.liveSessionEvents()).toEqual([]);
         await expect(readProjection(reconnected, projectionParams)).resolves.toEqual(postTurnProjection);
 
         faux.provider.appendResponses([
@@ -155,21 +154,18 @@ describe('web-driver-streaming reconnect/resume', () => {
         await secondTurnEnded;
         flushSessionManagerToFile(runtime.session.sessionManager, context.workspace.session.file);
         await waitFor(
-          () =>
-            assembleAssistantTextFromStream(reconnectedFrames.map((frame) => frame.params.event)) ===
-            TURN_2_TEXT,
+          () => assembleLiveAssistantText(reconnected.liveSessionEvents()) === TURN_2_TEXT,
           2000,
           'turn-two streamed assistant text at reconnected observer',
         );
 
+        const reconnectedFrames: readonly LiveSessionEventFrame[] = reconnected.liveSessionEvents();
         expect(reconnectedFrames.length).toBeGreaterThan(0);
-        expect(reconnectedFrames.every((frame) => frame.params.seq > maxTurnOneSeq)).toBe(true);
         expect(reconnectedFrames.map((frame) => frame.params.seq)).toEqual(
           contiguousRange(reconnectedFrames[0]?.params.seq ?? 0, reconnectedFrames.length),
         );
-        expect(assembleAssistantTextFromStream(reconnectedFrames.map((frame) => frame.params.event))).toBe(
-          TURN_2_TEXT,
-        );
+        expect(assembleLiveAssistantText(reconnectedFrames)).toBe(TURN_2_TEXT);
+        expect(reconnected.sessionFrames()).toEqual([]);
         expect(latestAssistantTextFromJsonl(await readFile(context.workspace.session.file, 'utf8'))).toBe(
           TURN_2_TEXT,
         );

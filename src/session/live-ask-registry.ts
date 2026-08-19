@@ -14,6 +14,13 @@ import type { LiveExchangeAnswerer, LiveExchangeAwaiter } from './live-exchange-
  * verbatim (`LiveExchangeAwaiter` / `LiveExchangeAnswerer`); the payload-aware
  * `opener` path is added alongside it and shares the same pending rendezvous.
  *
+ * Discovery and answering authority are separate. `openAsk` grants both: the
+ * ask is discoverable *and* answerable through this process. `announceAsk`
+ * grants only the first, for an ask a local interactive UI owns and answers
+ * itself — a normal-TUI runtime with a companion browser attached. An announced
+ * ask is listed, reads `open`, and notifies subscribers, but stays out of the
+ * pending set, so the local UI remains its sole answering authority.
+ *
  * In-memory and process-local by design: open asks do not survive a restart, so
  * a resumed process rediscovers nothing and a pre-restart exchange id reads
  * `closed` rather than hanging.
@@ -43,6 +50,15 @@ export interface LiveAskOpener {
    * cancelled (matching the broker's cancellation channel).
    */
   openAsk(ask: OpenAsk, signal: AbortSignal): Promise<string | undefined>;
+  /**
+   * Publish an ask that a local interactive UI owns and will answer itself.
+   * Observers — `openAsks()`, `stateOf`, and `subscribe` listeners — see it
+   * exactly as they see a pending ask, but it never joins the answerable
+   * pending set, so `submitAnswer` refuses it with `no_pending_exchange` and
+   * the local UI stays the sole answering authority. Returns the conclude
+   * callback the collector must run when its UI settles.
+   */
+  announceAsk(ask: OpenAsk): () => void;
 }
 
 export interface LiveAskRegistry {
@@ -63,6 +79,9 @@ interface PendingEntry {
 
 export function createLiveAskRegistry(): LiveAskRegistry {
   const pending = new Map<string, PendingEntry>();
+  // Asks a local interactive UI owns. Observable but deliberately outside
+  // `pending`, which is what keeps them unanswerable from here.
+  const announced = new Map<string, OpenAsk>();
   const listeners = new Set<(ask: OpenAsk) => void>();
   // ceiling: terminal states retained unbounded for the process lifetime so a
   // just-answered/cancelled id stays distinguishable from an unknown one; a
@@ -136,6 +155,13 @@ export function createLiveAskRegistry(): LiveAskRegistry {
         for (const listener of listeners) listener(ask);
         return pendingAnswer;
       },
+      announceAsk(ask) {
+        announced.set(ask.exchangeId, ask);
+        for (const listener of listeners) listener(ask);
+        return () => {
+          announced.delete(ask.exchangeId);
+        };
+      },
     },
     subscribe(listener) {
       listeners.add(listener);
@@ -143,10 +169,16 @@ export function createLiveAskRegistry(): LiveAskRegistry {
     },
     reader: {
       openAsks() {
-        return [...pending.values()].flatMap((entry) => (entry.ask ? [entry.ask] : []));
+        return [
+          ...[...pending.values()].flatMap((entry) => (entry.ask ? [entry.ask] : [])),
+          ...announced.values(),
+        ];
       },
       stateOf(exchangeId) {
-        if (pending.has(exchangeId)) return 'open';
+        if (pending.has(exchangeId) || announced.has(exchangeId)) return 'open';
+        // A concluded announcement reads `closed`, not `answered`: this registry
+        // never brokered its answer and has no honest terminal to report. The
+        // durable outcome is the ask's transcript entry.
         return terminal.get(exchangeId) ?? 'closed';
       },
     },
@@ -158,6 +190,7 @@ export function createLiveAskRegistry(): LiveAskRegistry {
       for (const exchangeId of Array.from(pending.keys())) {
         settle(exchangeId, 'cancelled', undefined);
       }
+      announced.clear();
     },
   };
 }

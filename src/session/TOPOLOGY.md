@@ -55,7 +55,7 @@ plus the coordination logic for workspace/spec/session lifecycle.
 
 - **Review-set settlement** (`review-set-settlement.ts`, D27-L/I15-L) — the shared local/RPC response authority. It revalidates the exact persisted `present_review_set`, translates that reviewed payload into one mutation, and commits approval once through `CommandExecutor.acceptReviewSet`; the operation, spec-local LSN, and single change-log row are the durable acceptance record. Only then does it pass the exact successful `MutateGraphSuccess` into the request projector and construct the validated receipt-bearing terminal; adapters retain only their distinct Pi-owned vs Brunch-owned append mechanics. Required per-node and per-edge settlement is preserved through that same approval without a post-approval mutation.
 
-- **Live-session host fan-out** (`live-session-host.ts`, D132-L/I64-L) — owns target-addressed runtime cells and one host-lifetime `subscribeAll` observer set. Every cell dispatches semantic deltas through that set, including cells opened after subscription and reopened targets; sequence numbers remain contiguous within an open epoch and restart at zero after close/reopen. RPC owns wire validation and method naming. FE-1200 currently composes this host only from standalone web; PLAN arc `shared-session-host-convergence` must prove a real `InteractiveMode` TUI adapter over the same host authority (A47-L), then make this module or its traced successor the sole runtime inventory and retire the separate raw TUI relay. No second host abstraction should grow beside it during the transition.
+- **Live-session host fan-out** (`live-session-host.ts`, D132-L/D141-L/I64-L) — owns target-addressed runtime cells and one host-lifetime `subscribeAll` observer set for standalone web. Every cell dispatches semantic deltas through that set, including cells opened after subscription and reopened targets; sequence numbers remain contiguous within an open epoch and restart at zero after close/reopen. RPC owns wire validation and method naming. D141-L does not make this module the TUI runtime inventory: normal TUI keeps its real `InteractiveMode` runtime and must adapt that exact session into the same semantic projection/RPC contracts. The active arc now acquires fail-closed per-target filesystem writer authority before either composition constructs a runtime. `session-writer-guard.ts` never steals stale-looking locks; successful normal disposal and successful construction-failure cleanup release them, while disposal failure retains authority, and `app/brunch-tui.ts` adds a synchronous `process.on('exit')` release because Pi's `InteractiveMode` ends interactive quits with `process.exit(0)` without running disposal. `tui-live-session-adapter.ts` adapts the exact `InteractiveMode`-owned session and live ask registry into the same target-addressed semantic host contract without owning or disposing that runtime; it enforces one browser-driver lease per attachment epoch, and browser close releases only that lease. The later cutover retires the raw TUI relay without growing a third host abstraction.
 
 - **Structured-exchange loop helpers** — deterministic POC exchange generation,
   pending prompt reconstruction from structured transcript tuples, response
@@ -70,7 +70,17 @@ plus the coordination logic for workspace/spec/session lifecycle.
   the executing tool's abort signal. An already-aborted signal never exposes an
   open ask; a later abort synchronously removes it, records `cancelled`, and
   resolves the collector without an answer. Answer, explicit cancellation, and
-  abort all detach the listener at settlement. `session.openAsks` therefore
+  abort all detach the listener at settlement. The registry separates discovery
+  from answering authority: `opener.openAsk` grants both, while
+  `opener.announceAsk` grants only discovery, for an ask a local interactive UI
+  owns and answers itself (D141-L's normal-TUI composition with a companion
+  browser). An announced ask is listed, reads `open`, and notifies subscribers —
+  so the TUI adapter emits one `ask_opened` and a reconnecting browser hydrates
+  it through `session.openAsks` — but stays outside the pending set, so
+  `submitAnswer` refuses it with `no_pending_exchange` and `answerExchange`
+  reports `ask_closed`. `.pi/extensions/exchanges/ask.ts` announces around its
+  interactive collectors for the standalone ask family; the `present_*`
+  continuation family does not announce yet. `session.openAsks` therefore
   discovers only live asks without scanning the transcript; the answer still
   arrives through the string `awaitAnswer`/`submitAnswer` contract and reduces
   to canonical `ask` details

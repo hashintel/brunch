@@ -104,6 +104,23 @@ describe('standalone hosted-session RPC contract', () => {
     }
   });
 
+  it('keeps the canonical hosted surface target-addressed and excludes the raw sidecar dialect', async () => {
+    const handlers = createWebSidecarRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp',
+      hostedSession: boundary(),
+    });
+    const discovery = await handlers.handle({ jsonrpc: '2.0', id: 1, method: 'rpc.discover' });
+    const names = (discovery as { result: { methods: Array<{ method: string }> } }).result.methods.map(
+      ({ method }) => method,
+    );
+    expect(names).toEqual(expect.arrayContaining(['session.presentation', 'session.driveTurn']));
+    expect(names).not.toContain('brunch.sessionEvent');
+    await expect(
+      handlers.handle({ jsonrpc: '2.0', id: 2, method: 'session.driveTurn', params: { prompt: 'raw' } }),
+    ).resolves.toMatchObject({ error: { code: -32602 } });
+  });
+
   it('rejects targetless lifecycle, driver, ask, answer, and presentation requests', async () => {
     const handlers = createWebSidecarRpcHandlers({
       coordinator: coordinator(),

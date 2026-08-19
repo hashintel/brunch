@@ -1,10 +1,10 @@
 # web/ — Brunch React client
 
-Canonical references: `docs/architecture/prd.md` §Browser / web client, `src/rpc/TOPOLOGY.md`; SPEC D132-L/D133-L and I64-L/I65-L
+Canonical references: `docs/architecture/prd.md` §Browser / web client, `src/rpc/TOPOLOGY.md`; SPEC D132-L/D133-L/D141-L and I64-L/I65-L
 
 This directory owns the browser client currently served by both the transitional TUI sidecar and the standalone `--mode web` combined host. The browser is a thin remote head over the Brunch host: one React app, one WebSocket-backed Brunch JSON-RPC client, TanStack Router for route/data preloading, and TanStack Query for cache ownership and update scheduling. Standalone session routes drive explicitly targeted existing JSONL sessions without constructing `InteractiveMode`.
 
-**Migration state:** the client already consumes the target-addressed `brunch.liveSessionEvent` contract and deliberately ignores raw `brunch.sessionEvent`; that semantic contract is the canonical direction for PLAN arc `shared-session-host-convergence`. The arc must preserve both useful TUI and React presentations while moving them to one independent host, then remove the TUI-sidecar transport rather than teaching this client two session-event dialects. New browser session work should target `session.presentation`, hosted `session.*` methods, and `subscribeSessionEvents`, not `/rpc/driver` or raw Pi events. See [`docs/design/WEB_UI_ARCHITECTURE.md`](../../docs/design/WEB_UI_ARCHITECTURE.md).
+**Migration state:** the client already consumes the target-addressed `brunch.liveSessionEvent` contract and deliberately ignores raw `brunch.sessionEvent`; that semantic contract is canonical for both D141-L launch compositions. Normal TUI and standalone web own different runtime compositions, while companion and standalone React now share `session.presentation`, target-addressed `session.*` methods, and `subscribeSessionEvents`; the PTY witness over real `InteractiveMode` behavior has landed, and `src/app/__tests__/session-runtime-contract-companion.slow.test.ts` now drives this exact client — real WebSocket, real router/Query stack, real session route — against that composition, proving semantic-only intake, settled equality with a fresh JSONL projection, and inert detach. The remaining open proofs are a structured ask over the same composition, rival refusal, and post-shutdown reopen. The active arc removes `/rpc/driver` and raw Pi events rather than teaching this client two browser dialects; it does not require the companion browser to outlive the TUI process. See [`docs/design/WEB_UI_ARCHITECTURE.md`](../../docs/design/WEB_UI_ARCHITECTURE.md).
 
 The web client must not read SQLite, Pi RPC, local JSONL, or `.brunch/workspace.json` directly. It speaks Brunch public RPC method names and renders product projections. Its current graph observer subset is `graph.overview` + `graph.nodeNeighborhood`; `src/graph/TOPOLOGY.md` owns the observed-shape ledger and keeps additional graph-owned shapes deliberate rather than accidental bleed-through from agent/RPC needs.
 
@@ -465,6 +465,8 @@ rpc-client.test.ts
 
 app / route tests
   full required-family semantic presentation and ask answering from the shared projection
+  companion convergence over a real TUI PTY lives with the app composition:
+    src/app/__tests__/session-runtime-contract-companion.slow.test.ts
   candidate/review-set/digest settlement + reconnect, including review receipt
   one runtime-owned QueryClient and router
   loaders call expected queryOptions

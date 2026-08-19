@@ -18,8 +18,8 @@ import {
   createBrunchFauxModelRuntime,
   defaultBrunchFauxModel,
 } from '../../probes/faux-provider.js';
+import { LIVE_SESSION_EVENT_METHOD, type LiveSessionEventFrame } from '../../rpc/live-session-contract.js';
 import { BRUNCH_UPDATED_METHOD } from '../../rpc/product-updates.js';
-import { BRUNCH_SESSION_EVENT_METHOD, type SessionEventRelayFrame } from '../../rpc/session-event-relay.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
 import { emitStartupOrientationForHarness } from '../tier-2-harness.js';
@@ -28,7 +28,7 @@ const DRIVEN_TEXT =
   'Streamed assistant reply: production relay frames must reduce to canonical transcript truth.';
 
 type ReceivedFrame =
-  | SessionEventRelayFrame
+  | LiveSessionEventFrame
   | { readonly jsonrpc: '2.0'; readonly method: typeof BRUNCH_UPDATED_METHOD; readonly params: unknown };
 
 describe('web-driver-streaming production relay seam', () => {
@@ -105,26 +105,28 @@ describe('web-driver-streaming production relay seam', () => {
         );
 
         const piFrames = received.filter(
-          (frame): frame is SessionEventRelayFrame => frame.method === BRUNCH_SESSION_EVENT_METHOD,
+          (frame): frame is LiveSessionEventFrame => frame.method === LIVE_SESSION_EVENT_METHOD,
         );
         const domainFrames = received.filter((frame) => frame.method === BRUNCH_UPDATED_METHOD);
 
         expect(piFrames.length).toBeGreaterThan(0);
-        expect(piFrames.some((frame) => frame.params.event.type === 'agent_end')).toBe(true);
+        expect(piFrames.some((frame) => frame.params.delta.type === 'agent_settled')).toBe(true);
         expect(domainFrames).toHaveLength(1);
 
         const relayedSeq = piFrames.map((frame) => frame.params.seq);
         expect(relayedSeq).toEqual([...relayedSeq].sort((a, b) => a - b));
         expect(new Set(relayedSeq).size).toBe(relayedSeq.length);
-        expect(sourceEvents.map((event) => event.type).join(',')).toContain(
-          piFrames.map((frame) => frame.params.event.type).join(','),
-        );
+        expect(sourceEvents.some((event) => event.type === 'agent_end')).toBe(true);
 
-        const updateFrames = piFrames.filter((frame) => frame.params.event.type === 'message_update');
-        expect(updateFrames.length).toBeGreaterThan(1);
-        expect(assembleAssistantTextFromStream(piFrames.map((frame) => frame.params.event))).toContain(
-          DRIVEN_TEXT,
-        );
+        const updateFrames = piFrames.filter((frame) => frame.params.delta.type === 'assistant_text_delta');
+        expect(updateFrames.length).toBeGreaterThan(0);
+        expect(
+          updateFrames
+            .flatMap((frame) =>
+              frame.params.delta.type === 'assistant_text_delta' ? [frame.params.delta.text] : [],
+            )
+            .join(''),
+        ).toBe(DRIVEN_TEXT);
 
         flushSessionManagerToFile(runtime.session.sessionManager, context.workspace.session.file);
         expect(await readFile(context.workspace.session.file, 'utf8')).toContain(DRIVEN_TEXT);
@@ -150,22 +152,6 @@ async function registerKeptFauxProvider(kickText: string): Promise<{
     BRUNCH_FAUX_HARNESS_API_KEY,
   );
   return { provider, agentServices: { modelRuntime, model: registeredModel } };
-}
-
-function assembleAssistantTextFromStream(events: readonly AgentSessionEvent[]): string {
-  let text = '';
-  for (const event of events) {
-    if (event.type !== 'message_update' && event.type !== 'message_end') continue;
-    const message = (event as { message?: { role?: string; content?: unknown } }).message;
-    if (!message || message.role !== 'assistant' || !Array.isArray(message.content)) continue;
-    const joined = message.content
-      .flatMap((block: { type?: string; text?: string }) =>
-        block.type === 'text' && typeof block.text === 'string' ? [block.text] : [],
-      )
-      .join('\n');
-    if (joined.length >= text.length) text = joined;
-  }
-  return text;
 }
 
 function waitForEvent(

@@ -1,3 +1,4 @@
+import { rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import process from 'node:process';
 
@@ -31,6 +32,9 @@ import {
   type ReadinessBand,
   type WorkspaceGraphRuntime,
 } from '../graph/index.js';
+import { projectSessionPresentationFile } from '../projections/session/session-presentation.js';
+import { createLiveSessionEventFrame } from '../rpc/live-session-contract.js';
+import type { HostedSessionRpcBoundary } from '../rpc/methods/hosted-session.js';
 import type { SessionTurnDriver } from '../rpc/methods/session-driver.js';
 import type { SessionExchangeAnswerHandle } from '../rpc/methods/session-exchange-answer.js';
 import type { SessionOpenAsksHandle } from '../rpc/methods/session-open-asks.js';
@@ -40,6 +44,11 @@ import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
 import { createLiveAskRegistry, type LiveAskRegistry } from '../session/live-ask-registry.js';
 import type { KickCompletionOutcome } from '../session/originate-assistant-turn.js';
 import { operationalModeLabel } from '../session/schema/kinds.js';
+import { acquireSessionWriter } from '../session/session-writer-guard.js';
+import {
+  createTuiLiveSessionAdapter,
+  type TuiLiveSessionAdapter,
+} from '../session/tui-live-session-adapter.js';
 import { renderWorkspaceOverviewContext } from '../session/workspace-overview-context.js';
 import {
   createWorkspaceSessionCoordinator,
@@ -94,6 +103,10 @@ interface BrunchWebSidecarRunnerOptions {
   sessionTurnDriver?: SessionTurnDriver;
   sessionExchangeAnswer?: SessionExchangeAnswerHandle;
   sessionOpenAsks?: SessionOpenAsksHandle;
+  hostedSession?: HostedSessionRpcBoundary;
+  semanticSessionEvents?: {
+    subscribe(listener: (frame: ReturnType<typeof createLiveSessionEventFrame>) => void): () => void;
+  };
   routePath: string;
 }
 
@@ -109,6 +122,7 @@ export interface BrunchTuiLaunchContext {
   liveAgentSession?: {
     current: Awaited<ReturnType<typeof createAgentSessionFromServices>>['session'] | null;
   };
+  tuiLiveSessionAdapter?: TuiLiveSessionAdapter;
   webSidecarUrl?: string;
   activationDecision?: SpecSessionActivationDecision;
   introspection?: BrunchTuiIntrospectionOptions;
@@ -158,6 +172,13 @@ export interface BrunchTuiOptions {
   evaluationDirectiveAblation?: 'warrant-before-commit';
   openBrowser?: (url: string) => Promise<void>;
   advertiseWebSidecar?: (url: string) => void;
+  /**
+   * Provider-backend substitution for deterministic product tests, mirroring
+   * `runBrunchWeb`'s option of the same name. It reaches the sealed runtime
+   * factory through the default `launchPiInteractive` path, so a boot that
+   * supplies it still exercises the real TUI composition.
+   */
+  agentServices?: BrunchAgentServicesOverride;
 }
 
 export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void> {
@@ -197,25 +218,56 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
     throw new Error(workspaceState.reason);
   }
 
-  const routePath = webSidecarRoutePath(workspaceState.spec.id);
-  const webSidecar = await (options.webSidecarRunner ?? startDefaultWebSidecar)({
-    cwd,
-    coordinator,
-    productUpdates,
-    sessionEvents,
-    sessionTurnDriver,
-    sessionExchangeAnswer: { answerer: liveExchange.answerer },
-    sessionOpenAsks: { reader: liveExchange.reader },
-    routePath,
-  });
-  const webSidecarUrl = webSidecar ? `${webSidecar.url}${routePath}` : null;
-  if (webSidecarUrl) {
-    options.advertiseWebSidecar?.(webSidecarUrl);
-    if (options.openWeb === true) {
-      await (options.openBrowser ?? openBrowser)(webSidecarUrl);
-    }
-  }
+  const target = { specId: workspaceState.spec.id, sessionId: workspaceState.session.id };
+  const writer = await acquireSessionWriter({ cwd, target });
+  // Pi's InteractiveMode ends an interactive quit (Ctrl-D, Ctrl-C, /quit) with
+  // `process.exit(0)`, so `run()` never resolves and the `finally` below never
+  // runs. The writer guard is deliberately fail-closed — a stale lock is never
+  // stolen — so without a synchronous exit release, one ordinary quit would
+  // strand the target for every later TUI and standalone-web process (I64-L).
+  // `process.on('exit')` cannot await, hence the sync removal here rather than
+  // `writer.release()`.
+  const releaseWriterOnExit = () => {
+    rmSync(writer.lockPath, { recursive: true, force: true });
+  };
+  process.on('exit', releaseWriterOnExit);
+  const tuiLiveSessionAdapter = createTuiLiveSessionAdapter({ target, asks: liveExchange });
+  const hostedSession: HostedSessionRpcBoundary = {
+    liveSessions: tuiLiveSessionAdapter,
+    project: (requested) => {
+      if (requested.specId !== target.specId || requested.sessionId !== target.sessionId) {
+        throw new Error('Session target not hosted by this TUI');
+      }
+      return projectSessionPresentationFile({ target: requested, sessionFile: workspaceState.session.file });
+    },
+  };
+  const semanticSessionEvents = {
+    subscribe(listener: (frame: ReturnType<typeof createLiveSessionEventFrame>) => void) {
+      return tuiLiveSessionAdapter.subscribeAll((event) => listener(createLiveSessionEventFrame(event)));
+    },
+  };
+  const routePath = webSidecarRoutePath(target.specId);
+  let webSidecar: BrunchWebSidecar | null = null;
   try {
+    webSidecar = await (options.webSidecarRunner ?? startDefaultWebSidecar)({
+      cwd,
+      coordinator,
+      productUpdates,
+      sessionEvents,
+      sessionTurnDriver,
+      sessionExchangeAnswer: { answerer: liveExchange.answerer },
+      sessionOpenAsks: { reader: liveExchange.reader },
+      hostedSession,
+      semanticSessionEvents,
+      routePath,
+    });
+    const webSidecarUrl = webSidecar ? `${webSidecar.url}${routePath}` : null;
+    if (webSidecarUrl) {
+      options.advertiseWebSidecar?.(webSidecarUrl);
+      if (options.openWeb === true) {
+        await (options.openBrowser ?? openBrowser)(webSidecarUrl);
+      }
+    }
     await (options.launchInteractive ?? launchPiInteractive)({
       workspace: workspaceState,
       coordinator,
@@ -231,9 +283,15 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
         process.stderr.write(`[brunch] ${diagnostic.message}\n`);
       },
       liveAgentSession,
+      tuiLiveSessionAdapter,
+      ...(options.agentServices ? { agentServices: options.agentServices } : {}),
     });
   } finally {
     await webSidecar?.close();
+    await tuiLiveSessionAdapter.dispose();
+    await writer.release();
+    // Last, so a throw from the teardown above still leaves the exit release armed.
+    process.off('exit', releaseWriterOnExit);
   }
 }
 
@@ -686,6 +744,7 @@ export function createBrunchAgentSessionRuntimeFactory(
     });
     liveAgentSession.current = created.session;
     context.sessionEvents?.attachSession(created.session);
+    context.tuiLiveSessionAdapter?.attachSession(created.session);
     return {
       ...created,
       services,
@@ -750,16 +809,32 @@ async function startDefaultWebSidecar({
   sessionTurnDriver,
   sessionExchangeAnswer,
   sessionOpenAsks,
+  hostedSession,
+  semanticSessionEvents,
 }: BrunchWebSidecarRunnerOptions): Promise<BrunchWebSidecar> {
-  const host = await startWebHost({
+  const base = {
     cwd,
     coordinator: coordinator as WorkspaceSessionCoordinator,
     productUpdates,
-    sessionEvents,
-    ...(sessionTurnDriver ? { sessionTurnDriver } : {}),
-    ...(sessionExchangeAnswer ? { sessionExchangeAnswer } : {}),
-    ...(sessionOpenAsks ? { sessionOpenAsks } : {}),
-  });
+    sessionEvents: semanticSessionEvents ?? sessionEvents,
+    legacySessionEvents: sessionEvents,
+  };
+  const host = hostedSession
+    ? await startWebHost({
+        ...base,
+        hostedSession,
+        legacySidecar: {
+          ...(sessionTurnDriver ? { sessionTurnDriver } : {}),
+          ...(sessionExchangeAnswer ? { sessionExchangeAnswer } : {}),
+          ...(sessionOpenAsks ? { sessionOpenAsks } : {}),
+        },
+      })
+    : await startWebHost({
+        ...base,
+        ...(sessionTurnDriver ? { sessionTurnDriver } : {}),
+        ...(sessionExchangeAnswer ? { sessionExchangeAnswer } : {}),
+        ...(sessionOpenAsks ? { sessionOpenAsks } : {}),
+      });
   return host;
 }
 

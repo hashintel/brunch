@@ -501,9 +501,10 @@ describe('structured exchange ask tools', () => {
 
   it('records cancellation with terminate, broker fallback, unavailable, and empty-answer discipline', async () => {
     const openAsk = vi.fn(async () => 'Answer collected by broker.');
+    const announceAsk = vi.fn(() => () => {});
     const notify = vi.fn();
     const setStatus = vi.fn();
-    const ask = registeredTools({ liveExchange: { openAsk } }).get(ASK_TOOL);
+    const ask = registeredTools({ liveExchange: { openAsk, announceAsk } }).get(ASK_TOOL);
     if (!ask) throw new Error('ask was not registered');
 
     const cancelled = await ask.execute(
@@ -546,6 +547,11 @@ describe('structured exchange ask tools', () => {
       },
       expect.any(AbortSignal),
     );
+    // The UI-owned ask is announced for observers; the headless one is not —
+    // its broker registration already makes it discoverable and answerable.
+    expect(announceAsk.mock.calls.flat()).toEqual([
+      { exchangeId: 'cancelled', mode: 'text', question: { body: 'Cancel?' } },
+    ]);
     expect(brokered.details).toMatchObject({ answered: { text: 'Answer collected by broker.' } });
     expect(setStatus).not.toHaveBeenCalled();
     expect(unavailable.details).toMatchObject({ unavailable: { message: 'ask requires interactive UI' } });

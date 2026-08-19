@@ -11,7 +11,7 @@ import { flushSessionManagerToFile } from '../../session/flush-session-manager.j
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
 import { emitStartupOrientationForHarness } from '../tier-2-harness.js';
 import {
-  assembleAssistantTextFromStream,
+  assembleLiveAssistantText,
   contiguousRange,
   latestAssistantTextFromJsonl,
   registerKeptFauxProvider,
@@ -89,7 +89,7 @@ describe('web-driver-streaming observer fan-out', () => {
         await waitFor(
           () =>
             observers.every(
-              (observer) => assembleAssistantTextFromStream(observer.sessionEvents()) === FAN_OUT_TEXT,
+              (observer) => assembleLiveAssistantText(observer.liveSessionEvents()) === FAN_OUT_TEXT,
             ),
           2000,
           'all observers to receive the driven assistant text',
@@ -107,16 +107,17 @@ describe('web-driver-streaming observer fan-out', () => {
         );
 
         const eventFingerprints = observers.map((observer) =>
-          observer.sessionFrames().map((frame) => JSON.stringify(frame.params)),
+          observer.liveSessionEvents().map((frame) => JSON.stringify(frame.params)),
         );
         expect(eventFingerprints[1]).toEqual(eventFingerprints[0]);
         expect(eventFingerprints[2]).toEqual(eventFingerprints[0]);
 
         for (const observer of observers) {
-          const seqs = observer.sessionFrames().map((frame) => frame.params.seq);
+          const seqs = observer.liveSessionEvents().map((frame) => frame.params.seq);
           expect(seqs).toEqual(contiguousRange(seqs[0] ?? 0, seqs.length));
           expect(new Set(seqs).size).toBe(seqs.length);
-          expect(assembleAssistantTextFromStream(observer.sessionEvents())).toBe(FAN_OUT_TEXT);
+          expect(assembleLiveAssistantText(observer.liveSessionEvents())).toBe(FAN_OUT_TEXT);
+          expect(observer.sessionFrames()).toEqual([]);
         }
         const updateFingerprints = observers.map((observer) =>
           observer.updatedFrames().map((frame) => JSON.stringify(frame.params)),
