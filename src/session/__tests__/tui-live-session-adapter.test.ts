@@ -38,7 +38,7 @@ describe('TUI live-session adapter', () => {
     live.emit({ type: 'agent_start' });
     live.emit({
       type: 'message_update',
-      message: { role: 'assistant', content: [{ type: 'text', text: 'Hello' }] },
+      assistantMessageEvent: { type: 'text_delta', delta: 'Hello' },
     });
     live.emit({ type: 'agent_settled' });
 

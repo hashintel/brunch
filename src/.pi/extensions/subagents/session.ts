@@ -31,6 +31,7 @@ import {
   createLsToolDefinition,
   createReadToolDefinition,
   SessionManager,
+  type AgentSessionEvent,
   type CreateAgentSessionFromServicesOptions,
   type CreateAgentSessionServicesOptions,
   type ExtensionContext,
@@ -478,15 +479,16 @@ function subscribeToSessionStream(
   onUpdate: RunSubagentInput['onUpdate'],
 ): (() => void) | undefined {
   if (!onUpdate || !hasSubscribe(session)) return undefined;
+  const preview = { text: '', truncated: false };
   return session.subscribe((event) => {
-    const update = streamUpdateFromSessionEvent(event);
+    const update = streamUpdateFromSessionEvent(event, preview);
     if (update) onUpdate(update);
   });
 }
 
 function hasSubscribe(
   value: unknown,
-): value is { subscribe: (listener: (event: unknown) => void) => () => void } {
+): value is { subscribe: (listener: (event: AgentSessionEvent) => void) => () => void } {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -495,33 +497,29 @@ function hasSubscribe(
   );
 }
 
-function streamUpdateFromSessionEvent(event: unknown): SubagentStreamUpdate | undefined {
-  const shaped = asRecord(event);
-  if (!shaped) return undefined;
-  if (shaped['type'] === 'tool_execution_start' && typeof shaped['toolName'] === 'string') {
-    return { kind: 'tool', message: `tool ${shaped['toolName']} started` };
+function streamUpdateFromSessionEvent(
+  event: AgentSessionEvent,
+  preview: { text: string; truncated: boolean },
+): SubagentStreamUpdate | undefined {
+  if (event.type === 'tool_execution_start' && typeof event.toolName === 'string') {
+    return { kind: 'tool', message: `tool ${event.toolName} started` };
   }
-  if (shaped['type'] === 'tool_execution_end' && typeof shaped['toolName'] === 'string') {
-    return { kind: 'tool', message: `tool ${shaped['toolName']} completed` };
+  if (event.type === 'tool_execution_end' && typeof event.toolName === 'string') {
+    return { kind: 'tool', message: `tool ${event.toolName} completed` };
   }
-  if (shaped['type'] !== 'message_update' && shaped['type'] !== 'message_end') return undefined;
+  if (event.type !== 'message_update') return undefined;
 
-  const message = asRecord(shaped['message']);
-  if (message?.['role'] !== 'assistant' || !Array.isArray(message['content'])) return undefined;
-  const text = message['content']
-    .flatMap((block) => {
-      const item = asRecord(block);
-      return item?.['type'] === 'text' && typeof item['text'] === 'string' ? [item['text']] : [];
-    })
-    .join('\n')
-    .trim();
-  return text.length === 0 ? undefined : { kind: 'message', message: previewText(text, 800) };
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
+  const update = event.assistantMessageEvent;
+  if (update?.type !== 'text_delta' || typeof update.delta !== 'string') return undefined;
+  const nextText = `${preview.text}${update.delta}`;
+  preview.truncated ||= nextText.length > 800;
+  preview.text = nextText.slice(0, 800);
+  return preview.text.trim().length === 0
+    ? undefined
+    : {
+        kind: 'message',
+        message: preview.truncated ? `${preview.text.slice(0, 797)}...` : previewText(preview.text, 800),
+      };
 }
 
 function previewText(value: string, maxChars: number): string {

@@ -3,6 +3,14 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-08-14 FE-1352 Pi 0.84.x upgrade closeout
+
+`pi-084-upgrade` ([FE-1352](https://linear.app/hash/issue/FE-1352/upgrade-pi-to-084x-on-next-and-close-its-change-surface)) moved all three Pi packages from the inherited 0.80.8–0.83.0 era to 0.84.2 and closed every row in the import-derived change-surface ledger. Import-graph enumeration and direct published-type comparison found a breaking change absent from Pi's published Breaking Changes list: `pi-tui`'s concrete `TUI` class became an interface, requiring regular-screen construction through `TuiMainScreen`. This evidence validated and retired A25-L while revising D67-L: track current Pi releases through bounded upgrades whose inventory combines release notes, actual imports, and `.d.ts` diffs rather than trusting changelogs alone.
+
+The highest-risk event seams now consume Pi's public typed `assistantMessageEvent.text_delta` directly; cumulative assistant-message accumulation, prefix-diffing, and load-bearing structural casts were removed from production and witness helpers. All runtime/auth, session/JSONL, component, extension, convergence, FE-1348 differential, and verified-no-impact rows closed on 0.84.2. `npm run check`, `npm run verify:full`, and `npm run check:release-pack` passed; the Pi-local `brace-expansion` and `undici` advisory paths are cleared.
+
+Every additive 0.84.x API received an adopt/promote/decline verdict. Only the public `PiClient` / `RemoteSession` / framed-CBOR / Unix-socket surface was promoted: `shared-session-host-cutover` must evaluate it as the Pi-facing control layer before deleting `SessionEventRelay`, `brunch.sessionEvent`, or `/rpc/driver`, while retaining Brunch semantic RPC/projections, graph authority, JSONL settlement/refetch, and per-target writer exclusion. The unused generic `pi-084-api-adoption` horizon bucket retired without admission, and the exhausted sweep ledger was deleted.
+
 ## 2026-08-13 FE-1348 post-hardening alpha validation closeout
 
 `post-hardening-alpha-validation` ([FE-1348](https://linear.app/hash/issue/FE-1348/validate-current-brunch-usage-and-testing-paths)) closed its frozen coverage inventory after every required product and developer/verification path reached `built`. A51-L's colleague judgment, public stdio recovery, standalone-web lifecycle, cross-surface one-requirement/zero-edge settlement, source/package entry points, canonical gates, and installed-package paths remain linked from `TESTING_FINDINGS.md`; prior failed journeys remain immutable provenance.

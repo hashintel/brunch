@@ -149,6 +149,14 @@ export const BRUNCH_SETTINGS_AUDITED_GETTERS = [
   'getShowCacheMissNotices',
   'getExternalEditorCommand',
   'getOutputPad',
+  // pi 0.84.2 additions — audited without policy pins. Brunch remains on the
+  // regular main screen and Pi's markdown defaults; production session
+  // options independently seal tool authority with noTools/tool allowlists.
+  'getDefaultTools',
+  'getFullscreenExitOutput',
+  'getFullscreenScrollbar',
+  'getMermaidRenderingMode',
+  'getTuiMode',
 ] as const;
 
 export interface BrunchPiSettingsOptions {

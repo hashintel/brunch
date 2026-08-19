@@ -1,5 +1,5 @@
 import type { KeybindingsManager } from '@earendil-works/pi-coding-agent';
-import { Key, matchesKey, TUI } from '@earendil-works/pi-tui';
+import { Key, matchesKey, TuiMainScreen } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
 import { VirtualTerminal } from '../../../.pi/__tests__/support/virtual-terminal.js';
@@ -12,7 +12,7 @@ const keybindings = undefined as unknown as KeybindingsManager;
 describe('showComponentPreview', () => {
   it('opens inline (addChild) when no overlay option is given, and removes on done', async () => {
     const terminal = new VirtualTerminal(80, 24);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
 
     let capturedDone: ((result?: string) => void) | undefined;
     const resultPromise = showComponentPreview(tui, theme, keybindings, (_tui, _theme, _kb, done) => {
@@ -38,7 +38,7 @@ describe('showComponentPreview', () => {
 
   it('opens as a real overlay when { overlay: true } is given, and hides on done', async () => {
     const terminal = new VirtualTerminal(80, 24);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
     tui.addChild({ render: () => ['base'], invalidate: () => {} });
 
     let capturedDone: ((result?: string) => void) | undefined;
@@ -71,7 +71,7 @@ describe('showComponentPreview', () => {
 
   it('enables mouse SGR mode only while a wheel-scroll preview is open', async () => {
     const terminal = new VirtualTerminal(80, 24);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
 
     let capturedDone: ((result?: string) => void) | undefined;
     const resultPromise = showComponentPreview(
@@ -102,9 +102,9 @@ describe('showComponentPreview', () => {
 
   it('does not write mouse DECSET sequences by default for inline or overlay previews', async () => {
     const inlineTerminal = new VirtualTerminal(80, 24);
-    const inlineTui = new TUI(inlineTerminal);
+    const inlineTui = new TuiMainScreen(inlineTerminal);
     const overlayTerminal = new VirtualTerminal(80, 24);
-    const overlayTui = new TUI(overlayTerminal);
+    const overlayTui = new TuiMainScreen(overlayTerminal);
 
     let closeInline: (() => void) | undefined;
     let closeOverlay: (() => void) | undefined;
@@ -147,7 +147,7 @@ describe('showComponentPreview', () => {
 
   it('routes wheel-scroll input as arrow-key input when opted in', async () => {
     const terminal = new VirtualTerminal(80, 24);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
     const received: string[] = [];
 
     void showComponentPreview(

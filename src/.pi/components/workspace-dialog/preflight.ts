@@ -1,5 +1,5 @@
 import type { ThemeColor } from '@earendil-works/pi-coding-agent';
-import { ProcessTerminal, TUI, type Terminal } from '@earendil-works/pi-tui';
+import { ProcessTerminal, TuiMainScreen, type Terminal } from '@earendil-works/pi-tui';
 
 import type {
   WorkspaceLaunchInventory,
@@ -21,7 +21,7 @@ export async function runWorkspaceDialogPreflight(
   options: WorkspaceDialogPreflightOptions = {},
 ): Promise<SpecSessionActivationDecision> {
   const terminal = options.terminal ?? new ProcessTerminal();
-  const tui = new TUI(terminal);
+  const tui = new TuiMainScreen(terminal);
   const dialogTheme = options.theme ?? resolveStartupDialogTheme();
 
   return await new Promise<SpecSessionActivationDecision>((resolve) => {

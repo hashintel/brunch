@@ -1,5 +1,5 @@
 import { type KeybindingsManager, type Theme } from '@earendil-works/pi-coding-agent';
-import { type Component, TUI } from '@earendil-works/pi-tui';
+import { type Component, TuiMainScreen } from '@earendil-works/pi-tui';
 import { describe, expect, it, vi } from 'vitest';
 
 import { projectPresentDigest } from '../../../exchanges/projections/present-digest.js';
@@ -61,7 +61,7 @@ function mountedCustomSequence(
   return vi.fn(
     async <T>(
       factory: (
-        tui: TUI,
+        tui: TuiMainScreen,
         theme: Theme,
         keybindings: KeybindingsManager,
         done: (result?: T) => void,
@@ -71,7 +71,7 @@ function mountedCustomSequence(
       const step = steps[stepIndex++];
       if (!step) throw new Error(`Unexpected mounted custom call ${stepIndex}`);
       const terminal = new VirtualTerminal(90, 28);
-      const tui = new TUI(terminal);
+      const tui = new TuiMainScreen(terminal);
       const result = new Promise<T | undefined>((resolve) => {
         const component = factory(tui, theme, undefined as unknown as KeybindingsManager, resolve);
         tui.addChild(component);
@@ -134,7 +134,7 @@ describe('ask runtime mount contract', () => {
       let rendered = '';
       const custom = vi.fn(async (factory: Parameters<CustomUi>[0]) => {
         const terminal = new VirtualTerminal(90, 28);
-        const tui = new TUI(terminal);
+        const tui = new TuiMainScreen(terminal);
         const component = factory(
           tui,
           roleTheme as Theme,
@@ -151,7 +151,7 @@ describe('ask runtime mount contract', () => {
     }
   });
 
-  it('mounts free-text ask in a real TUI, resolves schema-valid details, and collects a comment rung', async () => {
+  it('mounts free-text ask in a real TuiMainScreen, resolves schema-valid details, and collects a comment rung', async () => {
     const custom = mountedCustomSequence([
       {
         assertViewport: (viewport) => {
@@ -194,7 +194,7 @@ describe('ask runtime mount contract', () => {
     expectBracketedWorkingIndicator(setWorkingVisible);
   });
 
-  it('mounts single-select ask in a real TUI and resolves the selected option echo', async () => {
+  it('mounts single-select ask in a real TuiMainScreen and resolves the selected option echo', async () => {
     const setWorkingVisible = vi.fn();
     const custom = mountedCustom({
       assertViewport: (viewport) => {
@@ -237,7 +237,7 @@ describe('ask runtime mount contract', () => {
     expectBracketedWorkingIndicator(setWorkingVisible);
   });
 
-  it('mounts multi-select ask in a real TUI and preserves None exclusivity', async () => {
+  it('mounts multi-select ask in a real TuiMainScreen and preserves None exclusivity', async () => {
     const setWorkingVisible = vi.fn();
     const custom = mountedCustomSequence([
       {

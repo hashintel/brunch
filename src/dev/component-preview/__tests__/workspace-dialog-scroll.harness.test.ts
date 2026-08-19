@@ -1,4 +1,4 @@
-import { TUI } from '@earendil-works/pi-tui';
+import { TuiMainScreen } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
 import { VirtualTerminal } from '../../../.pi/__tests__/support/virtual-terminal.js';
@@ -14,7 +14,7 @@ import { createComponentPreviewTheme } from '../theme.js';
  * `.pi/components/__tests__/` because it depends on the dev preview
  * harness's registry, matching that directory's established dependency
  * direction (dev consumes `.pi/components/`, never the reverse) and the
- * existing `.harness.test.ts` convention for real-TUI integration tests.
+ * existing `.harness.test.ts` convention for real-TuiMainScreen integration tests.
  */
 describe('workspace-dialog-scroll preview entry', () => {
   // Skipped: the ~22 chained waitForRender calls (50ms idle-window polls, 3s
@@ -38,7 +38,7 @@ describe('workspace-dialog-scroll preview entry', () => {
 
 async function viewportAfterInputs(inputs: readonly string[]): Promise<string[]> {
   const terminal = new VirtualTerminal(100, 32);
-  const tui = new TUI(terminal);
+  const tui = new TuiMainScreen(terminal);
   const entry = COMPONENT_PREVIEW_REGISTRY.find((candidate) => candidate.id === 'workspace-dialog-scroll');
   if (!entry) throw new Error('workspace-dialog-scroll preview entry is missing');
 

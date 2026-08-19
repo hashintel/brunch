@@ -1,7 +1,7 @@
 import type { KeybindingsManager } from '@earendil-works/pi-coding-agent';
 import {
   KeybindingsManager as PiTuiKeybindingsManager,
-  TUI,
+  TuiMainScreen,
   TUI_KEYBINDINGS,
   visibleWidth,
   type AutocompleteProvider,
@@ -42,9 +42,9 @@ const keybindingDefinitions: KeybindingDefinitions = {
 const keybindings = new PiTuiKeybindingsManager(keybindingDefinitions) as unknown as KeybindingsManager;
 
 describe('BrunchEditorComponent harness', () => {
-  it('renders a labeled box around real typed input through real TUI input routing', async () => {
+  it('renders a labeled box around real typed input through real TuiMainScreen input routing', async () => {
     const terminal = new VirtualTerminal(60, 24);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
 
     const editor = new BrunchEditorComponent(tui, editorTheme, keybindings, () => ({
       topRight: '[ Specify ]',
@@ -100,7 +100,7 @@ describe('BrunchEditorComponent harness', () => {
 
     for (const width of [48, 72]) {
       const terminal = new VirtualTerminal(width, 24);
-      const tui = new TUI(terminal);
+      const tui = new TuiMainScreen(terminal);
       const editor = new BrunchEditorComponent(tui, editorTheme, keybindings, () => ({
         topRight: '[ Specify ]',
         bottomRight: 'Alpha Spec',
@@ -131,7 +131,7 @@ describe('BrunchEditorComponent harness', () => {
 
   it('routes basic typing and programmatic setText through the real Editor', async () => {
     const terminal = new VirtualTerminal(60, 24);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
 
     const editor = new BrunchEditorComponent(tui, editorTheme, keybindings, () => ({}));
     tui.addChild(editor);
@@ -155,9 +155,39 @@ describe('BrunchEditorComponent harness', () => {
     }
   });
 
+  it('routes an Alt-prefixed word movement sequence without treating it as lone Escape', async () => {
+    const terminal = new VirtualTerminal(60, 24);
+    const tui = new TuiMainScreen(terminal);
+
+    const editor = new BrunchEditorComponent(tui, editorTheme, keybindings, () => ({}));
+    let escapeCount = 0;
+    editor.onEscape = () => {
+      escapeCount++;
+    };
+    tui.addChild(editor);
+    tui.setFocus(editor);
+    editor.focused = true;
+    terminal.clearScreen();
+    tui.start();
+
+    try {
+      await terminal.waitForRender();
+      terminal.sendInput('alpha beta');
+      terminal.sendInput('\x1bb'); // alt+b: move one word left
+      terminal.sendInput('X');
+      await terminal.waitForRender();
+
+      expect(editor.getText()).toBe('alpha Xbeta');
+      expect(escapeCount).toBe(0);
+    } finally {
+      terminal.stop();
+      tui.stop();
+    }
+  });
+
   it('fires the inherited CustomEditor onEscape hook on the real escape byte', async () => {
     const terminal = new VirtualTerminal(60, 24);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
 
     const editor = new BrunchEditorComponent(tui, editorTheme, keybindings, () => ({}));
     let escaped = false;
@@ -182,7 +212,7 @@ describe('BrunchEditorComponent harness', () => {
 
   it('fires the inherited CustomEditor onCtrlD hook only when the editor is empty', async () => {
     const terminal = new VirtualTerminal(60, 24);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
 
     const editor = new BrunchEditorComponent(tui, editorTheme, keybindings, () => ({}));
     let ctrlDCount = 0;

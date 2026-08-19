@@ -1,4 +1,4 @@
-import { TUI } from '@earendil-works/pi-tui';
+import { TuiMainScreen } from '@earendil-works/pi-tui';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createDb } from '../../../db/connection.js';
@@ -373,7 +373,7 @@ describe('structured exchange ask tools', () => {
     if (!ask) throw new Error('ask was not registered');
     const custom = vi.fn(async (factory: (...args: unknown[]) => unknown) => {
       const terminal = new VirtualTerminal(80, 24);
-      const tui = new TUI(terminal);
+      const tui = new TuiMainScreen(terminal);
       let answer: unknown;
       const component = factory(tui, theme, null, (result: unknown) => {
         answer = result;

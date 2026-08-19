@@ -1,3 +1,4 @@
+import type { ProviderHeaders } from '@earendil-works/pi-ai';
 import { compact, type ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import { compactionAnchorContract } from './anchor-contract.js';
@@ -37,7 +38,7 @@ export function registerBrunchCompaction(pi: ExtensionAPI): void {
         { ...preparation, ...(previousSummary === undefined ? {} : { previousSummary }) },
         ctx.model,
         auth.apiKey,
-        auth.headers,
+        materializeProviderHeaders(auth.headers),
         event.customInstructions,
         event.signal,
         pi.getThinkingLevel(),
@@ -68,6 +69,15 @@ export function registerBrunchCompaction(pi: ExtensionAPI): void {
       return { cancel: true };
     }
   });
+}
+
+export function materializeProviderHeaders(
+  headers: ProviderHeaders | undefined,
+): Record<string, string> | undefined {
+  if (headers === undefined) return undefined;
+  return Object.fromEntries(
+    Object.entries(headers).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+  );
 }
 
 function isNativeCompactionDetails(

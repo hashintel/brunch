@@ -1,4 +1,4 @@
-import { TUI } from '@earendil-works/pi-tui';
+import { TuiMainScreen } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
 import { createTestLabTheme } from '../../__tests__/support/tui-theme.js';
@@ -8,9 +8,9 @@ import { ExchangeDecisionPickerComponent } from '../exchange-decision-picker.js'
 const theme = createTestLabTheme();
 
 describe('ExchangeDecisionPickerComponent harness', () => {
-  it('moves with arrows and j/k, then commits stable ids through real TUI input routing', async () => {
+  it('moves with arrows and j/k, then commits stable ids through real TuiMainScreen input routing', async () => {
     const terminal = new VirtualTerminal(80, 24);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
     const selected: Array<{ readonly id: string } | undefined> = [];
     const picker = new ExchangeDecisionPickerComponent({
       prompt: 'Choose an option',
@@ -52,9 +52,9 @@ describe('ExchangeDecisionPickerComponent harness', () => {
     }
   });
 
-  it('cancels on Esc or q through real TUI input routing', async () => {
+  it('cancels on Esc or q through real TuiMainScreen input routing', async () => {
     const terminal = new VirtualTerminal(80, 24);
-    const tui = new TUI(terminal);
+    const tui = new TuiMainScreen(terminal);
     const selected: Array<{ readonly id: string } | undefined> = [];
     const picker = new ExchangeDecisionPickerComponent({
       prompt: 'Choose an option',
