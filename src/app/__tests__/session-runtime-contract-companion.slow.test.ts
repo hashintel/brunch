@@ -77,7 +77,7 @@ const RpcWebSocket = WebSocket as unknown as RpcWebSocketConstructor;
 const ATTACH_TIMEOUT_MS = 30_000;
 const CONVERGENCE_TIMEOUT_MS = 30_000;
 /** Footer chrome the real Pi editor keeps rendering once the model resolves. */
-const EDITOR_FOOTER = /model brunch-faux-model/u;
+const EDITOR_FOOTER = /model(?: \(brunch-faux\))? brunch-faux-model/u;
 
 interface TranscriptMessage {
   readonly role: string;
