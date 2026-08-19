@@ -13,7 +13,11 @@ SPEC decisions: D16-L, D41-L, D45-L, D52-L, D54-L, D62-L, D63-L, D65-L, D75-L, D
 
 - **Row schema derivation** (`row-schemas.ts`) — runtime insert/select schemas
   derived from Drizzle tables via `drizzle-typebox`. Do not hand-author parallel
-  row schemas alongside table definitions.
+  row schemas alongside table definitions. Deliberately built ahead of its
+  consumers: nothing imports it yet, and adoption is directed by
+  [`graph/TOPOLOGY.md`](../graph/TOPOLOGY.md) §Known near-term schema pressure.
+  Reference-count zero is not evidence of deadness here — FE-1311 proposed the
+  file for deletion twice and kept it on this declaration both times.
 
 - **Connection lifecycle** (`connection.ts`) — `better-sqlite3` connection
   creation, WAL mode, foreign-key pragma, and Drizzle-managed migration
@@ -131,3 +135,20 @@ concept, but the durable table/result contract is still undefined.
 
 `drizzle-orm@0.45.x` + `drizzle-kit@0.31.x` + `better-sqlite3@12.x` +
 `drizzle-typebox@0.3.x` + `@sinclair/typebox@0.34.x`
+
+`@sinclair/typebox` is `drizzle-typebox`'s peer dependency — it `require`s it at
+load time — not Brunch's schema-authoring vocabulary. That is `typebox@1.x`,
+which validates these derived schemas directly: they are plain JSON Schema
+(`type`/`required`/`properties`) and v1 ignores the extra 0.34 `Kind` symbol, so
+consuming row schemas needs no second schema runtime.
+
+Both `drizzle-typebox` and `@sinclair/typebox` sit in `devDependencies`. They
+were split across `dependencies`/`devDependencies` until the published surface
+decided it: no path reachable from the published entry points (`bin/brunch.js`,
+`dist/app/brunch.js`) imports `row-schemas.js`, so neither package is a
+production dependency today. `dist/db/row-schemas.js` still ships as an
+unreachable leaf whose `drizzle-typebox` import a consumer could only trigger by
+deep-importing it. **Actioning `src/graph/TOPOLOGY.md`'s directive to consume row
+schemas at persistence-facing validation seams must promote both packages to
+`dependencies` together** — promoting `drizzle-typebox` alone leaves its
+load-time peer unresolvable on a consumer install.

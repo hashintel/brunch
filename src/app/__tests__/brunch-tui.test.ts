@@ -51,9 +51,7 @@ import {
   BRUNCH_EXECUTE_TEST_RESULT_TOOL,
   BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL,
   BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
-  BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL,
   BRUNCH_EXECUTE_PLAN_DRAFT_TOOL,
-  BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL,
   BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL,
   BRUNCH_EXECUTE_SNAPSHOT_TOOL,
   BRUNCH_EXECUTE_STATUS_TOOL,
@@ -1038,9 +1036,7 @@ describe('Brunch TUI boot', () => {
     ]);
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL);
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_CHECK_TOOL);
-    expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL);
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_DRAFT_TOOL);
-    expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL);
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL);
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_SNAPSHOT_TOOL);
     expect(commands.get(BRUNCH_MENU_COMMAND)?.description).toBe('Open the Brunch spec/session picker');

@@ -107,7 +107,6 @@ tree:
           lifecycle.ts: "Implements lifecycle."
       shared:
         pi-tool-schema.ts: "Implements pi tool schema."
-        query-projection.ts: "Implements query projection."
       subagents:
         TOPOLOGY.md: "Documents this source subtree."
         agents.ts: "Implements agents."
@@ -414,7 +413,6 @@ tree:
       brunch.png: "Image asset."
     components:
       app-header.tsx: "Source asset."
-      drawer-card.tsx: "Source asset."
       icons.tsx: "Source asset."
       node-card.tsx: "Source asset."
     features:

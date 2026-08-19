@@ -9,7 +9,7 @@ Created:  2026-07-17
 
 - Containing seam: accepted source material crosses from elicitor prompt/skill conduct through existing graph, scratchpad, and reconciliation terminals; no intermediate capture contract currently proves semantic completeness.
 - Frontier: `capture-ledger-tracer`, stacked after the earned `agent-control-plane-closure` and reusing FE-1210's proven actor/judgment discipline plus FE-1208's landed evaluator/report primitives.
-- Volatile state: FE-1210's promoted round-one witness and push-driven actor are current on the restacked branch; its outcome/process packets are reusable patterns, while the cross-product packet's evidence restrictions must not be confused with a Brunch-only conduct comparison.
+- Retained evidence state: FE-1210's promoted round-one witness and push-driven actor provide reusable outcome/process packet patterns; the cross-product packet's evidence restrictions must not be confused with a Brunch-only conduct comparison.
 - Main risk: prompt compliance may look like capture improvement. The intervention, source atoms, run conditions, outcome judgment, and conduct judgment must be fixed independently before provider execution.
 
 Posture: proving (inherited from `capture-ledger-tracer`).
@@ -22,7 +22,6 @@ A matched Brunch control/treatment campaign produces a predeclared verdict on wh
 
 - `memory/SPEC.md` — D99-L, D131-L; A22-L, A34-L, A40-L; Verification Design and acknowledged capture/sweep blind spots
 - `memory/PLAN.md` — frontier: `capture-ledger-tracer`; prerequisite: `agent-control-plane-closure`
-- `HANDOFF.md` — FE-1210 actor and promoted-run state
 - `docs/praxis/comparison-runs/mission-packet.md` and `judgment-prompt-pack.md` — frozen mission, validity, retention, and split-judgment discipline
 - `.agents/skills/agent-as-user-comparison/SKILL.md` — push-driven actor and target-visible evidence rules
 - `src/agents/skills/TOPOLOGY.md` and `src/agents/skills/ingest/SKILL.md` — canonical capture-conduct ownership

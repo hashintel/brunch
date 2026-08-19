@@ -17,8 +17,7 @@ import {
   registerBrunchReconciliation,
   UPDATE_RECONCILIATION_NEEDS_TOOL,
 } from '../brunch-data/reconciliation/index.js';
-import { reconciliationToolSchemaBaseline } from './fixtures/reconciliation-tool-schemas.pre-fe-1163.js';
-import { normalizeToolSchema } from './tool-schema-baseline.js';
+import { assertProviderLegalToolSchema, hasToolParametersProvenance } from '../shared/tool-schema.js';
 
 interface ToolResult {
   content: Array<{ type: 'text'; text: string }>;
@@ -78,13 +77,14 @@ function harness() {
 }
 
 describe('reconciliation register tools', () => {
-  it('preserves the pre-FE-1163 provider-facing family schema semantics', () => {
+  it('keeps every reconciliation schema adapter-derived and provider-legal', () => {
     const schemas = Object.fromEntries([...harness().tools].map(([name, tool]) => [name, tool.parameters]));
 
-    expect(Object.keys(schemas)).toEqual(Object.keys(reconciliationToolSchemaBaseline.schemas));
-    expect(normalizeToolSchema(schemas)).toEqual(
-      normalizeToolSchema(reconciliationToolSchemaBaseline.schemas),
-    );
+    expect(Object.keys(schemas)).toEqual([READ_RECONCILIATION_NEEDS_TOOL, UPDATE_RECONCILIATION_NEEDS_TOOL]);
+    for (const [name, parameters] of Object.entries(schemas)) {
+      expect(hasToolParametersProvenance(parameters), `${name} adapter provenance`).toBe(true);
+      expect(() => assertProviderLegalToolSchema(parameters), name).not.toThrow();
+    }
   });
 
   it('registers read and update tools under canonical names', () => {

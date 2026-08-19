@@ -1,4 +1,4 @@
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { agentResultPath, agentStreamPath, ingestAgentResult } from '../agent-result.js';
 import type { AgentRunArgs } from '../execution-ports.js';
+import { pathExists } from '../path-exists.js';
 import { petriEventsPath } from '../petri-events.js';
 import { reportsPath } from '../report.js';
 import { readRunMetadata, runDirPath, runMetadataPath } from '../run.js';
@@ -33,15 +34,6 @@ vi.mock('node:fs/promises', async (importOriginal) => {
     }),
   };
 });
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 async function createRequestedSliceRun(cwd: string): Promise<void> {
   const runDir = runDirPath(cwd, 'run-1');

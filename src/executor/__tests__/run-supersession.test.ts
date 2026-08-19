@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto';
-import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import type { LaunchCurrentProjection } from '../launch.js';
+import { pathExists } from '../path-exists.js';
 import { petriEventsPath } from '../petri-events.js';
 import { petriPlanSnapshotPath } from '../petri-plan-snapshot.js';
 import { petriNetPath, petriSdcpnPath } from '../petri.js';
@@ -26,15 +27,6 @@ const current: LaunchCurrentProjection = {
   source: { graphLsn: 11, visibility: 'active' },
   checkStatus: 'ok',
 };
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 async function writePlan(cwd: string, graphLsn = current.source.graphLsn): Promise<void> {
   const planPath = planFilePath(cwd, '42');

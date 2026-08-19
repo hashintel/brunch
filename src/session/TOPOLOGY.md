@@ -147,8 +147,13 @@ plus the coordination logic for workspace/spec/session lifecycle.
   delegates to — origin derives from conversational-message presence in the
   projected transcript, never entry counts (I46-L). Origination only *decides
   and seeds* — it fabricates **no** `present_*` exchange (D78-L revised
-  2026-06-12; the deterministic offer was a pre-elicitation-gaps fossil, now
-  probe-land machinery in `probes/deterministic-exchange-script.ts`). The LLM
+  2026-06-12; the deterministic offer was a pre-elicitation-gaps fossil whose
+  only surviving remnant is the permutation *script* in
+  `probes/deterministic-exchange-script.ts` — probe-land sequencing, consumed
+  by `__tests__/structured-exchange-loop.test.ts`. Nothing in the repo mints a
+  `present_*` pair from it: FE-1187 rewired the R24 parity probe to fabricate
+  its own pair in the active `present_candidates` grammar, and FE-1311 deleted
+  the orphaned synthetic-pair writers). The LLM
   turn completing a 'start' decision is fired by the launch path after session
   creation via `session.sendCustomMessage(kickTurnMessage(origin), { triggerTurn: true })`,
   guarded on model availability (unauthenticated launches idle); completion
@@ -180,7 +185,7 @@ directly instead of growing a wrapper.
 | `cwd_inventory`           | `workspace/cwd-inventory.ts` (`inspectWorkspaceCwdInventory`)                                                  | `read_workspace_context`, `agents/contexts/data-model/workspace/workspace-context.ts`                                             | Workspace-owned direct PULL read. The typed inventory already matches the tool/renderer seam, so no `projections/workspace/workspace-context` wrapper survives.                        |
 | `workspace_overview`      | `workspace-overview-context.ts` (`inspectWorkspaceOverview`)                                                   | `read_workspace_context`, origination seed context, `agents/contexts/data-model/workspace/workspace-context.ts`                   | Session-side composition over graph specs and canonical session files. Same no-wrapper rationale as `cwd_inventory`: the source shape is already the consumer shape.                   |
 | `workspace_session_state` | `WorkspaceSessionCoordinator` (`WorkspaceSessionState`)                                                        | `projections/workspace/workspace-state.ts`, `chromeStateForWorkspace`, app/rpc/web workspace flows                                | Source union owned by the coordinator. Downstream code may flatten it, but the coordinator remains the authority for the narrow chrome snapshot and status-variant field set.          |
-| `agent_runtime_vocab`     | `schema/kinds.ts`, `schema/tool-names.ts`                                                                      | `runtime-state.ts`, `agents/runtime/`, `.pi/extensions/agent-runtime/`                                                            | Pure vocabulary leaf for operational modes, agent-role ids, and shared Brunch tool-name constants; imports nothing and mirrors D73-L's graph taxonomy direction on the session side.   |
+| `agent_runtime_vocab`     | `schema/kinds.ts`, `schema/tool-names.ts`                                                                      | `runtime-state.ts`, `agents/runtime/`, `.pi/extensions/agent-runtime/`, `.pi/extensions/executor/`, `executor/run-execution-authority.ts` | Pure vocabulary leaf for operational modes, agent-role ids, shared Brunch tool-name constants, and the `BrunchExecuteToolName` roster union that keys executor run-mutation classification; imports nothing and mirrors D73-L's graph taxonomy direction on the session side. |
 | `agent_runtime_state`     | `latestValidBrunchAgentStateEntryData` and transcript-backed runtime-state facts in `session/runtime-state.ts` | `projections/session/runtime-state.ts`, `agents/runtime/`, `.pi/extensions/agent-runtime/`                                        | Transcript-backed source read. Public projections report operational mode and derived role only; stale legacy fields are ignored on read.                                             |
 
 ## Runtime posture coverage ledger

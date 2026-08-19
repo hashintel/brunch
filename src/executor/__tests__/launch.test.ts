@@ -1,4 +1,4 @@
-import { access, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { LaunchCurrentProjection } from '../launch.js';
 import { prepareLaunch } from '../launch.js';
+import { pathExists } from '../path-exists.js';
 import { planFilePath, planProvenancePath } from '../plan-file.js';
 
 const current: LaunchCurrentProjection = {
@@ -14,15 +15,6 @@ const current: LaunchCurrentProjection = {
   source: { graphLsn: 11, visibility: 'active' },
   checkStatus: 'ok',
 };
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 describe('prepareLaunch', () => {
   it('reports a missing spec-scoped plan without creating run resources', async () => {

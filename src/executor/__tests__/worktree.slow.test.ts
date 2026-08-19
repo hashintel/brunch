@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 
 import { describe, expect, it } from 'vitest';
 
+import { pathExists } from '../path-exists.js';
 import { planFilePath } from '../plan-file.js';
 import { withRunExecutionAuthority } from '../run-execution-authority.js';
 import { runDirPath, runMetadataPath, createRun } from '../run.js';
@@ -13,15 +14,6 @@ import { worktreeDirPath, createWorktree } from '../worktree.js';
 import { createFakeGitWorktreePort } from './fake-ports.js';
 
 const execFileAsync = promisify(execFile);
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 describe('createWorktree', () => {
   it('refuses a standalone worktree effect while the run execution owner is active', async () => {

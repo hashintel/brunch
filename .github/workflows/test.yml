@@ -44,6 +44,9 @@ jobs:
           git config --global init.defaultBranch main
 
       - name: Install native test dependencies
+        # ripgrep is consumed out-of-graph: FE-1241 provisioned it for the Grep tool of the
+        # comparison-lane agents this gate spawns, so a reference scan of src/ will always
+        # report zero consumers. expect/zsh are named in src/dev/tui-driver; ripgrep is not.
         run: |
           sudo apt-get update
           sudo apt-get install --yes expect ripgrep zsh

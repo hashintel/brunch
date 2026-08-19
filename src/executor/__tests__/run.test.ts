@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto';
-import { access, mkdir, mkdtemp, readdir, readFile, stat, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import type { LaunchCurrentProjection } from '../launch.js';
+import { pathExists } from '../path-exists.js';
 import { planFilePath, planProvenancePath } from '../plan-file.js';
 import {
   assertSafeRunId,
@@ -16,15 +17,6 @@ import {
   runMetadataPath,
   type RunMetadata,
 } from '../run.js';
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 const current: LaunchCurrentProjection = {
   specId: '42',

@@ -1,6 +1,4 @@
-import { realpath } from 'node:fs/promises';
-import { resolve } from 'node:path';
-
+import { canonicalPath } from '../executor/canonical-path.js';
 import type { GitRunPromotionPort } from '../executor/execution-ports.js';
 import { runCommand, type CommandRunner } from './command-runner.js';
 
@@ -132,14 +130,6 @@ async function assertExactGitRoot(run: CommandRunner, worktreeDir: string) {
     };
   }
   return undefined;
-}
-
-async function canonicalPath(path: string): Promise<string> {
-  try {
-    return await realpath(path);
-  } catch {
-    return resolve(path);
-  }
 }
 
 function failedHead(

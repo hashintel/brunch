@@ -53,9 +53,7 @@ import { registerBrunchExecuteSliceStart } from '../.pi/extensions/executor/inde
 import { registerBrunchExecuteTestResult } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecuteWorktreeCreate } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecutePlanCheck } from '../.pi/extensions/executor/index.js';
-import { registerBrunchExecutePlanDraftArtifact } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecutePlanDraft } from '../.pi/extensions/executor/index.js';
-import { registerBrunchExecutePlanOutlineArtifact } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecutePlanOutline } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecuteSnapshot } from '../.pi/extensions/executor/index.js';
 import { registerBrunchExecuteStatus } from '../.pi/extensions/executor/index.js';
@@ -208,15 +206,9 @@ export {
   BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
   createExecutePlanCheckTool,
   registerBrunchExecutePlanCheck,
-  BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL,
-  createExecutePlanDraftArtifactTool,
-  registerBrunchExecutePlanDraftArtifact,
   BRUNCH_EXECUTE_PLAN_DRAFT_TOOL,
   createExecutePlanDraftTool,
   registerBrunchExecutePlanDraft,
-  BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL,
-  createExecutePlanOutlineArtifactTool,
-  registerBrunchExecutePlanOutlineArtifact,
   BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL,
   createExecutePlanOutlineTool,
   registerBrunchExecutePlanOutline,
@@ -405,9 +397,7 @@ export function createBrunchPiExtensions(
       (api) => registerBrunchExecuteTestResult(api, executionPorts.testRunner),
       (api) => registerBrunchExecuteWorktreeCreate(api, executionPorts.gitWorktree),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanCheck(api, graph)] : []),
-      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanDraftArtifact(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanDraft(api, graph)] : []),
-      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanOutlineArtifact(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanOutline(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteSnapshot(api, graph)] : []),
       ...(hasDelegatableSubagents

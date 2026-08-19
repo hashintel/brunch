@@ -2,12 +2,25 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { installedBrunchBinPath, runtimeMarkdownAssetPaths } from './check-release-pack.mjs';
+import {
+  assertExcludesPrefixes,
+  installedBrunchBinPath,
+  runtimeMarkdownAssetPaths,
+} from './check-release-pack.mjs';
 
 describe('check-release-pack helpers', () => {
   it('uses the Windows npm prefix bin layout', () => {
     expect(installedBrunchBinPath('/tmp/prefix', 'win32')).toBe(join('/tmp/prefix', 'brunch.cmd'));
     expect(installedBrunchBinPath('/tmp/prefix', 'darwin')).toBe(join('/tmp/prefix', 'bin', 'brunch'));
+  });
+
+  it('rejects excluded package prefixes', () => {
+    expect(() =>
+      assertExcludesPrefixes(new Set(['package/dist-web/index.html']), ['dist/web/', 'dist/probes/']),
+    ).not.toThrow();
+    expect(() =>
+      assertExcludesPrefixes(new Set(['package/dist/probes/example.js']), ['dist/web/', 'dist/probes/']),
+    ).toThrow('Packed tarball unexpectedly includes dist/probes/example.js');
   });
 
   it('enumerates the runtime markdown asset families protected by build:pi-assets', async () => {

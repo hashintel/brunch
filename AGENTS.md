@@ -104,15 +104,17 @@ Frontier-item traceability, scope-card inheritance, and the verification-ownersh
 
 **PR release intent** (required for ordinary PRs into `next`): before submit or update, run `npx changeset status --since=origin/next`. If the published package changes, run `npm run changeset`; otherwise record the no-release decision with `npm run changeset -- --empty`. Commit the generated `.changeset/*.md` file. The local verify commands do not cover this base-aware CI check.
 
-**CI / read-only check**: `npm run check` — lint then fmt:check then check:markdown-links then check:skills then check:promoted-run-paths, no writes. Use this where the gate must not mutate the worktree.
+**CI / read-only check**: `npm run check` — lint then fmt:check then konsistent (structural conventions from `konsistent.json`) then check:markdown-links then check:skills then check:promoted-run-paths, no writes. Use this where the gate must not mutate the worktree.
 
 **Skill-system check**: `npm run check:skills` — verifies the `ln-*` skill set against the working guide, cross-skill links, and required guardrails (e.g. the topology-stub carve-out). Read-only.
 
 **Markdown link check**: `npm run check:markdown-links` — validates local Markdown links and headings through `remark-validate-links`. Read-only.
 
+**Structural convention check**: `npm run konsistent` — enforces the positive file/export conventions in `konsistent.json`. It does not infer deadness or replace the manual out-of-graph-consumer checks required before deletion. Read-only.
+
 | Script | Steps | Writes? |
 | --- | --- | --- |
-| `npm run fix` | lint:fix → fmt | yes |
+| `npm run fix` | lint:fix → fmt → check:markdown-links | yes |
 | `npm run test` | all Vitest tests except `*.slow.test.ts` | no |
 | `npm run test:full` | all Vitest tests incl. slow tests | no |
 | `npm run test:slow` | core-slow → comparison | no |
@@ -120,13 +122,14 @@ Frontier-item traceability, scope-card inheritance, and the verification-ownersh
 | `npm run test:comparison` | expensive full-stack comparison oracles | no |
 | `npm run verify` | fix → test → build (fast default) | yes (via fix) |
 | `npm run verify:full` | fix → test:full → build (full local/merge-queue gate) | yes (via fix) |
-| `npm run check` | lint → fmt:check → check:markdown-links → check:skills → check:promoted-run-paths | no |
+| `npm run check` | lint → fmt:check → konsistent → check:markdown-links → check:skills → check:promoted-run-paths | no |
+| `npm run konsistent` | positive file/export conventions from `konsistent.json` | no |
 | `npm run check:markdown-links` | remark-validate-links over Markdown files | no |
 | `npm run check:skills` | ln-* skill consistency | no |
 
-Ordering rationale: `fix` must run lint:fix before fmt because lint fixes can rewrite code that then needs reformatting. `check` mirrors that order (lint before fmt:check) so both scripts read as the same recipe in different modes.
+Ordering rationale: `fix` must run lint:fix before fmt because lint fixes can rewrite code that then needs reformatting; the read-only Markdown link check runs after both writers settle. `check` mirrors the lint-before-format order, then runs structural and documentation checks over the settled tree.
 
-Type-checking is done by oxlint via tsgolint (`.oxlintrc.json` sets `typeAware: true` and `typeCheck: true`); there is no separate `typecheck` script. Tooling: oxlint (lint + type-aware + type-check via tsgolint), oxfmt (format), vitest (test). Verification strategy details in SPEC.md §Verification Design.
+Type-checking is done by oxlint via tsgolint (`.oxlintrc.json` sets `typeAware: true` and `typeCheck: true`); there is no separate `typecheck` script. Tooling: oxlint (lint + type-aware + type-check via tsgolint), oxfmt (format), konsistent (positive structural conventions), remark-validate-links, vitest. Verification strategy details in SPEC.md §Verification Design.
 
 ## critical file-safety rule
 

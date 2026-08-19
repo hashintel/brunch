@@ -43,8 +43,13 @@ export {
   redactRequirementLedger,
   type AudienceSafeRequirementLedger,
 } from './end-to-end-comparison/redaction.js';
-export { prepareBrunchExecutionCell, type ExecutionLaunch } from './end-to-end-comparison/brunch-adapter.js';
 export {
+  createBrunchExecutionLaunch,
+  prepareBrunchExecutionCell,
+  type ExecutionLaunch,
+} from './end-to-end-comparison/brunch-adapter.js';
+export {
+  createClaudeExecutionLaunch,
   finalizeClaudeExecutionWorkspace,
   prepareClaudeExecutionWorkspace,
   runClaudeExecutionWorkspace,
@@ -52,6 +57,7 @@ export {
   type PreparedClaudeExecutionWorkspace,
 } from './end-to-end-comparison/claude-adapter.js';
 export { retainExecutionCell } from './end-to-end-comparison/execution-cell.js';
+export { materializeExactExecutionPacket } from './end-to-end-comparison/public-packet.js';
 export {
   createBrunchSolutionIsolationPolicy,
   createClaudeSolutionIsolationPolicy,

@@ -38,6 +38,15 @@ function assertIncludes(entries, expectedPath) {
   }
 }
 
+export function assertExcludesPrefixes(entries, excludedPrefixes) {
+  for (const entry of entries) {
+    const path = entry.replace(/^package\//, '');
+    if (excludedPrefixes.some((prefix) => path.startsWith(prefix))) {
+      throw new Error(`Packed tarball unexpectedly includes ${path}`);
+    }
+  }
+}
+
 async function liveSkillPaths() {
   const skillRoot = path.join(repoRoot, 'src/agents/skills');
   const names = (await readdir(skillRoot, { withFileTypes: true }))
@@ -103,6 +112,8 @@ async function main() {
     );
 
     assertIncludes(tarEntries, 'dist/agents/prompts/registry.js');
+    assertIncludes(tarEntries, 'dist-web/index.html');
+    assertExcludesPrefixes(tarEntries, ['dist/web/', 'dist/probes/']);
     for (const assetPath of await runtimeMarkdownAssetPaths()) {
       assertIncludes(tarEntries, assetPath);
     }

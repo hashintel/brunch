@@ -3,111 +3,25 @@
  *
  * Relocated out of product origination (D78-L/D49-L revised 2026-06-12): the
  * product never fabricates a `present_*` offer — the assistant authors
- * openings live from seeded graph facts and the session-local elicitation scratchpad. This
- * script survives solely as the generator for the R24 public-RPC
- * structured-exchange permutation evidence (`public-rpc-parity-proof`) and
- * for fixture-driven exchange tests: probes/tests mint present pairs here
- * (the synthetic call+result writers live in this module — the product only
- * *reads* present pairs) and drive responses through the public RPC surface.
+ * openings live from seeded graph facts and the session-local elicitation
+ * scratchpad. What survives here is the *sequencing* script only: the ordered
+ * permutation set (single-select / text / multi-select) that exchange tests
+ * cycle through. Its consumer is
+ * `src/session/__tests__/structured-exchange-loop.test.ts`.
+ *
+ * This module mints nothing. The synthetic call+result writers that used to
+ * fabricate `present_question` pairs into a session file were deleted
+ * (FE-1311) once FE-1187 (`c3ee4ebc1`, "Retire legacy question read paths")
+ * rewired both consumers away: `public-rpc-parity-proof.ts` now mints its own
+ * pair in the active `present_candidates` grammar, and the `handlers.test.ts`
+ * helper went with it. Do not reintroduce a minting helper here — a probe that
+ * needs a synthetic pair builds it against the active exchange grammar at its
+ * own call site, next to the assertions that depend on its shape.
  *
  * Never import this from product code.
  */
 
-import { SessionManager } from '@earendil-works/pi-coding-agent';
-
-import { formatPresentQuestion } from '../agents/contexts/exchanges/present-question.js';
-import { projectPresentQuestion } from '../exchanges/projections/present-question.js';
-import type { PresentDetails } from '../exchanges/schemas/index.js';
-import { flushSessionManagerToFile } from '../session/flush-session-manager.js';
-import {
-  syntheticExchangeToolCallMessage,
-  type PendingStructuredExchange,
-} from '../session/structured-exchange-loop.js';
-
-/**
- * Mint one deterministic present pair into a session file and flush it —
- * probe/test fixture setup. Opens the file fresh so the mint never clobbers
- * entries other manager instances (RPC handlers) have flushed since.
- */
-export function mintDeterministicExchangeIntoSessionFile(
-  sessionFile: string,
-  completedCount: number,
-): PendingStructuredExchange {
-  const manager = SessionManager.open(sessionFile);
-  const exchange = mintDeterministicExchange(manager, completedCount);
-  flushSessionManagerToFile(manager, sessionFile);
-  return exchange;
-}
-
-/**
- * Mint one deterministic present pair into a session manager — probe/test
- * fixture setup standing in for an assistant-authored offer. Returns the
- * pending exchange so the caller can drive the response through public RPC.
- */
-export function mintDeterministicExchange(
-  manager: { appendMessage(message: never): unknown },
-  completedCount: number,
-): PendingStructuredExchange {
-  const exchange = nextDeterministicStructuredExchange(completedCount);
-  for (const message of presentExchangeMessages(exchange)) {
-    manager.appendMessage(message as never);
-  }
-  return exchange;
-}
-
-/**
- * The provider-legal message pair for a synthetic `present_*` offer:
- * synthetic assistant tool call first, then its toolResult referencing the
- * call's id. Append both in order — a bare toolResult is rejected by real
- * providers. Fixture stand-in for an assistant-authored offer; the product
- * never mints these (D78-L revised 2026-06-12).
- */
-export function presentExchangeMessages(exchange: PendingStructuredExchange) {
-  const projection = presentProjection(exchange);
-  const toolCallMessage = syntheticExchangeToolCallMessage(exchange.exchangeId, projection.toolName);
-  const toolResultMessage = {
-    role: 'toolResult' as const,
-    toolCallId: toolCallMessage.content[0].id,
-    toolName: projection.toolName,
-    content: [{ type: 'text' as const, text: projection.markdown }],
-    details: projection.details,
-    isError: false as const,
-    timestamp: 0 as const,
-  };
-  return [toolCallMessage, toolResultMessage] as const;
-}
-
-function presentProjection(exchange: PendingStructuredExchange): {
-  toolName: 'present_question';
-  markdown: string;
-  details: PresentDetails;
-} {
-  if (exchange.mode === 'text') {
-    const projection = projectPresentQuestion({
-      exchangeId: exchange.exchangeId,
-      heading: exchange.prompt,
-      body: exchange.details,
-    });
-    return {
-      toolName: 'present_question',
-      markdown: formatPresentQuestion(projection),
-      details: projection.details,
-    };
-  }
-
-  const projection = projectPresentQuestion({
-    exchangeId: exchange.exchangeId,
-    heading: exchange.prompt,
-    body: exchange.details,
-    options: exchange.options,
-    multiple: exchange.mode === 'multi-select',
-  });
-  return {
-    toolName: 'present_question',
-    markdown: formatPresentQuestion(projection),
-    details: projection.details,
-  };
-}
+import type { PendingStructuredExchange } from '../session/structured-exchange-loop.js';
 
 export function nextDeterministicStructuredExchange(completedCount: number): PendingStructuredExchange {
   const turnNumber = completedCount + 1;

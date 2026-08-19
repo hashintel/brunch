@@ -13,264 +13,178 @@
 
 ## Context
 
-Brunch-next has delivered the original composition spine: the host, sealed Pi profile, transcript substrate, SQLite graph plane, public RPC, TUI/web observer shape, generalized capture, review-set commitment path, and public-entry ship gate all have evidence. Capability work routes through the code-owned first-level skill manifest and activity-named skill homes (the strategy/lens/method runtime trees are retired, D98-L).
-
-**Ship gate (2026-07-03 grill) — nearly closed.** The shippable cut: working e2e flows and throughlines, clean simple invariants, complete contracts — minimal and pragmatic within those constraints, enhancements deferred. Four of the five gate frontiers are done and merged; all remaining gate evidence rides `walkthrough-remediation-2` (FE-1187), which absorbed FE-1167 and is the closing member of arc `deterministic-orientation`. Two operational modes only and concentric authority remain settled (D98-L/D40-L); `remediation-4` narrowly revises D98-L/D109-L to separate a persistent Specify elicitation style from one-shot deterministic process moves. Standing obligation while the gate is open: gate frontiers chart their decision flows (all paths and endpoints) at `ln-scope` time.
-
-**Current closure lane.** FE-1187 is the sole remaining ship-gate frontier. The digest-questionnaire carrier, atomic local/RPC review settlement, and borderless Impact Ledger renderer with structural oracles are built. The `remediation-4` continuation has materialized the terminal-adaptive shell, canonical orientation treatment, persistent elicitation style, deterministic action menus, full Ask mechanics, Continue-language cleanup, KA handoff, and R6 terminal-status rail. The first R8–R10 provider run was stopped before approval and counts 0/3: it exposed that D27-L's settled-only review contract could not represent the human-required mixed advisory/settled proposal, and the Impact Ledger rendered empty Assurance/Planning groups as headings plus `None`. The amended per-node/per-edge settlement contract and populated-group-only ledger are now materialized, including exact local/RPC preservation and existing-host edge visibility. `remediation-4` ties off there. At user direction, extractor/oracle hardening and the fresh three-run campaign are paused; A48-L and the consolidated outer checkpoint remain sequenced afterward and do not start on this branch. Execute evidence O7–O9 belongs to the KA stream; FE-1187 coordinates but does not own it.
-
-**Parallel lanes.** Group 3 agent-layer work is pickup-ready. `agent-control-plane-closure` is one earned coverage frontier over foreground and background prompt ingress: it absorbs the former `graph-assurance-conduct` and `subagent-skill-access` items, reconciles the stale eager-context fossils left by D58-L's load-on-demand cutover, and closes prompt replacement/resource-invocation contradictions before capture experiments amplify them. FE-1187 retains only the concern-grouped review renderer. FE-1208's reshaped `automation-observability-dx` closure landed on the restacked base; its invalid warrant pilots remain historical evidence, while the useful evaluator/report primitives are available to `capture-ledger-tracer`. Two evaluation use cases stay deliberately distinct: **seed-based intra-product testing** (Brunch on its own terms — seeds encode Brunch graph/spec state only Brunch understands) and **mission-driven agent-as-user cross-product comparison** (`agent-as-user-comparison` — competitor CLIs share no Brunch state, so the comparable artifact is the "ready" spec/plan document a mission produces). FE-1210 closed the rigorous technical tracer on 2026-07-17; the separately planned operator workflow (`operator-comparison-workflow`, FE-1215) makes saved missions, visible comparison-harness framing, conversational launch, and a readable free-form report approachable without weakening the retained regression/evaluation machinery. Its first operator-led run falsified the nested fresh-actor topology: the top-level project Pi session must act as the simulated user and drive one direct harness subshell at a time, with stock-Pi text interaction as the portable baseline; the corrected real witness is deferred to `saved-mission-comparison-witness`. The KA stream owns executor/orchestrator/Execute-mode work. FE-1192 and FE-1195 completed the attempt, isolated fan-in, durable parallel authority, and epic integration sequence; `executor-plan-coherence` now uses those settled seams to test whether multi-slice plans converge on one working result. Broader instrumentation remains trigger-gated under Later.
-
-**Comparison lane.** FE-1239 remains the sole rigorous greenfield 2×2 tracer: two independently approved Petri specifications cross exact handoffs into Brunch and Claude execution and one unchanged oracle joins all four outputs. FE-1241 keeps that Petri editor as the greenfield study profile and adds frozen Brunch/Petrinaut brownfield packets plus deterministic oracles under a learning-first workflow. FE-1253 is deliberately thinner: a saved exploratory prospect mission plus a deterministic React/Node/TypeScript/SQLite execution regression case, with no prospect study profile, requirement ledger, scored provider gate, or campaign claim.
-
-**Current seams.** Brunch ships on the `1.0.0-alpha.x` line. One-shot `ask` is the only interactive structured-exchange terminal; D125-L's live ask registry provides headless discovery/answering, while the transcript-backed pending projection remains a compatibility surface for live offer tools after the legacy `present_question` pending branch retired. Sweep classification remains fail-closed and compile-time anchored to the exchange-schema terminal names (D117-L), while the larger capture-conditional watermark question remains A40-L.
-
-**Topology and evidence discipline.** Co-located `src/**/TOPOLOGY.md` files own current topology; SPEC owns product contract and seam decisions; PLAN owns only rolling frontier state. Scratch probe artifacts are not durable evidence until promoted to `.fixtures/runs/`. Older completion history lives only in [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
-
-**Standalone web foundation — completed 2026-07-15 (FE-1200); host convergence still open.** FE-1200 proved target-addressed sealed Pi sessions, one driver/many observers, JSONL hydration plus live overlay, and full required-family semantic presentation coverage with React adapters inside the standalone web process (D132-L/D133-L, I64-L/I65-L). It did **not** replace the TUI-owned host: `brunch-tui.ts` still owns a separate live `AgentSession`, raw `SessionEventRelay`, and `/rpc/driver` sidecar surface. The `shared-session-host-convergence` arc now owns the intended pi-web-derived transition: prove a TUI attachment to one independent cwd-scoped host, then migrate the closed capability inventory and delete the duplicate host/relay architecture. Design and colleague entry point: [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md).
+- **Ship gate:** FE-1187 `walkthrough-remediation-2` is still the sole remaining ship-gate frontier. `remediation-4` landed the mixed-settlement review contract, populated-only Impact Ledger rendering, terminal-adaptive shell, persistent Specify elicitation style, deterministic menus, Ask mechanics, Continue-language cleanup, KA handoff, and the R6 terminal-status rail; extractor/oracle hardening and the fresh R8–R10 0/3 campaign remain paused at user direction. Execute evidence O7–O9 is still KA-owned.
+- **Shared host follow-through:** FE-1200 proved the standalone web foundation, but the TUI still owns a separate live `AgentSession`, `SessionEventRelay`, and `/rpc/driver` sidecar path. The open architecture arc is `shared-session-host-convergence`.
+- **Comparison lanes:** the repo keeps two distinct evaluation doors: seed-based intra-product testing and mission-driven cross-product comparison. FE-1241 closed the brownfield comparison cases; FE-1215 landed the approachable operator workflow; the remaining operator residue is the structural mission-isolation hardening plus the later real Brunch+Claude saved-mission witness.
+- **Executor / Execute evidence queue:** several KA fronts are implementation-merged but still carry explicit outer evidence: `host-landing`, `executor-plan-synthesis`, `execution-comparison-tracer`, `executor-plan-coherence`, `executor-slice-verification-repair`, and `greenfield-secure-drop-demo`.
+- **Current seams and discipline:** Brunch ships on `1.0.0-alpha.x`. D125-L's live ask registry is the structured-exchange headless surface; the transcript-backed pending projection remains compatibility-only. Sweep classification remains fail-closed on exchange-schema terminal names (D117-L); the larger capture-conditional watermark question remains A40-L. Co-located `src/**/TOPOLOGY.md` files own current topology; scratch evidence is not durable until promoted to `.fixtures/runs/`.
 
 ## Initiatives
 
-<!-- Initiative (arc) = a multi-frontier architectural through-line. This is NOT a tracker/branch
-     altitude — frontiers stay flat (one Linear issue + branch each) per AGENTS.md. The arc index is
-     a legibility + completability layer only: it names the through-line so "was this captured
-     thoroughly?" is a lookup, not a reconstruction from scattered SPEC decisions.
-     Created/updated by ln-plan; closed and reconciled by ln-sync. Keep each arc thin (goals,
-     members, done-definition, anchors). An arc closes only when its done-definition holds —
-     including reconciliation of co-located topology files and discharge of any standing-obligation
-     residue scoped to it. Arc completion is the trigger for residue that no future frontier touches. -->
-
 ### Closed arcs
 
-- **elicitor-capability-spine** — ✓ done. `capture` / `generate` / `project` built over the capability spine without reviving retired runtime axes. Anchors: D95-L, D96-L, D100-L; I51-L.
-- **exchange-presentation** — ✓ done 2026-07-06 (`exchange-rendering` + `exchange-answering-chrome`). Durable truth: D104-L/D108-L, `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`, exchange topology homes. Deferred, not owed: per-item review commentary (Horizon). Full closure record: `docs/archive/PLAN_HISTORY.md`.
-- **capture-ingest-throughline** — ✓ done 2026-07-06 (`exchange-capture-contract` + `present-digest`). Durable truth: I57-L, D110-L, ingest/map conduct homes. Full closure record: `docs/archive/PLAN_HISTORY.md`.
-
-<!-- standalone-web arc dissolved 2026-07-14 (user decision) into the single FE-1200 frontier;
-     that frontier completed 2026-07-15 and its definition now lives in PLAN_HISTORY.md. -->
+- **elicitor-capability-spine** — ✓ done. Durable truth: D95-L, D96-L, D100-L; I51-L.
+- **exchange-presentation** — ✓ done 2026-07-06. Durable truth: D104-L/D108-L, `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`, exchange topology homes. Full closure record: `docs/archive/PLAN_HISTORY.md`.
+- **capture-ingest-throughline** — ✓ done 2026-07-06. Durable truth: I57-L, D110-L, ingest/map conduct homes. Full closure record: `docs/archive/PLAN_HISTORY.md`.
 
 ### shared-session-host-convergence — planned
 
-- **Goals:** preserve both first-class TUI and web presentations while collapsing their runtime authority onto one independent cwd-scoped session host; keep Pi behind Brunch product RPC/semantic projections; retire the TUI-owned raw relay and sidecar-only driver surface rather than maintaining two host architectures.
-- **Members:**
-  - `shared-session-host-tracer` — proving; settle the Pi `InteractiveMode` attachment seam against one host-owned writable runtime and retire A47-L.
-  - `shared-session-host-cutover` — wait-gated earned coverage; after the tracer, migrate the closed TUI/web capability inventory and delete the old relay/driver/composition path.
-- **Done-definition:** one host owns each writable Pi runtime, JSONL writer, graph command authority, driver lease/handoff, and semantic live-event stream; TUI and React remain useful clients/adapters over that authority; client detach/restart does not counterfeit or duplicate runtime ownership; `SessionEventRelay`, `brunch.sessionEvent`, `/rpc/driver`, and TUI-owned parallel session-host wiring are deleted; `memory/SPEC.md`, `README.md`, `CONTRIBUTING.md`, `docs/design/WEB_UI_ARCHITECTURE.md`, and the app/session/rpc/web topology homes describe only the canonical host plus presentation adapters.
+- **Goals:** preserve first-class TUI and web presentations while collapsing runtime authority onto one cwd-scoped host; keep Pi behind Brunch product RPC/semantic projections; retire the TUI-owned raw relay and sidecar-only driver surface.
+- **Members:** `shared-session-host-tracer` → `shared-session-host-cutover`.
+- **Done-definition:** one host owns each writable Pi runtime, JSONL writer, graph command authority, driver lease/handoff, and semantic live-event stream; TUI and React remain useful clients/adapters; `SessionEventRelay`, `brunch.sessionEvent`, `/rpc/driver`, and TUI-owned parallel host wiring are deleted; `memory/SPEC.md`, `README.md`, `CONTRIBUTING.md`, `docs/design/WEB_UI_ARCHITECTURE.md`, and the app/session/rpc/web topology homes describe only the canonical host plus presentation adapters.
 - **Anchors:** A47-L; D39-L, D84-L (to retire), D132-L, D133-L; I64-L, I65-L.
+- **Confirmation (2026-08-03):** an independent architecture review re-derived this arc unprompted as the top structural priority (split roots: `brunch-tui.ts` raw `SessionEventRelay` vs `LiveSessionHost`); it also flagged `workspace-session-coordinator.ts` breadth (782 lines, 27 interface/type declarations) — that decomposition rides this arc, not a separate frontier.
 
 ### deterministic-orientation — ◐ active
 
-- **Goal:** users deliberately choose how to work without repeated menu interruption, model volition, or mode ping-pong. Revised D98-L/D109-L separate a persistent active-branch Specify elicitation style (`interrogate | disambiguate | propose`) from one-shot process moves: the product opens an automatic menu only for a new session without a style and after operational-mode switch, while `/brunch:consult` reopens it explicitly; resume/session switch/tree/abort restore the branch's latest style. No-UI print/json modes synthesize no style choice and follow the default kick path. Two top-level modes remain (`specify` / Specify and `execute` / Execute); concentric authority stays a code contract; the style routes into the existing elicitor capability spine rather than reviving the generic strategy/lens/method runtime system.
-- **Members:**
-  - `session-entry-orientation` — ✓ built + merged (#289, 2026-07-08); its remaining LN outer evidence now rides FE-1187.
-  - `execute-entry-readiness` — ✓ built + merged (#290, 2026-07-08); its remaining Execute evidence + the two deferred orientation-choice questions live in the KA stream's carved sub-list.
-  - `walkthrough-remediation-2` (FE-1187, definition below) — the arc's remaining/closing member since 2026-07-13, when it absorbed `walkthrough-evidence-batch` (FE-1167): one witnessed e2e run per generative flow, menu→conduct routing evidence; the thin/rich Execute beats carve to the KA sub-list but remain part of the arc's done-definition.
-- **Done-definition:** the canonical elicitation-style vocabulary is audited, specified, reconstructed last-entry-wins from the active branch, injected into elicitor prompting, and visibly retained across resume/session switch/tree navigation without opening a menu; only style-less new sessions and operational-mode switches auto-open, while `/brunch:consult` explicitly reopens. Escape/timeout is inert, preserves any current style, starts no process move, and the menu explains that the user may dismiss to give another instruction. No-UI modes leave no style trace. Persistent style entries and one-shot process-move entries are excluded from capture sweep and cannot be confused in kick composition. Readiness-filtered menu availability remains derived/non-transcript with a bounded fallback. Concentricity holds as an executable contract (executor tool + skill grants ⊇ elicitor's, write-execution tooling stays executor-only); **one witnessed e2e run per generative flow — intent, design, oracle, frontier-level plan — each entered through a deterministic user-owned move** (the ship gate's "all flows proven" obligation lives here); topology homes for `src/.pi/extensions/` and `src/agents/runtime/` reconciled.
-- **Anchors:** D98-L (two modes, 1:1 mode↔agent), D37-L (offer-owns-response grammar — the dialog lives on the product side of it), D40-L (authority matrix), D74-L (capability-readiness), D101-L/D102-L (session seed facts); `src/agents/references/readiness-bands.md` §Agent Use (the Proceed/Negotiate/Ask postures both foreground roles share).
+- **Goal:** users deliberately choose how to work without repeated menu interruption, model volition, or mode ping-pong. Revised D98-L/D109-L separate a persistent active-branch Specify elicitation style (`interrogate | disambiguate | propose`) from one-shot process moves.
+- **Members:** `session-entry-orientation` ✓ · `execute-entry-readiness` ✓ · `walkthrough-remediation-2` (FE-1187) is the closing member.
+- **Done-definition:** style is reconstructed last-entry-wins from the active branch, injected into elicitor prompting, retained across resume/session switch/tree navigation, and distinct from one-shot process moves; only style-less new sessions and operational-mode switches auto-open; `/brunch:consult` explicitly reopens; no-UI modes leave no style trace; persistent-style entries and process-move entries are excluded from capture sweep; concentricity remains executable; one witnessed e2e run per generative flow still closes through FE-1187 plus the KA-carved Execute beats; topology homes for `src/.pi/extensions/` and `src/agents/runtime/` are reconciled.
+- **Anchors:** D98-L, D37-L, D40-L, D74-L, D101-L, D102-L.
 
 ## Sequencing
 
-### Active — Group 1 · walkthrough closure
+### Active
 
-Close the entire first batch of walkthrough-related findings: remediation, the owed evidence, and the design back-catalog that the old (now fixed) findings-capture protocol left stranded. The auth reversal has landed; Group 3 is pickup-ready while FE-1187 continues its closure sweep.
-
-- `walkthrough-remediation-2` ([FE-1187](https://linear.app/hash/issue/FE-1187/walkthrough-remediation-sweep-2-wr18-follow-up-closure)) — **paused after `remediation-4` tie-off:** mixed-settlement review preservation and populated-group-only Impact Ledger rendering are built. Re-entry requires an explicit decision to resume extractor/oracle hardening, then restart R8–R10 from 0/3; A48-L, the separate web graph audit, and the consolidated outer checkpoint remain behind that gate. R6’s deterministic rail and presentation corrections are built; their visual judgment rides that checkpoint. Execute O7–O9 stay KA-owned. Closing member of arc `deterministic-orientation`. Definition below.
-- `cli-mode-entry` — direct-mode CLI subcommands (`brunch specify [spec-id]` / `brunch execute <spec-id>`, reserving `develop`); admitted 2026-07-13, stacked on FE-1187's auth-reversal branch. Definition below.
-- **Alpha walkthrough lane** — the post-publish outer-loop audit over the merged surface (`TESTING_PLAN.md` concern groups; findings in `TESTING_FINDINGS.md`). Runs A, C, and WR18 are the source evidence; run D waits on FE-1187's reshaped surfaces. Not a frontier itself.
-
-### Active — approachable comparison workflow
-
-- `operator-comparison-workflow` ([FE-1215](https://linear.app/hash/issue/FE-1215/approachable-saved-mission-comparison-workflow)) — **focused remediation and #343 stack closeout corrections complete; ready to tie off and land the stack.** The autonomous D134-L prompt/docs correction is built, statically verified, and the focused stock-Pi → `/compare-specs` → one direct normal-width Brunch shell smoke passed on run `minimal-petri-net-editor-20260717T191333Z` (Brunch-only, exchange beyond splash, no mission leakage; see `TESTING_FINDINGS.md` CS1–CS3). Review induction's three bounded gaps are also closed: document acquisition enforces active settled graph state, every live Brunch comparison recipe roots `--out` in the target workspace, and mission resolution reserves co-located control Markdown. **Next action:** tie off #343 and land the stack. Follow-up `comparison-mission-isolation-hardening` remains admitted from the smoke's separate residual risk. Definition below.
+- `walkthrough-remediation-2` ([FE-1187](https://linear.app/hash/issue/FE-1187/walkthrough-remediation-sweep-2-wr18-follow-up-closure)) — **paused after `remediation-4` tie-off:** mixed-settlement review preservation and populated-group-only Impact Ledger rendering are built. Re-entry requires an explicit decision to resume extractor/oracle hardening, then restart R8–R10 from 0/3; A48-L, the separate web graph audit, and the consolidated outer checkpoint remain behind that gate. Execute O7–O9 stay KA-owned. Closing member of arc `deterministic-orientation`. Definition below.
+- `cli-mode-entry` — direct-mode CLI subcommands (`brunch specify [spec-id]` / `brunch execute <spec-id>`, reserving `develop`); admitted 2026-07-13, stacked after FE-1187's entry-surface work. Definition below.
+- **Alpha walkthrough lane** — post-publish outer-loop audit over the merged surface (`TESTING_PLAN.md` concern groups; findings in `TESTING_FINDINGS.md`). Runs A, C, and WR18 are source evidence; run D waits on FE-1187's reshaped surfaces. Not a frontier itself.
 
 ### Recently Completed
 
-- 2026-07-22 `brownfield-comparison-cases` (FE-1241) — **✓ complete, learning-first:** frozen Brunch and Petrinaut packets, lightweight pinned-source preparation, deterministic oracles, publication-compatible attempt evidence, and portable CI are built. The Petrinaut calibration seed remains part of oracle identity and its source-backed addresses retain contrastive coverage. Expensive merged-reference preflight and adversarial admission were retired before a provider campaign because the current decision needs fast case-level product evidence, not an externally defensible benchmark.
-- 2026-07-21 `executor-slice-admission-parity` (FE-1240) — **✓ complete:** candidate admission now rejects scoped slices without executable criterion, design, or verification-machinery context; exact findings enter bounded repair, every admitted repaired slice survives preview/worker-context parsing, and the populated-plan execution guard remains fail-closed.
-- 2026-07-20 `comparison-reporting-skills` (FE-1232) — **✓ implementation complete, building on landed FE-1230:** added separate project-shared Notion publication and comparison-evidence reporting skills; elicitation, execution, end-to-end, and frozen campaign-strategy references; and executable guardrails for active-procedure precedence, safe mutation, validity-first interpretation, reproducible judging, failure retention, and audience-safe controller-only redaction.
-Older completion history (including FE-1192/FE-1195 executor topology closure): [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
+- 2026-08-05 `integrity-cleanup` (FE-1311) — **✓ complete:** the verified deletion/consolidation sweep and final five-row closure aligned the published package, probe topology, comparison public root, path-existence ownership, DB test naming, and portable repo-root Pi extension discovery without reopening falsified deletion targets.
+- 2026-07-22 `brownfield-comparison-cases` (FE-1241) — **✓ complete, learning-first:** frozen Brunch and Petrinaut packets, pinned-source preparation, deterministic oracles, publication-compatible attempt evidence, and portable CI are built.
+- 2026-07-22 `comparison-publication-workflow` (FE-1251) — **✓ complete:** PR #364 landed immutable comparison provenance plus guarded, idempotent Comparison Reports publication and schema reconciliation.
 
-### Next — deferred operator evidence, shared host convergence, then Group 3 agent layer
+Older completion history and archived completed frontier definitions live in [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md).
 
-- `saved-mission-comparison-witness` — **later PR, wait-gated on PM availability and FE-1215's D134-L remediation landing**: run the real Brunch + Claude `/compare-specs` witness with the top-level session acting as the simulated user and one direct harness shell at a time, then revise/rerun the saved mission to prove historical snapshots remain immutable. Definition below.
-- `comparison-mission-isolation-hardening` — **admitted 2026-07-17 from the FE-1215 remediation smoke** (`TESTING_FINDINGS.md` CS2). The `/compare-specs` flow currently writes `private-mission.md` at the run root, two levels above the harness target cwd, while harness agents (e.g. Brunch) expose generic `read`/`ls`/`find`/`grep`. Isolation held behaviorally in the witnessed run but is not enforced. Harden by placing the private mission outside the target-reachable tree (or jailing the target's file tools to its cwd) so the D134-L/I67-L mission boundary is structural, not conduct-dependent. Small, unblocked; no Linear/branch until picked up. Not required for FE-1215 landing.
-- `shared-session-host-tracer` — prove the one-host TUI attachment seam that FE-1200 deliberately left open; highest-priority architecture follow-through for the colleague taking over web/session hosting. Definition below.
-- `shared-session-host-cutover` — wait-gated on the tracer; close the enumerated TUI/web host surface, then delete the raw sidecar relay and `/rpc/driver` rather than normalizing dual support. Definition below.
-- `develop-mode` — third operational mode `develop` / `engineer` agent, **built flag-gated** (create the mode; enable only behind a flag). **Authority model settled 2026-07-13: not a contract-breaker** — `develop` sits at the same concentric visibility/authority tier as `execute`; `engineer` is simply not constrained by the executor's workflow (no `execute_*` lifecycle obligations), and is initially just a Brunch-aware coding assistant. Entry remains a SPEC revision (D98-L "two modes only", the D40-L matrix row at the execute tier, per-mode kick/consult-suppression axis), but no authority-model redesign is needed. Cost read revised: mechanical ≈ a day + prompt/conduct work. The `develop` CLI subcommand name is already reserved by `cli-mode-entry`.
-- `reviewer-agent-mode` — reshaped 2026-07-13: the D29-L advisory reviewer is a **subagent**, not a primary agent/mode. Narrow write authority to `reconciliation_need` stands (I16-L); A16-L trigger/scope questions resolve at pickup. Depends on `agent-control-plane-closure` for explicit named resource grants and honest background-agent prompt composition.
-- `review-commentary-widening` — reshaped 2026-07-13 to the TUI-realistic version: afford `#`-mentioning of review items and attribute comments via mention (req 18 reference-code seam), instead of a widened structured payload + bespoke collection UI. Re-expresses over the D116-L declared-ask/answer payload; needs a SPEC decision at pickup.
+### Next
+
+- `saved-mission-comparison-witness` — later operator-owned frontier: FE-1215 is landed, so the remaining work is scheduling the real Brunch + Claude `/compare-specs` witness, then revising/rerunning the saved mission to prove historical snapshots remain immutable. Definition below.
+- `comparison-mission-isolation-hardening` — admitted from FE-1215 smoke (`TESTING_FINDINGS.md` CS2): move the private mission outside the target-reachable tree (or equivalently jail the target's file tools) so the D134-L/I67-L mission boundary is structural, not conduct-dependent. Definition below.
+- `shared-session-host-tracer` — prove the one-host TUI attachment seam that FE-1200 deliberately left open. Definition below.
+- `shared-session-host-cutover` — wait-gated on the tracer; close the enumerated TUI/web host surface, then delete the raw sidecar relay and `/rpc/driver`. Definition below.
 
 ### Parallel / Low-conflict
 
-- `automated-alpha-publishing` ([FE-1050](https://linear.app/hash/issue/FE-1050/set-up-automatic-npm-publishing-for-brunch-using-changesets)) — branch implementation complete; activation/canary pending. Replaces manual local `release-it` publishing with a reviewed Changesets release PR on `next`, npm trusted publishing, the existing release-pack smoke, protected tags, generated changelog, and GitHub Releases. `main`/`latest` automation remains explicitly deferred. Definition below.
-- `capture-ledger-tracer` — proving follow-on to the completed `agent-control-plane-closure`: compare current ingest conduct with a versioned four-section capture ledger over one fixed mixed-source mission, using separate masked outcome and unblinded conduct judgments. Definition and active scope file below.
+- `capture-ledger-tracer` — pickup-ready proving follow-on to the completed `agent-control-plane-closure`: compare current ingest conduct with a versioned four-section capture ledger over one fixed mixed-source mission, using separate masked outcome and unblinded conduct judgments. Definition below.
 
-### Cleanups — Group 4
+### Horizon
 
-- `named-inline-extension-identity` — Pi-native P1: adopt Pi's native named-inline-extension type for useful source provenance; small independent hardening, direct housekeeping or a tiny tooling slice.
-- `web-driver-streaming-residue` — from the retired evaluation (2026-07-13): the `agent_settled`-ordering trigger has fired and that assertion is promoted into `standalone-web-session-host`; remaining `ln-sync` residue is documentation only: `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md` answering matrix is stale post-D125-L (discovery mode-complete; answering landed with ceilings), and `src/rpc/TOPOLOGY.md`'s streaming ledger should point to the promoted assertion rather than retain a conditional ○ row.
-- `test-tmpdir-hygiene` — vitest `mkdtemp` fixtures are never cleaned up: ~249k `brunch-*` directories had accumulated in the darwin tmpdir by 2026-07-14 and filled the disk mid-gate (found during FE-1201). Add a global teardown or route fixtures through a repo-local scratch root (the `git-slice-integration-port.slow.test.ts` `tmp/` pattern). Tiny tooling slice; re-entry trigger: next disk-pressure incident or the next test-infra touch.
-
-### KA stream (Kostandin — executor / orchestrator / Execute mode)
-
-Everything executor/orchestrator-shaped or Execute-mode-owned belongs to Kostandin's stream and is **outside the LN quarantine**. Cross-stream touchpoints: FE-1187 rows O7/O8/O9 (live D120-L Execute workflows) — coordinate before building those rows.
-
-- `execution-comparison-tracer` ([FE-1230](https://linear.app/hash/issue/FE-1230/greenfield-execution-comparison-tracer)) — **active on `ka/fe-1230-independent-oracle-journeys`:** the frozen case, immutable-attempt contract, retained Brunch/Claude v1 pair, and versioned independent browser-oracle journeys are built. Next: restore the exact retained output paths, replay `petri-editor-browser-v2` unchanged against both, then review and promote the bounded evidence; no mutants, judging campaign, or repetitions in this frontier.
-- `end-to-end-comparison-tracer` ([FE-1239](https://linear.app/hash/issue/FE-1239/trace-elicitation-through-execution)) — **complete on `ka/fe-1239-end-to-end-comparison-tracer`, stacked on FE-1230:** two rigorous Petri-editor elicitation outputs crossed exact immutable handoffs into the staged 2×2 Brunch/Claude matrix; all four valid failed cells, unchanged-oracle evidence, and the validity-first requirement ledger are promoted. Definition and retained witness below.
-- `executor-slice-admission-parity` ([FE-1240](https://linear.app/hash/issue/FE-1240/prevent-invalid-scoped-slices-from-reaching-execution)) — **complete on `ka/fe-1240-slice-admission-parity`, restacked on `next` after FE-1239 landed:** incomplete scoped-slice worker context is rejected during deterministic plan admission, exact findings enter bounded repair before `slice_execute`, and the execution boundary remains fail-closed. Definition below.
-- `executor-plan-coherence` ([FE-1250](https://linear.app/hash/issue/FE-1250/build-coherent-execution-plans)) — **I69-L worker-contract carry implementation complete on `ka/fe-1250-coherent-execution-plans`, based on FE-1240 via `next`:** workers now receive exact cumulative requirement bodies and a hash-verified target-visible packet while controller-only neighbors remain excluded. Deterministic tests and build pass; next is the explicitly authorized unchanged Petri outer witness. No new browser gate, durable plan kind, or executor lifecycle phase. Definition below.
-- `executor-slice-verification-repair` ([FE-1254](https://linear.app/hash/issue/FE-1254/repair-failed-slice-verification-before-halting)) — **implementation complete on `ka/fe-1254-slice-verification-repair`:** terminal failed slice verdicts now enter a finite cycle-qualified Petri repair ladder with crash-durable canonical repair context, grouped validated history, and serial/parallel authority-preserving recovery. The full suite, repository checks, and build pass; next is the owned unchanged Petri comparison rerun. Definition below.
-- `comparison-publication-workflow` ([FE-1251](https://linear.app/hash/issue/FE-1251/publish-traceable-comparison-reports)) — **active on `ka/fe-1251-comparison-publication`, stacked on FE-1250:** capture immutable controller and release provenance before comparison lanes start, then explicitly publish retained validity-first reports into the canonical Notion database through a guarded idempotent skill. Definition below.
-- `prospect-research-workspace-regression` ([FE-1253](https://linear.app/hash/issue/FE-1253/thin-prospect-research-into-a-regression-case)) — **active on `ka/fe-1253-prospect-research-e2e`, stacked on FE-1241:** retain the exploratory mission and calibrated browser/HTTP/SQLite/export oracle while deleting the unexecuted prospect study profile, requirement-ledger expansion, and scored-provider completion gate.
-- `greenfield-secure-drop-demo` ([FE-1289](https://linear.app/hash/issue/FE-1289/close-the-greenfield-secure-drop-demo)) — **active on `ka/fe-1289-greenfield-secure-drop-demo`:** close one bounded product witness from real elicitation through accepted graph, synthesized parallel plan, production cook, live Petrinaut, confirmed greenfield landing, and deterministic Secure Drop checks; then retain one diagonal Brunch/Claude comparison without reopening the general factorial harness.
-- **Carved from FE-1167 (2026-07-13):** the Execute-mode evidence sub-list — Execute entry beats on thin vs rich seeds (assessment honesty: Ask on thin, Proceed on rich) and the FE-1107/KA residue (close-or-narrow, demo/walkthrough session via `TESTING_PLAN.md`, post-KA plan pass). The former sticky-posture question is no longer KA residue: FE-1187 `remediation-4` owns the persistent Specify elicitation-style audit/SPEC revision, and its Continue lexical audit owns the old `continue` ambiguity. Full context in the archived FE-1167 definition (`docs/archive/PLAN_HISTORY.md`).
-- `planning-process-model` — **moved to the KA stream 2026-07-13; reshaped by D126-L**: the durable scope handoff is settled, so this item now owns only plan projection and epistemic-horizon questions beyond committed scopes. Definition below.
-- **[1.x data-model handoff owed by FE-1187](../docs/architecture/BRUNCH_1X_DATA_MODEL_HANDOFF.md):** a concise colleague-facing note must distinguish current canon from directional vocabulary before the consolidated outer checkpoint. Current: `{milestone, frontier, scope}` with executor-derived slices; basis (`explicit | implicit`) orthogonal to settlement (`advisory | settled`); no persisted readiness grade or spec-global elicitation-gap table; active-branch Pi JSONL reads; one CommandExecutor mutation authority with spec-local LSN/change log; no new projected `vv_obligation` (legacy rows remain readable). Directional only: explain stored `thesis` as pitch/concept without renaming it yet, and avoid new coupling to spec-local `term` while its possible workspace lift remains future work. Persisted judgment-shaped reconciliation needs remain current, but are YAGNI-suspect: add no kinds/consumers/orchestration dependency without fresh evidence; re-evaluate derivation/removal when KA work first needs that table. Delivered note: [`Brunch 1.x data-model handoff`](../docs/architecture/BRUNCH_1X_DATA_MODEL_HANDOFF.md); it does not block the deterministic TUI queue.
-- **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them; they are not standalone cleanup buckets.
+- **Mode / reviewer follow-ons:** `develop-mode` (flag-gated third operational mode with execute-tier authority), `reviewer-agent-mode` (reviewer remains a subagent, not a primary mode), and `review-commentary-widening` (TUI-realistic `#`-mention review comments over D116-L payloads).
+- **Cleanups:** `named-inline-extension-identity`, `web-driver-streaming-residue`, and `test-tmpdir-hygiene` remain independent small follow-ons.
+- **Integrity follow-ons (trigger-gated, not admitted):** exact FE-1311 audit evidence remains in git history. Re-enter `src/utils/strings.ts` / `.npmcheckrc` only through a future repository-hygiene frontier; the `source-policy.ts` readability-vs-existence divergence only when populated-plan acceptance changes or fails; TOON only through the D83-L product call; and a production-dependency-closure oracle on the next `dependencies` edit. Do not fold these into the active closure ledger.
+- **Release automation later:** FE-1050 closed the reviewed Changesets alpha path on `next` → npm `alpha`; the still-intended `main`/`latest` stable-release automation remains a separate deferred promotion follow-on rather than part of the current alpha automation. Pointer: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#recently-completed-entries-archived-from-live-plan).
+- `host-landing` ([FE-1201](https://linear.app/hash/issue/FE-1201/mode-aware-host-landing-of-promoted-runs)) — **KA stream · owner: Kostandin.** Owes the real TUI+RPC `/brunch:land` walkthrough from `promotion_prepared` into a fresh target (A42-L live half / FE-1197 oracle 9 landing leg). Re-enter at the next live FE-1197 walkthrough. Pointers: SPEC A42-L, D111-L/I58-L; `src/app/TOPOLOGY.md`.
+- `executor-plan-synthesis` ([FE-1197](https://linear.app/hash/issue/FE-1197/synthesize-and-validate-executor-plans-from-approved-scopes)) — **KA stream · owner: Kostandin.** Owes live-capability oracles 1–5 on real elicited specs plus oracle 9's committed-scope → conforming-promotion tail. Re-enter in the next model-backed FE-1197 walkthrough. Pointers: SPEC D130-L and A42-L; `src/executor/TOPOLOGY.md`; `docs/praxis/manual-testing.md`.
+- `execution-comparison-tracer` ([FE-1230](https://linear.app/hash/issue/FE-1230/greenfield-execution-comparison-tracer)) — **KA stream · owner: Kostandin.** Owes replay of unchanged `petri-editor-browser-v2` against both retained outputs and bounded evidence promotion. Re-enter when the exact immutable attempt/output paths are restored. Pointers: SPEC “FE-1230 execution-comparison oracle boundary”; `testing/execution-comparisons/cases/minimal-petri-net-editor/spec.md`; `docs/praxis/comparison-runs.md`.
+- `executor-plan-coherence` ([FE-1250](https://linear.app/hash/issue/FE-1250/build-coherent-execution-plans)) — **KA stream · owner: Kostandin.** Owes one explicitly authorized unchanged frozen-Petri rerun with the controller-owned browser oracle. Re-enter only on that explicit authorization. Pointers: SPEC I69-L and Verification Design “I69-L unchanged frozen Petri comparison witness”; `testing/execution-comparisons/cases/minimal-petri-net-editor/spec.md`.
+- `executor-slice-verification-repair` ([FE-1254](https://linear.app/hash/issue/FE-1254/repair-failed-slice-verification-before-halting)) — **KA stream · owner: Kostandin.** Owes its unchanged Petri comparison rerun after the merged finite repair ladder. Re-enter only for the owned, explicitly authorized unchanged rerun. Pointers: SPEC D112-L/D127-L–D130-L/I58-L; `src/executor/TOPOLOGY.md`; PR #370 evidence.
+- `greenfield-secure-drop-demo` ([FE-1289](https://linear.app/hash/issue/FE-1289/close-the-greenfield-secure-drop-demo)) — **KA stream · owner: Kostandin.** Owes one fresh full Secure Drop run proving the corrected graph/harness/build path on the current runtime baseline before any diagonal comparison claim. Re-enter from the retained witness card after the merged corrections; SD9 remains failed evidence. Pointers: [`memory/cards/greenfield-secure-drop-demo--mission-and-witness.md`](cards/greenfield-secure-drop-demo--mission-and-witness.md); `TESTING_FINDINGS.md` SD9; SPEC D120-L/D126-L/D127-L/D130-L and I58-L/I69-L.
+- **Planning / instrumentation later:** `planning-process-model`, `tier-2-regression-probes`, `mechanism-trace`, and `agent-tracing` re-enter only with an explicit trigger.
+- **Standing obligations:** the colleague-facing [`Brunch 1.x data-model handoff`](../docs/architecture/BRUNCH_1X_DATA_MODEL_HANDOFF.md) is delivered; `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them rather than standing as their own buckets.
 
 ### Later
 
-Instrumentation experiments and far-horizon items. Each re-enters only via re-qualification with a named trigger.
-- `tier-2-regression-probes` — **Later, trigger-gated**: runnable probes over the tier-2 real-boot faux-provider harness that track improvement/regression of Brunch's own conduct on rich seed scenarios (the intra-product lane's mechanical oracle). Re-enter when the seed/fixture library demonstrates rich, relevant, challenging scenarios worth pinning; artifacts follow the normal probe contract (`docs/architecture/probes-and-transcripts.md`).
-- `mechanism-trace` — **Later**: post-hoc `wiring` / `nudge` / `conduct` transcript timeline plus static wiring inventory. Re-enter when instrumentation is prioritized; FE-1187 already owns the extracted sweep-debt tripwire. Archived snapshot: [`docs/archive/PLAN_HISTORY.md`](../docs/archive/PLAN_HISTORY.md#2026-07-14-rolling-frontier-reduction).
-- `agent-tracing` — passive trace instrumentation over Pi lifecycle events for debugging plus conduct/quality evaluation: NDJSON emitter extension (introspection-tap discipline), subagent span joining via SDK `session.subscribe`, and a mechanical-trace × semantic-JSONL join for deterministic conduct checks and judged passes. Entry move is an `ln-spike` (dev-gated `nikiforovall/pi-otel` import: do span trees beat `.brunch/debug/` + JSONL projections?) before any port of `JoshMock/the-agency` observability as the in-product base. Traces are dev/eval artifacts, never product truth (no event-spine backdoor). Design: `docs/design/AGENT_TRACING.md`; sibling idea note `docs/design/RLM_INVESTIGATION_PATTERN.md`. Relation: Later `mechanism-trace` is the transcript-native sibling (carrier classification, no event plane); if both land they may join on a shared trace vocabulary. Absorbs Pi-native P5 (provider/cache observability — latency, cache behavior, whole-run spans), spike-led.
+Legacy link target; see Horizon.
 
 ## Frontier Definitions
 
-<!-- Closed frontier definitions live in docs/archive/PLAN_HISTORY.md. -->
+<!-- Closed frontier definitions live in docs/archive/PLAN_HISTORY.md. Keep live definitions for active/next pickup items. -->
 
 ### walkthrough-remediation-2
 
 - **Name:** Walkthrough chapter closure — remediation, evidence, and design follow-through (absorbs FE-1167)
 - **Linear:** [FE-1187](https://linear.app/hash/issue/FE-1187/walkthrough-remediation-sweep-2-wr18-follow-up-closure); absorbs closed FE-1167.
-- **Branches:** `ln/fe-1187-walkthrough-remediation-2` (tied-off first tranche) → `ln/fe-1187-remediation-3` (tied-off Impact Ledger continuation) → `ln/fe-1187-remediation-4` (tied-off mixed-settlement/orientation continuation).
+- **Branches:** `ln/fe-1187-walkthrough-remediation-2` → `ln/fe-1187-remediation-3` → `ln/fe-1187-remediation-4`.
 - **Kind:** coverage-shaped closure batch: WR18-promoted remediation rows + absorbed LN evidence beats + folded design rows + the tripwire row.
 - **Certainty:** proving.
 - **Classification:** evidence-gated.
-- **Built:** D123-L model/auth reversal; deterministic remediation rows; sweep-debt tripwire; digest feedback → bounded questionnaire/confirmation carrier; shared atomic local-TUI/RPC mixed-settlement review preservation with required per-node/per-edge status, exact readback, and no post-approval completion path; discriminating seed variants for propose/project/review routing plus settlement visibility; the human-selected borderless Impact Ledger with narrow/normal/wide goldens, word-wrap-tolerant render honesty, a naive differential inventory oracle, and a deterministic 17-node/11-edge content-length variant gallery; the R6 ask-only valid-terminal status rail; the authenticated live-TUI presentation corrections (header-backed Welcome, quiet provider retries, editor/footer geometry, dim collapsed thinking, terminal-default compact wordmark); and the read-only active-branch JSONL + graph/LSN provider-conduct report extractor with exact entry/tool-call citations and deterministic R8–R10 rival classification. The exact review payload remains durable and approval produces one receipt-bearing terminal, one LSN, and one change-log entry.
-- **Next action:** paused at user direction after `remediation-4` tie-off. On explicit re-entry, reconcile the accepted provider-conduct extractor/oracle against the landed mixed-settlement contract, then restart Card 2 from 0/3. Per-item settlement preservation and populated-only Impact Ledger rendering are built; no provider run counts precede extractor/oracle reconciliation. The completed D119-L accepted-source extraction-breadth beat supplies baseline evidence to `capture-ledger-tracer` but does not replace that frontier's controlled comparison.
-- **Replanned `remediation-4` bundle (same frontier / issue / branch):**
-  - **Terminal-adaptive shell:** retain light/dark themes but move live TUI foreground/semantic roles to ANSI 0–15; keep only subtle custom backgrounds plus a small gray ramp, while HTML export keeps concrete colors. Specify identity is cyan, Execute identity is magenta, and the shared navigation/menu shell is blue. Every active editor/Ask/questionnaire/comment/Other input uses the current mode border.
-  - **Editor, footer, intro, and spec menu:** the editor border owns only the operational-mode and specification-title labels. The complete stable footer is one-column inset and uniformly dim, containing only the conditional web URL plus `model_info | thinking_level | context_percentage`; transient working/status display remains separate. Replace `/brunch:menu` and `ctrl+shift+b` outright with `/brunch:spec-menu` and `alt+s`; share one menu shell while keeping startup and in-session decision logic distinct. The welcome copy is one-time, non-transcript startup-header content rendered immediately after identity through a standard one-column-padded Box; its slash-command/control notes are dim. It teaches spec/menu, mode, consult/continue, model, and thinking controls, including the vendor-neutral guidance that low/medium thinking often works best.
-  - **Orientation semantics and menus:** consolidate one active-branch, last-entry-wins Specify elicitation style and wire it into elicitor prompting; style choices persist, while Move to execution and Execute workflows remain one-shot process moves. Automatic menus fire only for a new session without an established style and after operational-mode switch; resume/session switch/tree/abort restore branch state without interruption; `/brunch:consult` explicitly reopens the menu. The current style is marked/preselected and appended only when changed. A shared blue menu shell carries short labels plus dim descriptions and explicit Escape-to-dismiss/custom-instruction guidance. Specify offers Work via intent / examples / proposals, plus readiness-gated Move to execution; that move stays in Specify until gaps close and then explicitly offers Execute. Execute progressively offers Prepare execution / Compile a plan / Execute the plan.
-  - **Readiness tracer:** menu availability is derived, never a stored grade. Try a read-only, non-transcript semantic preflight under a ≤3s budget, show the wait through `setWorkingMessage`, and cache only in host memory by `{specId, lsn, operationalMode}`. Timeout, missing auth, or failure falls back to a deterministic safe subset. A scoped tracer must decide whether the model-backed path meets the budget; the deterministic fallback is required either way.
-  - **Ask, Continue, and colleague evidence:** exercise the complete Ask matrix (free text, single/multi, Other, comment, mixed bounded questionnaire, nested back/Escape, cancellation recovery, and result read-back) deterministically, plus one live-provider TUI questionnaire and one public-RPC questionnaire witness; web requires semantic read-back audit, not a new React questionnaire form. Reserve user-facing “continue” exclusively for resuming interrupted Brunch work and audit live UI/control copy, choice ids/directives, prompts, tests, and docs. Produce an actionable KA 0.x→1.x data-model/ontology handoff and link it from the KA stream.
-- **D131-L renderer boundary:** FE-1187 owns only the review presentation half of D131-L: materialize the selected borderless Impact Ledger, preserve exact term definitions and the readable `obligation` compatibility fallback, and audit the separate web graph display rather than silently imposing review ordering. The cross-cutting prompt/resource semantic sweep is part of `agent-control-plane-closure`.
-- **Visual-design coupling:** `exchange-visual-design` now also owns the FE-1196 reassignment `transcript-ledger-rendering`: durable user-choice ledger entries must become visible in the transcript without entering model context, and should land with the same visual treatment rather than as a separate platform-debt slice.
-- **Theme closure gate:** close through both-theme component/live-TUI evidence after the ANSI conversion; verify terminal-default text, the small allowed custom-shade set, cyan/magenta mode inputs, blue menu shells, the exact editor/footer contract, and the borderless intro. Do not treat HTML export colors as terminal-adaptation work.
-- **Remaining routes:** R6's valid-terminal rail and quiet provider-rejection rendering plus the five bounded chrome/theme corrections are built; their qualitative both-theme judgment rides the outer checkpoint. R13's qualitative menu judgment also rides that checkpoint. R12's no-model symptom did not reproduce. R10's mixed-settlement contract, per-item presentation, existing-host edge visibility, and empty-group suppression are built. Extractor/oracle reconciliation and the R8–R10 campaign are paused at 0/3; the stopped partial run at `.fixtures/scratch/provider-conduct/run-1-20260717T170400Z/` is diagnostic and has no `report.json`. A48-L remains sequenced after three fresh counted runs. O7–O9 are KA-owned D120-L Execute evidence. The [`consolidated outer checkpoint`](cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md) remains last, after R8–R10 and A48-L dispositions.
-- **Live scope files:** paused [`R8–R10 controlled provider-conduct evidence`](cards/walkthrough-remediation-2--provider-conduct-evidence.md) retains accepted Card 1 and an invalidated Card 2 awaiting explicit re-entry plus extractor/oracle reconciliation; paused [`consolidated outer checkpoint`](cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md). The live TUI presentation card is consumed and retired. The D119 lexical sweep and deterministic remediation queue are consumed and retired; the independent [`Brunch 1.x data-model handoff`](../docs/architecture/BRUNCH_1X_DATA_MODEL_HANDOFF.md) is delivered. A48-L's scope remains deliberately sequenced after R8–R10 provider evidence despite its settled catalog/report/latency contract.
-- **Dependencies:** closes `deterministic-orientation` jointly with KA-carved Execute evidence. `cli-mode-entry` remains stacked after this frontier.
-- **Verification (R8–R10):** one normalized 17-node/11-edge semantic fixture; compact text and live/persisted render equivalence with visible per-node/per-edge settlement; exact local/RPC preservation in one atomic effect; three fresh controlled provider runs (current count 0/3); one normal-width human walkthrough judging question materiality, settlement honesty, proposition cohesion, inspectability, and fatigue. See SPEC §Verification Design.
-- **Verification (Impact Ledger render, D27-L/D131-L):** golden snapshots at narrow/normal/wide widths assert per-node/per-edge settlement visibility, omit every empty Terms/concern section, and preserve canonical relative order; word-wrap-tolerant `missingRenderedDetailsLeaves` + a naive differential item/status reference extractor (inner/middle, deterministic, no LLM); one human walkthrough cycles a dev-only content-length variant gallery (outer, no `fast-check` — legibility stays human-judged). See SPEC §Verification Design ("FE-1187 Impact Ledger render oracle design").
-- **Verification (replanned shell/orientation/Ask bundle):** tagged-theme and component-preview checks pin ANSI role use, input/menu border identity, editor/footer geometry, intro content/lifetime, and the renamed spec-menu command/shortcut. Active-branch tests distinguish persistent elicitation style from one-shot moves and prove the reduced juncture set and current-style selection. A48-L pairs a tracked human-approved exact availability catalog (seven graph-state cases plus one injected reconciliation-blocker veto) with a structured scratch tracer report; inner tests prove recommended-default-only admission, mode-valid flags, exact cache invalidation, ≤3s fallback, and zero foreground-turn/transcript/graph/session effects; the middle campaign runs three uncached feasibility calls before ten uncached labeled calls and admits only at ≥8/10 in budget, exact completed flags, at least one corrected fallback miss, and zero false positives. The Ask matrix combines deterministic runtime fixtures with one live TUI and one public-RPC questionnaire witness; a lexical negative-space audit rejects live misuse of “continue.” Human outer evidence covers both themes and normal terminal width.
-- **Traceability:** WR18 closure record in `TESTING_FINDINGS.md`; evidence at `testing/walkthroughs/2026-07-10/WR18-manual.md`; D98-L/D109-L/D119-L/D120-L/I62-L; D113-L–D115-L reversal/disambiguation; D99-L conduct; TESTING_PLAN concerns 1/3/4/6/7.
+- **Built:** D123-L model/auth reversal; deterministic remediation rows; sweep-debt tripwire; digest feedback → bounded questionnaire/confirmation carrier; shared atomic local-TUI/RPC mixed-settlement review preservation with required per-node/per-edge status, exact readback, and no post-approval completion path; discriminating seed variants for propose/project/review routing plus settlement visibility; the borderless Impact Ledger with narrow/normal/wide goldens, render-honesty oracles, and a deterministic 17-node/11-edge variant gallery; the R6 ask-only valid-terminal status rail; authenticated live-TUI presentation corrections; canonical orientation treatment; persistent elicitation style; deterministic action menus; full Ask mechanics; Continue-language cleanup; and the KA 1.x data-model handoff.
+- **Next action:** paused at user direction after `remediation-4` tie-off. On explicit re-entry, reconcile the accepted provider-conduct extractor/oracle against the landed mixed-settlement contract, then restart Card 2 from 0/3. No provider run counts precede extractor/oracle reconciliation.
+- **Remaining routes:** extractor/oracle reconciliation; the fresh R8–R10 campaign (current count 0/3); A48-L after that campaign; and the [`consolidated outer checkpoint`](cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md). Execute O7–O9 remain KA-owned D120-L evidence.
+- **Live scope files:** paused [`R8–R10 controlled provider-conduct evidence`](cards/walkthrough-remediation-2--provider-conduct-evidence.md); paused [`consolidated outer checkpoint`](cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md).
+- **Dependencies:** closes `deterministic-orientation` jointly with the KA-carved Execute evidence; `cli-mode-entry` remains stacked after this frontier.
+- **Verification:** one normalized 17-node/11-edge semantic fixture; compact text and live/persisted render equivalence with visible per-node/per-edge settlement; exact local/RPC preservation in one atomic effect; three fresh controlled provider runs; a normal-width human walkthrough on question materiality, settlement honesty, proposition cohesion, inspectability, and fatigue; Ask matrix coverage; lexical negative-space audit rejecting live misuse of “continue”; both-theme human outer evidence. See SPEC §Verification Design.
+- **Traceability:** WR18 closure record in `TESTING_FINDINGS.md`; evidence at `testing/walkthroughs/2026-07-10/WR18-manual.md`; D98-L, D109-L, D119-L, D120-L, I62-L; D113-L–D115-L; D99-L; TESTING_PLAN concerns 1/3/4/6/7.
+
+### cli-mode-entry
+
+- **Name:** Direct-mode CLI entry — `brunch specify [spec-id]` / `brunch execute <spec-id>`
+- **Linear:** unassigned (create at pickup, FE team / brunch project)
+- **Branch:** stacked after FE-1187's entry-surface work (shared workspace-dialog seam)
+- **Kind:** bounded feature — new CLI entry behavior over existing activation/orientation seams.
+- **Certainty:** proving.
+- **Blocked by:** `walkthrough-remediation-2` materializing revised D98-L/D109-L.
+- **Objective:** add `specify [spec-id]` (default new spec) and `execute <spec-id>` subcommands, reserve `develop`, pre-answer the workspace dialog through the injected decision seam, seed `operationalMode`, and then follow the revised style/process-move policy rather than synthesizing an obsolete generic orientation entry.
+- **Verification:** inner — argv→activation-decision mapping, spec-id validation, orientation-suppression and kick-composition regressions; outer — one manual walkthrough per subcommand.
+- **Why now / unlocks:** shares FE-1187's entry-friction motivation and reserves the `develop` name ahead of the later mode frontier.
+- **Traceability:** D98-L, D109-L, D101-L, D102-L.
+
+### saved-mission-comparison-witness
+
+- **Name:** Operator-led saved-mission comparison witness
+- **Linear:** unassigned — create at pickup in Frontend / brunch, with no parent unless the plan or user then names one.
+- **Branch:** tbd at pickup; FE-1215 is landed, so create from the then-current stack base when the operator witness is scheduled.
+- **Kind:** bounded behavioral-evidence frontier over the real project prompt; no implementation by default.
+- **Certainty:** proving.
+- **Classification:** wait-gated on operator availability.
+- **Status:** planned; FE-1215's D134-L remediation is landed. The retained failed run `minimal-petri-net-editor-20260717T132344Z` remains FE-1215 design evidence, not this frontier's witness.
+- **Objective:** prove that the corrected approachable saved-mission workflow works through its actual entry point and that mission revision affects future runs without rewriting historical evidence.
+- **Acceptance:** a stock Pi session runs the real `/compare-specs` prompt through ordinary-text approvals; the top-level session is the sole simulated-user actor and drives one direct Brunch shell then one direct Claude shell; the first run proves mission-consistent conduct, no mission leakage, honest outcomes/cleanup, unchanged target-authored documents, one aggregate notification, and a readable report; the operator then revises the mission and approves a second run whose edits do not rewrite the first run's retained snapshots.
+- **Verification:** outer only — operator-led first run plus revision/rerun through the real stock-Pi prompt, with artifact inspection and snapshot fingerprints.
+- **Dependencies:** hard on operator scheduling; FE-1215's D134-L remediation landing is already satisfied.
+- **Traceability:** req 24/A5-L; D70-L; D134-L/I67-L; FE-1210 evidence discipline; SPEC Verification Design `saved-mission-comparison-witness` gate.
+
+### comparison-mission-isolation-hardening
+
+- **Name:** Structural private-mission isolation for `/compare-specs`
+- **Linear:** unassigned — create at pickup in Frontend / brunch.
+- **Branch:** tbd at pickup; stack after the landed FE-1215 workflow when this follow-on starts.
+- **Kind:** bounded hardening over the retained D134-L mission boundary.
+- **Certainty:** proving.
+- **Status:** admitted from `TESTING_FINDINGS.md` CS2; not started.
+- **Objective:** make the private mission structurally unreachable from the comparison target by storing it outside the target-reachable tree or equivalently constraining target file tools to the harness cwd.
+- **Acceptance:** the target cannot discover or read the private mission by normal `read`/`ls`/`find`/`grep` access; the run still retains the private mission for controller/operator evidence; no FE-1215 historical run is rewritten; the fix does not widen into a generic comparison-runner redesign.
+- **Verification:** focused artifact-path and target-visibility tests plus one targeted smoke over the retained `/compare-specs` flow.
+- **Traceability:** D134-L/I67-L; `TESTING_FINDINGS.md` CS2.
 
 ### shared-session-host-tracer
 
 - **Name:** Shared session host tracer — one runtime authority for TUI and React
 - **Linear:** unassigned (create at pickup, FE team / brunch project)
-- **Branch:** tbd at pickup; stack from the FE-1200 foundation after reconciling the current Graphite stack
+- **Branch:** tbd at pickup; stack from the FE-1200 foundation after reconciling the current Graphite stack.
 - **Kind:** structural — new process/lifecycle and TUI-adapter seam over the materialized `LiveSessionHost`.
 - **Certainty:** proving.
-- **Status:** not started; design entry is the current/desired topology and transition guide in [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md).
-- **Objective:** retire A47-L with the thinnest production-cover proof that one independently-lived cwd-scoped Brunch host can own the sole writable sealed Pi runtime for a target while both a real Pi TUI presentation and the React client attach to that same runtime authority. Borrow pi-web's daemon/process shape, not its Pi-shaped REST/raw-event contract.
-- **Why now / unlocks:** FE-1200 proved the host inventory and semantic browser contract but left `InteractiveMode` embedded in a separate TUI-owned runtime. Without this tracer, every web addition either preserves two relays forever or quietly degrades the TUI. Landing it unlocks an earned, deletion-driven cutover rather than another parallel host.
-- **Retires:** A47-L — whether Pi's exported `InteractiveMode(AgentSessionRuntime)` coupling can be adapted without a second writable runtime, raw Pi browser surface, or permanently duplicated relay.
-- **Lights up:** one durable target observed by React and driven/rendered through a real TUI while the host—not either client—owns runtime lifetime, driver admission, JSONL persistence, and semantic event fan-out.
-- **Boundary:** one cwd, one target, one TUI client/adapter, one React attachment, one active driver. In: ordinary prompt/stream/settlement, one extension-owned structured `ask`, one TUI-only product interaction (command/confirmation or model/auth surface), client detach/re-attach, duplicate-writer and driver-conflict rivals. Out: complete family migration, multi-machine reach, remote auth, generic terminal transport, and deletion of the old path (owned by cutover).
-- **Acceptance:**
-  - The host process can remain alive while either presentation attaches/detaches; exactly one sealed `AgentSession`/`SessionManager` writes the target JSONL and one graph authority serves both.
-  - The TUI remains a real Brunch/Pi interactive presentation—editor, chrome, command/extension UI, and transcript rendering are not replaced by a token text client merely to satisfy the topology.
-  - React receives only target-addressed Brunch semantic deltas and rehydrates from the same fresh JSONL presentation after settlement; no raw Pi RPC/event contract crosses the browser boundary.
-  - One explicit host-owned driver policy admits the TUI and rejects or hands off a conflicting React driver without opening another runtime.
-  - A client crash/detach does not end or counterfeit host runtime state; a host restart may honestly reopen durable JSONL and need not preserve an in-flight turn.
-  - The winning TUI attachment shape and rejected alternatives are recorded in SPEC/design/topology before the cutover ledger is scoped.
-- **Verification:** inner — host/adapter contract tests and duplicate-writer/driver rivals; middle — production entry subprocess witness with one host + TUI + browser attachment, semantic stream↔JSONL differential, detach/reconnect, and target identity; outer — colleague-run walkthrough proving the TUI still supports one normal Brunch workflow and the browser observes/continues it without a second runtime.
-- **Traceability:** A47-L; req 4/12/17/31/32; D39-L, D132-L, D133-L; I64-L/I65-L; pi-web process-shape evidence in `docs/archive/architecture/pi-web-comparative.md`.
+- **Status:** not started; design entry point is [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md).
+- **Objective:** retire A47-L with the thinnest production-cover proof that one independently-lived cwd-scoped Brunch host can own the sole writable sealed Pi runtime for a target while both a real Pi TUI presentation and the React client attach to that same runtime authority.
+- **Why now / unlocks:** FE-1200 proved the host inventory and semantic browser contract but left `InteractiveMode` embedded in a separate TUI-owned runtime. Landing this unlocks an earned deletion-driven cutover instead of preserving dual host architectures.
+- **Acceptance:** the host can remain alive while either presentation attaches/detaches; exactly one sealed runtime writes target JSONL; the TUI remains a real Brunch/Pi interactive presentation; React receives only target-addressed Brunch semantic deltas and rehydrates from the same JSONL; one host-owned driver policy admits the TUI and rejects or hands off a conflicting React driver; a client crash/detach does not counterfeit runtime ownership; the winning TUI attachment shape is recorded in SPEC/design/topology before cutover scoping.
+- **Verification:** inner host/adapter contract tests and duplicate-writer/driver rivals; middle production entry subprocess witness with one host + TUI + browser attachment, semantic stream↔JSONL differential, detach/reconnect, and target identity; outer colleague walkthrough proving that the TUI still supports one normal Brunch workflow while the browser observes/continues it.
+- **Traceability:** A47-L; req 4/12/17/31/32; D39-L, D132-L, D133-L; I64-L, I65-L.
 
 ### shared-session-host-cutover
 
 - **Name:** Shared session host cutover — migrate both presentations and retire the sidecar host
 - **Linear:** unassigned (create only after the tracer chooses the TUI attachment seam)
-- **Branch:** tbd; stacks on `shared-session-host-tracer`
+- **Branch:** tbd; stacks on `shared-session-host-tracer`.
 - **Kind:** coverage-shaped architectural replacement over the closed TUI/web host capability surface.
 - **Certainty:** earned after A47-L retires; regress to proving if the tracer leaves a real attachment unknown.
-- **Classification:** wait-gated on `shared-session-host-tracer`; inventory is closeable from production TUI composition, RPC registries, web routes, and their existing contract tests, but rows cannot be assigned to the canonical adapter until the tracer lands.
-- **Objective:** make the traced host the sole live-session authority for both TUI and React, preserve every required presentation capability, and delete—not adapt indefinitely—the TUI-owned singleton relay, raw event contract, `/rpc/driver`, and parallel driver/broker wiring.
-- **Closes:** the dual architecture documented after FE-1200: standalone target-addressed semantic host versus TUI-owned current-session/raw-relay sidecar.
-- **Canonicalizes:** `LiveSessionHost` (or its traced successor), durable `(specId, sessionId)` targeting, one driver lease/handoff policy, `brunch.liveSessionEvent`, and fresh JSONL presentation as the only live-session host contract.
-- **Deletes / retires:** D84-L; `src/rpc/session-event-relay.ts`; `brunch.sessionEvent`; `/rpc/driver`; `createWebSidecarRpcHandlers`' handle-gated sidecar variants; TUI composition fields that pass raw session/ask/driver handles into `startWebHost`; old relay-only tests/support and docs.
-- **Boundary:** in — host lifecycle/open/close; TUI startup/new/resume/tree/commands/extension UI/model-auth/chrome; ordinary turns and all required ask/offer families; browser hydration/live overlay/driver handoff; graph/update and executor observer reads; reconnect/shutdown/error behavior. Out — cloud/multi-cwd/federation, a generic event spine, browser terminal/git/file APIs, process-crash survival for in-flight turns, and visual identity parity between terminal and React.
-- **Inventory authority:** at scope time create `memory/cards/shared-session-host-cutover--surface-ledger.md` (`Mode: sweep`) from the production composition/registries plus existing TUI, RPC, standalone-host, and web-route oracles. Mark each row required `●` or explicitly deferred `○`; each required row names one canonical owner and one closure oracle.
+- **Classification:** wait-gated on `shared-session-host-tracer`.
+- **Objective:** make the traced host the sole live-session authority for both TUI and React, preserve every required presentation capability, and delete the TUI-owned singleton relay, raw event contract, `/rpc/driver`, and parallel driver/broker wiring.
+- **Inventory authority:** create `memory/cards/shared-session-host-cutover--surface-ledger.md` (`Mode: sweep`) at scope time from the production composition/registries plus existing TUI, RPC, standalone-host, and web-route oracles.
 - **Aggregate DoD:** no required row remains `spec` / `new` / `partial`; both presentations pass through the one host authority; the deletion list is absent from production and test code; no topology or onboarding doc teaches the retired sidecar architecture.
-- **Promotion / disposal:** a row that reveals a genuinely new product seam promotes to PLAN and keeps this ledger open until it lands. More than one newly discovered row or a changed attachment seam stops the sweep and routes back through `ln-plan`. Delete the ledger only after all required rows and topology/doc reconciliation close.
 - **Verification:** per-row inner tests; middle production-host differential across TUI and React with one JSONL/runtime identity, active-branch/reconnect and graph-update rivals; full `npm run verify`; outer colleague walkthrough of TUI-driven and browser-driven handoff plus client restart. A deletion oracle rejects `SessionEventRelay`, `brunch.sessionEvent`, `/rpc/driver`, and targetless live-session calls outside archive/history docs.
-- **Traceability:** D84-L retirement; D132-L/D133-L materialization; I64-L/I65-L; `shared-session-host-convergence` arc done-definition; [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md).
-
-### interactive-tui-driver
-
-- **Name:** Canonical interactive TUI driver for agents and human takeover
-- **Linear:** [FE-1206](https://linear.app/hash/issue/FE-1206/canonical-interactive-tui-driver-for-agents-and-human-takeover).
-- **Branch:** `ln/fe-1206-interactive-tui-driver`, independently stacked on `ln/fe-1187-remediation-3` in the dedicated `brunch-next-iota` worktree.
-- **Kind:** structural tooling — development feedback-loop control and evidence capture, not product runtime.
-- **Certainty:** proving.
-- **Status:** ✓ closed 2026-07-15; post-witness adoption refined to a permanent project-local developer package. Host-capable default: pinned `pi-interactive-shell` declared under root `.pi`; sandbox/headless fallback: project-owned Expect/headless-xterm `npm run tui-driver`. The extension remains outside Brunch's shipped package manifest, runtime dependency graph, and sealed `src/.pi` profile.
-- **Objective:** settle and materialize one canonical way for agents to launch, observe, drive, resize, and stop Brunch TUIs while a human can inspect or take over when the host permits it. Compare the proven in-repo `src/dev/tui-driver.ts` (Expect/FIFO PTY + `@xterm/headless`) with `pi-interactive-shell`'s Pi overlay over `zigpty`; adopt, augment, or retain based on real tracer evidence rather than replacing the working fallback speculatively.
-- **Why now / unlocks:** FE-1187's review-set prototype exposed recurring runner confusion: external daemon-backed tools can fail under sandbox socket policy, while the component playground is the canonical visual-review surface but agents lack one obvious interaction path. A settled driver workflow unlocks repeatable component-playground reviews, real Brunch TUI walkthroughs, and future outer-loop evidence without re-deriving the tool choice each session.
-- **Lights up:** one end-to-end agent-controlled path through both `npm run dev:components -- tui-lab` and a seeded `npm run dev-cli` session, with terminal-state observation and deterministic teardown.
-- **Stabilizes:** `docs/praxis/manual-testing.md`'s TUI-driving priority order and `src/dev/TOPOLOGY.md`'s feedback-loop seam; no agent should guess among cmux, agent-tui, shellwright, and the repo driver after this frontier closes.
-- **Acceptance:**
-  - The active scope file carries a temporary capability matrix evaluating the existing driver and `pi-interactive-shell` on real PTY fidelity, xterm/VT screen reconstruction, text and named-key input, bracketed/multiline paste, wait/assert, resize, output bounds, cancellation/cleanup, human observation/takeover, sandbox viability, and artifact hygiene. It records measured evidence, not README claims; closure distills the chosen/default/fallback result into the existing manual-testing and dev docs, then deletes the temporary matrix with the exhausted scope file.
-  - One tracer drives a stable component-preview entry through launch → screen assertion → variant/input action → resize → clean exit. A second tracer drives a seeded Brunch TUI through launch → visible-state assertion → key/text interaction → cancellation → teardown. Both use the same candidate workflow where capabilities permit.
-  - `pi-interactive-shell` is validated against Brunch's Pi `0.80.x` line and the team's actual macOS architecture, including its `zigpty` prebuild. Its current dependency on `zigpty ^0.1.6` is checked against the current `zigpty 0.2.x` API/release line; version lag or platform limits are recorded before adoption.
-  - The existing Expect/xterm driver remains the sandbox/headless fallback until the candidate proves equivalent screen interpretation, deterministic input, liveness, and teardown. Direct `zigpty` integration is considered only if the extension cannot meet the project workflow; do not create a second custom PTY stack for optionality.
-  - The chosen workflow supports bounded model-visible output and keeps raw PTY logs under gitignored `.fixtures/scratch/`; secrets or pasted credentials never enter committed evidence or automatic model summaries.
-  - `docs/praxis/manual-testing.md`, `src/dev/README.md`, and `src/dev/TOPOLOGY.md` name one explicit priority order, installation/health checks, exact commands, fallback trigger, cleanup procedure, and user-takeover behavior. Superseded runner guidance is removed rather than left as competing advice.
-  - No PTY package or Pi extension enters Brunch's shipped product runtime dependency surface solely for test tooling. The permanent project-local package/config surface is developer-only root `.pi` state.
-- **Verification:** inner — existing `tui-driver` protocol/screen/liveness tests remain green plus adapter/config tests for any new project-owned code; middle — scripted component-preview and seeded-Brunch tracer matrix with captured textual viewports, resize/input assertions, exit status, and cleanup; outer — one user-observed Pi overlay session proving watch/takeover/return-to-agent behavior, plus one sandbox run proving the documented fallback when socket-backed tools cannot bind.
-- **Cross-cutting obligations:** preserve the manual-testing findings-ledger discipline and scratch-artifact rules; do not make an external extension part of Brunch's product extension bundle; retain the current fallback until the replacement decision is witnessed; document platform ceilings explicitly rather than claiming cross-platform support from upstream marketing.
-- **Traceability:** `docs/praxis/manual-testing.md` §Setup / sandbox fallback; `src/dev/TOPOLOGY.md` and `src/dev/tui-driver.ts`; FE-1187 R8–R10 component-playground review pressure. External candidates: [`pi-interactive-shell`](https://github.com/nicobailon/pi-interactive-shell), [`zigpty`](https://github.com/pithings/zigpty).
-
-### agent-control-plane-closure
-
-- **Name:** Elicitor and subagent control-plane closure
-- **Linear:** [FE-1216](https://linear.app/hash/issue/FE-1216/elicitor-and-subagent-control-plane-closure)
-- **Branch:** `ln/fe-1216-agent-control-plane-closure`; replaces the unstarted `graph-assurance-conduct` and absorbs `subagent-skill-access`
-- **Kind:** earned coverage-shaped closure over foreground/background prompt ingress and agent resources; not a graph-schema migration, capture-quality experiment, or reviewer feature.
-- **Certainty:** earned.
-- **Classification:** buildable-now; D135-L/I68-L settle the context/control ingress model, so no additional design or spike is required.
-- **Status:** ✓ done 2026-07-17; all seven required sweep rows built and the temporary ledger retired.
-- **Entry action:** ✓ complete 2026-07-17 — D135-L/I68-L preserve thin/load-on-demand foreground composition, distinguish origination continuity from later reads, and supersede D101-L's stale `world-reads.ts` delivery clause; the seven-row coverage sweep is complete and its temporary ledger is retired.
-- **Objective:** make every Brunch-owned agent receive one truthful, current, testable control surface: live resources agree with D131-L; foreground prompt updates replace stale Brunch blocks; load-on-demand context topology has no dead eager-context claims or must-wire no-ops; posture, elicitation style, and asking agenda have an explicit ownership map; and each background agent is advertised only the skills/resources its tool grant or task bundle can actually consume.
-- **Why now / unlocks:** the audit found several individually small defects sharing one ingress boundary: contradicted assurance conduct, content-insensitive prompt deduplication, dead `graphReads`/`composeAgentContextSeed` topology claims, duplicated context rendering, unobserved skill invocation, and a full skill manifest injected into no-tools subagents. Treating them as separate frontiers would repeatedly reopen the same prompt assembly and contract tests. The repo-level subagent extension already proves named skill grants and Markdown handback, so only product integration and honest prompt composition remain.
-- **Coverage inventory:**
-  - **Assurance semantics:** materialize D131-L through ingest/map/project/propose/review and their references. Existing `evidence`/`vv_obligation` rows stay readable; no live resource proposes future evidence, generates a verification obligation, or treats an unexecuted check as proof.
-  - **Foreground block identity:** replace first-line sentinel deduplication with explicit owned-block identity/replacement across provider carrier shapes. A changed role, elicitation style, active-tool set, or resource manifest cannot be silently discarded as “already present.”
-  - **Context topology:** materialize D135-L: preserve D58-L's thin prompt plus origination continuity and load-on-demand later reads; retire the dead eager per-turn path, no-op `graphReads` contract, and stale current-state claims as one coherent cutover.
-  - **Control ownership:** document and test the distinct owners of spec posture (persisted product fact), elicitation style (persisted session process bias), and asking agenda (prompt/session origination conduct). Share rendering helpers without collapsing those controls into one state primitive.
-  - **Resource invocation:** distinguish advertised, readable, and actually read resources in prompt-contract/trajectory tests; the capture trigger must have an observable read contract rather than manifest-presence proof alone.
-  - **Background grants:** carry named skills through the product subagent manifest/adapter where a child can read them; otherwise inject the complete rubric into the task bundle. No no-tools child receives “read a listed skill” instructions or dead manifest tokens. Markdown handback is legal; foreground retains collation and all mutation authority.
-  - **Minor closure:** cache immutable prompt bodies/manifests at the appropriate lifetime and consolidate duplicated posture/context renderers without widening their public seams.
-- **Aggregate done-definition:** every required inventory row is built or has an explicit non-applicable disposition; foreground and background prompts contain no contradictory tool/resource instructions; per-turn changes replace stale owned blocks; topology/SPEC/code tell one story about context; and the assurance chain is criteria/method → concrete check (`realization`) plus deliberately promoted prior observation → witnessed/falsified claim (`witness`).
-- **Acceptance:**
-  - `src/agents/references/data-model.md` and `readiness-bands.md` distinguish physical compatibility taxonomy from D131-L conduct. Evidence is capture-only and is not an expected projection deliverable; `vv_obligation` is marked legacy/reserved without deleting its schema entry.
-  - Focused prompt tests prove identical-composition idempotence and changed-composition replacement for role/style/tools/resources in plain strings and provider block/message carriers.
-  - Context tests and topology docs prove the selected D58-L/D101-L path; no production-required parameter is unused and no canonical doc names a nonexistent caller.
-  - Control-map tests make posture/style/agenda provenance and lifetime explicit while preserving their intentional separation.
-  - Foreground production-recorder tests prove instrumentation can distinguish advertised, read, and provider-visible resources for an observed read; they do not claim that an LLM chose every required ingest/project/propose read. Controlled provider trajectories and the downstream `capture-ledger-tracer` own agent-conduct evidence. Background prompt tests cover readable-skill, bundled-rubric, and no-tools agents without contradictory instructions.
-  - Existing seed fixtures and historical rows remain unchanged unless they are live conduct oracles. No schema enum, database migration, compatibility shim, production capture IR, or mass fixture regeneration lands.
-- **Verification:** `npm run check:skills`; prompt/resource composition and provider-carrier tests; topology/import contract checks; focused subagent prompt/grant tests; production recorder → persisted trajectory → report projection for an observed resource read. Required-read agent conduct is evaluated through controlled provider trajectories and the downstream `capture-ledger-tracer`, not inferred from deterministic instrumentation tests. Full `npm run verify` before submission.
-- **Boundary:** FE-1187 owns the review renderer and outer extraction-breadth checkpoint. `capture-ledger-tracer` owns whether a four-section mental ledger improves capture. `reviewer-agent-mode` owns reviewer behavior after this frontier supplies honest skill/resource access. Dedicated automatic evidence promotion remains out.
-- **Traceability:** D135-L/I68-L (control ingress and capability honesty), D58-L (thin/load-on-demand live prompt), D90-L/D95-L (agent and skill manifests), D98-L/D101-L/D102-L/D118-L (control/context ownership), D131-L (assurance semantics), D87-L/D94-L/D99-L/D70-L; current topology homes under `src/agents/runtime/elicitor`, `src/agents/contexts`, and `src/.pi/extensions`.
+- **Traceability:** D84-L retirement; D132-L, D133-L; I64-L, I65-L; `shared-session-host-convergence` arc done-definition; [`docs/design/WEB_UI_ARCHITECTURE.md`](../docs/design/WEB_UI_ARCHITECTURE.md).
 
 ### capture-ledger-tracer
 
 - **Name:** Sectioned capture-ledger conduct tracer
 - **Linear:** unassigned (create at pickup, FE team / brunch project)
 - **Branch:** tbd at pickup; stack after `agent-control-plane-closure`
-- **Kind:** bounded agent-control intervention + behavioral evaluation tracer; not a durable capture IR, graph-schema change, or production subagent fan-out.
+- **Kind:** bounded agent-control intervention + behavioral evaluation tracer; not durable capture IR, graph-schema change, or production subagent fan-out.
 - **Certainty:** proving.
-- **Classification:** buildable-now; the `agent-control-plane-closure` gate is complete and the prepared scope is pickup-ready.
+- **Classification:** buildable-now.
 - **Status:** planned; scope prepared at [`memory/cards/capture-ledger-tracer--conduct-falsifier.md`](cards/capture-ledger-tracer--conduct-falsifier.md).
 - **Objective:** produce a predeclared matched verdict on whether a versioned Intent / Implementation / Assurance / Planning capture rubric plus a separate relations/conflicts/abstentions pass improves accepted-source capture over current ingest conduct without increasing false commitment or laundering uncertainty.
 - **Why now / unlocks:** FE-1210 proved the general push-driven actor and split outcome/process judgment pattern, while its promoted witness exposed the target seam: Brunch elicited broad consequential material but the settled graph-derived document still omitted one revealed fact. The result decides whether the next architecture should remain prompt-carried, graduate to a foreground typed capture compiler, or earn focused subagent fan-out.
@@ -610,28 +524,20 @@ Instrumentation experiments and far-horizon items. Each re-enters only via re-qu
 ## Dependencies
 
 ```text
-streams:
-  LN — product/elicitation surfaces
-  KA — Kostandin: executor / orchestrator / Execute mode / plan plane
+active:
+  walkthrough-remediation-2 (FE-1187)
+    closes_arc: deterministic-orientation
+    blocked_reentry: extractor/oracle reconciliation -> fresh R8–R10 0/3 campaign -> A48-L -> consolidated outer checkpoint
+    cross_stream: O7/O8/O9 + carved Execute beats stay KA-owned
+    -[stack]-> cli-mode-entry
 
-group-1 (Active — walkthrough closure):
-  walkthrough-remediation-2 (FE-1187, absorbs closed FE-1167)
-    entry: settled D113-L–D115-L reversal (ln-spec first; folds Pi-native P4)
-    rows: WR18 punch list + absorbed LN evidence beats + exchange-visual-design
-          + generative-flow-synthesis-shape + sweep-debt-tripwire
-    -[stack]-> cli-mode-entry (reserves `develop` subcommand)
-    cross_stream: O7/O8/O9 + carved Execute beats — coordinate with KA
-    closes_arc: deterministic-orientation (jointly with KA-carved beats)
-    status: D98/D109 carriers, terminal-adaptive shell, deterministic menus, full Ask
-      matrix, KA handoff, D119 lexical closure, R6 rail/presentation corrections,
-      and R12 disposition built; mixed-settlement review + populated-only ledger built;
-      paused after remediation-4; explicit re-entry resumes extractor/oracle reconciliation,
-      then the fresh R8–R10 0/3 campaign, A48-L, and the outer walkthrough
-
-# FE-1196 Group 2 closed 2026-07-14; durable state is in SPEC/topology and
-# docs/archive/PLAN_HISTORY.md. Conditional web-driver residue remains in group-4.
-
-shared-session-host-convergence (Next — architecture replacement):
+next:
+  saved-mission-comparison-witness
+    gated_by: operator availability
+    depends_on: landed FE-1215 workflow
+  comparison-mission-isolation-hardening
+    source: TESTING_FINDINGS.md CS2 from FE-1215 witness
+    hardens: D134-L/I67-L private-mission boundary
   shared-session-host-tracer
     retires: A47-L
     proves: one host-owned writable runtime + real TUI + React attachment
@@ -641,87 +547,30 @@ shared-session-host-convergence (Next — architecture replacement):
     closes: dual standalone-host / TUI-sidecar topology
     deletes: SessionEventRelay | brunch.sessionEvent | /rpc/driver | sidecar handle wiring
 
-group-3 (Next — agent layer):
-  develop-mode (flag-gated; execute-tier authority, no contract break)
-  agent-control-plane-closure -[hard]-> reviewer-agent-mode (subagent reshape)
-  review-commentary-widening (mention-based reshape)
-
-parallel release:
-  automated-alpha-publishing (FE-1050)
-    closes: manual local release-it publishing
-    locks_in: changeset -> reviewed version PR -> pack smoke -> npm alpha + tag + GitHub Release
-    unconnected: main/latest stable automation (separate promotion frontier)
-
-parallel evaluation:
-  agent-control-plane-closure
-    status: done; earned coverage over foreground/background prompt ingress
-    absorbs: graph-assurance-conduct | subagent-skill-access
-    canonicalizes: D131 semantics | owned prompt replacement | load-on-demand context truth
-      | posture/style/agenda ownership | observable resource reads | honest child grants
-    excludes: schema migration | review renderer | capture-quality claim | specialist fan-out
-    -[hard]-> capture-ledger-tracer
-      status: pickup-ready; proving prompt-level control/treatment falsifier
-      lights_up: accepted source -> capture conduct -> graph/scratch/reconciliation -> split judgment
-      excludes: durable IR | production subagent fan-out | graph schema changes
+parallel:
   capture-ledger-tracer
+    depends_on: completed agent-control-plane-closure
     reuses: FE-1208 evaluator/report primitives | FE-1210 actor + split judgment
-    owns: the rich mixed-source scenario and matched-run value
-    note: FE-1210 human closeout is not a hard dependency
-  agent-as-user-comparison (FE-1210)
-    status: closed 2026-07-17; promoted technical tracer (lockers-r1-20260716)
-    proven: push-driven Pi actor | Brunch document export | Brunch+Claude ready docs | split judgment | portable bundle | Cursor adapter
-    -[hard]-> operator-comparison-workflow (FE-1215, remediation active after first operator witness)
-      branch: ln/fe-1215-saved-mission-comparison
-      lights_up: private agent-as-user mission → minimal comparison-harness setup → top-level simulated-user actor → one direct harness shell at a time
-      retires: nested Pi actor shell | required custom question tool | per-run synthetic provider preflights | contender/simulated-PM wording
-      excludes: full multi-harness witness claims | browser UI | automatic winner/judge | multi-run campaign framework
-      -[hard]-> saved-mission-comparison-witness (next; later operator-owned PR)
-        status: wait-gated on FE-1215 D134-L remediation landing + operator availability
-        proves: stock-Pi Brunch+Claude run | single-level actor conduct | report usefulness | revision snapshot immutability
 
-group-4 (cleanups): rides group-1 stack | named-inline-extension-identity (P1)
-
-KA stream:
-  carved FE-1167 Execute beats + FE-1107 residue
-  planning-process-model (moved 2026-07-13)
+ka_evidence_queue:
+  host-landing (FE-1201)
+    oracle: live TUI+RPC /brunch:land -> fresh target (A42-L / FE-1197 oracle 9 landing leg)
+    reentry: next live FE-1197 walkthrough
+  executor-plan-synthesis (FE-1197)
+    oracle: live-capability 1-5 + committed-scope conforming-promotion 9
+    reentry: next model-backed FE-1197 walkthrough
   execution-comparison-tracer (FE-1230)
-    status: active; approved Opus 4.8 Petri-editor spec ready to freeze as a durable case
-    reuses: FE-1210 split judgment | failure retention | masked outcome discipline
-    lights_up: frozen spec -> Brunch/Claude isolated lanes -> hidden browser/Petri oracles -> adjudication
-    excludes: host landing | product operator command | Cursor/Codex | broad benchmark claims
-    -[hard]-> end-to-end-comparison-tracer (FE-1239)
-      status: complete 2026-07-21; promoted staged 2x2 Petri-editor tracer
-      reuses: FE-1210 fresh actor | FE-1230 attempt/oracle contracts | FE-1232 reporting grammar
-      lights_up: mission -> exact elicited specs -> four execution cells -> requirement traceability
-      excludes: winner | repetitions | multi-case causality | product command | ExecutionAttempt schema widening
-  # FE-1192 and FE-1195 merged; attempt identity, isolated fan-in,
-  # durable parallel authority, and epic integration are current executor topology.
-  executor-slice-admission-parity (FE-1240)
-    status: complete
-    -[hard]-> executor-plan-coherence (FE-1250)
-      lights_up: committed scope -> coherent candidate plan -> ordinary reconciliation slice
-      reuses: canonical harness | isolated integration | epic verification
-      excludes: browser-specific executor gate | durable plan kind | new lifecycle phase
-    -[hard]-> brownfield-comparison-cases
-      status: complete FE-1241 with learning-first pinned snapshots, deterministic case oracles, and publication-compatible execution runs
-      lights_up: same-base brownfield elicitation -> exact handoff -> crossed execution -> case oracle
-      cases: minimal-petri-net-editor = FE-1241 greenfield reference | FE-1201-derived brunch backend | PR #9051 petrinaut frontend
-      excludes: Clay | more greenfields inside FE-1241 | repetitions | aggregate winner | ExecutionAttempt widening
-      -[hard]-> prospect-research-workspace-regression (FE-1253)
-        status: active; deterministic full-stack oracle calibrated, campaign expansion retiring
-        closes: useful regression oracle coupled to an unexecuted 2x2 campaign
-        excludes: provider lanes | requirement ledger | outreach delivery | reliability claims
+    oracle: unchanged petri-editor-browser-v2 replay against both retained outputs
+    reentry: exact immutable attempt/output paths restored
+  executor-plan-coherence (FE-1250)
+    oracle: unchanged frozen Petri comparison + controller browser oracle
+    reentry: explicit authorization
+  executor-slice-verification-repair (FE-1254)
+    oracle: owned unchanged Petri comparison rerun after finite repair ladder
+    reentry: explicit authorization
   greenfield-secure-drop-demo (FE-1289)
-    status: active; proving one bounded product witness over settled execution seams
-    lights_up: secure-drop mission -> accepted graph -> parallel cook -> Petrinaut -> confirmed land -> deterministic checks
-    reuses: D126-L scopes | D130-L authored harness | FE-1197 execution | FE-1201 landing | existing comparison evidence contracts
-    excludes: brownfield | factorial matrix | generic parity | new graph kinds | messenger behavior
-  # executor-run-environment (FE-1166) resolved 2026-07-15: policy merged (PR #302),
-  # live remainder folded into executor-plan-synthesis (FE-1197), card consumed.
-
-later: tier-2-regression-probes (trigger: rich seed/fixture scenarios worth pinning) |
-  mechanism-trace (vocabulary may feed FE-1208-lineage tracing; no parallel artifact system) |
-  agent-tracing (conditional on a named joined-report observability gap; absorbs P5)
+    oracle: fresh full corrected Secure Drop graph/harness/build witness
+    reentry: retained witness card on current runtime baseline
 
 rules:
   candidates never commit graph truth (I51-L)

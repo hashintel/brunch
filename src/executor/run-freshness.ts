@@ -1,7 +1,8 @@
-import { access, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { prepareLaunch, type LaunchCurrentProjection, type LaunchResult } from './launch.js';
+import { pathExists } from './path-exists.js';
 import type { PlanFileProvenance } from './plan-file.js';
 import { readRunMetadata, runMetadataPath } from './run.js';
 
@@ -86,7 +87,7 @@ async function checkPopulatedRunFreshness(args: {
   readonly provenancePath: string;
   readonly current: LaunchCurrentProjection;
 }): Promise<Exclude<RunFreshnessResult, { readonly status: 'missing_run' }>> {
-  if (!(await fileExists(args.planPath))) {
+  if (!(await pathExists(args.planPath))) {
     return populatedResult(args, {
       status: 'missing_plan',
       runStatus: 'not_started',
@@ -167,15 +168,6 @@ async function readProvenance(path: string): Promise<PlanFileProvenance | undefi
       return undefined;
     }
     throw error;
-  }
-}
-
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
   }
 }
 

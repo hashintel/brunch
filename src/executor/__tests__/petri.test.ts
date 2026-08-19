@@ -1,4 +1,4 @@
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -7,6 +7,7 @@ import * as z from 'zod';
 
 import type { ExecutorNetEvent } from '../orchestrate-topology.js';
 import { compileExecutorTopology } from '../orchestrate.js';
+import { pathExists } from '../path-exists.js';
 import {
   appendPetriEvent,
   appendPetriTerminalOnce,
@@ -97,15 +98,6 @@ const sdcpnFileSchema = z.object({
   ),
   metrics: z.array(z.never()),
 });
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 async function createCompletedRun(cwd: string): Promise<void> {
   const runDir = runDirPath(cwd, 'run-1');

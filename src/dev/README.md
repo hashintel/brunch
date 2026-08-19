@@ -60,7 +60,7 @@ npm run dev-cli -- mutate --workspace .fixtures/workbenches/workspace-alpha-grou
 npm run dev-cli -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out .fixtures/seeds/custom/example.json
 ```
 
-The consequential-fact evaluator and campaign remain functional but are parked and intentionally not part of the active DX; see [`memory/PLAN.md` §Later](../../memory/PLAN.md#later), `warrant-ablation-campaign`.
+The consequential-fact evaluator, report, runner, and directive-ablation seam remain functional dev/eval primitives, but the earlier consequential-fact / `warrant-ablation-campaign` line is retired rather than parked; see the FE-1208 reshape and closeout entries in [`docs/archive/PLAN_HISTORY.md`](../../docs/archive/PLAN_HISTORY.md#2026-07-16-fe-1208-reshape-ln-plan-consequential-fact-discovery-tracer--automation-observability-dx). `capture-ledger-tracer` is the live successor for rich mixed-source matched comparison.
 
 Rules:
 

@@ -10,8 +10,7 @@ import { openWorkspaceCommandExecutor } from '../../../graph/index.js';
 import { seedFixture, type SeedFixture } from '../../../graph/seed-fixtures.js';
 import { createSessionBindingData, SESSION_BINDING_TYPE } from '../../../session/session-binding.js';
 import { registerBrunchContext } from '../brunch-data/context/index.js';
-import { contextToolSchemaBaseline } from './fixtures/context-tool-schemas.pre-fe-1163.js';
-import { normalizeToolSchema } from './tool-schema-baseline.js';
+import { assertProviderLegalToolSchema, hasToolParametersProvenance } from '../shared/tool-schema.js';
 
 type ContextTool = {
   parameters: unknown;
@@ -47,13 +46,20 @@ describe('context tools', () => {
     }
   });
 
-  it('preserves the pre-FE-1163 provider-facing schema semantics', () => {
+  it('keeps every context schema adapter-derived and provider-legal', () => {
     const schemas = Object.fromEntries(
       [...collectContextTools()].map(([name, tool]) => [name, tool.parameters]),
     );
 
-    expect(Object.keys(schemas)).toEqual(Object.keys(contextToolSchemaBaseline.schemas));
-    expect(normalizeToolSchema(schemas)).toEqual(normalizeToolSchema(contextToolSchemaBaseline.schemas));
+    expect(Object.keys(schemas)).toEqual([
+      'read_workspace_context',
+      'read_specification_context',
+      'read_session_context',
+    ]);
+    for (const [name, parameters] of Object.entries(schemas)) {
+      expect(hasToolParametersProvenance(parameters), `${name} adapter provenance`).toBe(true);
+      expect(() => assertProviderLegalToolSchema(parameters), name).not.toThrow();
+    }
   });
 
   it('read_workspace_context returns a gitignore-aware cwd inventory', async () => {

@@ -42,6 +42,7 @@ import {
   projectExecutorPetriTransitionHistory,
   type ExecutorPetriRuntime,
 } from './petri-runtime.js';
+import { petriMarkingsEqual, stringArraysEqual } from './petri-state-predicates.js';
 import { classifyDriveTerminal, driveOutcomeFromTerminal } from './petri-terminal.js';
 import {
   PetriObservationInputError,
@@ -1224,10 +1225,6 @@ function appendUniqueId(ids: readonly string[] | undefined, id: string): readonl
   return ids?.includes(id) ? ids : [...(ids ?? []), id];
 }
 
-function stringArraysEqual(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
 function epicSummaryFromHistory(history: readonly string[]): {
   readonly integratedEpicIds: readonly string[];
   readonly verifiedEpicIds: readonly string[];
@@ -1630,12 +1627,4 @@ async function readClaimedReadySteps(
   }
 
   return claimedSteps;
-}
-
-function petriMarkingsEqual(left: Record<string, number>, right: Record<string, number>): boolean {
-  const leftEntries = Object.entries(left);
-  return (
-    leftEntries.length === Object.keys(right).length &&
-    leftEntries.every(([placeId, count]) => right[placeId] === count)
-  );
 }

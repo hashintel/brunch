@@ -1,9 +1,11 @@
 import { execFile } from 'node:child_process';
-import { access, mkdir, realpath, rm } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { mkdir, rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import { promisify } from 'node:util';
 
+import { canonicalPath } from './canonical-path.js';
 import type { GitWorktreePort } from './execution-ports.js';
+import { pathExists } from './path-exists.js';
 import {
   runExecutionActive,
   withRunExecutionAuthority,
@@ -337,15 +339,6 @@ async function createWorktreeOwned(args: {
   };
 }
 
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function hasGitWorktreeMarker(worktreeDir: string): Promise<boolean> {
   return pathExists(join(worktreeDir, '.git'));
 }
@@ -355,14 +348,6 @@ async function isExactGitRoot(worktreeDir: string): Promise<boolean> {
   const root = await runGitOutput(['rev-parse', '--show-toplevel'], worktreeDir);
   if (!root) return false;
   return (await canonicalPath(root)) === (await canonicalPath(worktreeDir));
-}
-
-async function canonicalPath(path: string): Promise<string> {
-  try {
-    return await realpath(path);
-  } catch {
-    return resolve(path);
-  }
 }
 
 async function initEmptyGitRepository(worktreeDir: string): Promise<string | undefined> {

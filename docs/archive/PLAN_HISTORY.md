@@ -3,6 +3,33 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-08-05 FE-1311 integrity cleanup closeout
+
+`integrity-cleanup` completed its verified deletion/consolidation sweep and final five-row closure on `ln/fe-1311-integrity-cleanup`. The closing pass made `dist-web` the sole published browser artifact, kept locally built probes out of the package while documenting their topology, routed external end-to-end comparison consumers through the public root, removed the final byte-identical `fileExists` clone, and renamed DB column round-trip coverage for what it proves.
+
+The frontier retained every target whose deletion premise was falsified by current topology, active successor work, CLI/built-path invocation, or another out-of-graph consumer. Trigger-gated residue remains in live PLAN Horizon rather than in an open cleanup ledger: `source-policy.ts` semantics, `src/utils/strings.ts`, `.npmcheckrc`, TOON/D83-L, and a future production-dependency-closure oracle. The temporary closure ledger was deleted after its five required rows and aggregate package/check/build oracles passed.
+
+## 2026-08-03 Rolling PLAN trim (`ln-sync`, bru-uzev)
+
+The live PLAN was reduced back to a rolling shape: concise Context, Sequencing, live pickup definitions, 3-item Recently Completed, and an active/next-only dependency view.
+
+### Recently Completed entries archived from live PLAN
+
+- 2026-07-20 `agent-control-plane-closure` (FE-1216) — ✓ complete. PR #343 merged the earned control-plane sweep: foreground/background prompt ownership, honest child grants, load-on-demand context truth, and recorder-backed resource-read evidence landed; `capture-ledger-tracer` remains the proving follow-on.
+- 2026-07-20 `operator-comparison-workflow` (FE-1215) — ✓ complete. PR #342 merged the D134-L direct-shell remediation and closeout corrections; the remaining work is explicitly split into `comparison-mission-isolation-hardening`, `saved-mission-comparison-witness`, and operator-owned CS3 cleanup confirmation.
+- 2026-07-20 `comparison-reporting-skills` (FE-1232) — ✓ implementation complete. Separate project-shared Notion publication and comparison-evidence reporting skills landed with executable guardrails for active-procedure precedence, safe mutation, validity-first interpretation, reproducible judging, failure retention, and controller-only redaction.
+
+### Completed frontier definitions retired from live PLAN
+
+- `interactive-tui-driver` (FE-1206) — closed 2026-07-15; canonical developer-only TUI driving path settled with host-capable `pi-interactive-shell` default and sandbox/headless fallback.
+- `agent-control-plane-closure` (FE-1216) — closed 2026-07-17; all seven required control-plane sweep rows built and the temporary ledger retired.
+- `operator-comparison-workflow` (FE-1215) — closed 2026-07-17; durable approachable saved-mission workflow landed and follow-up residue was split into separate frontiers.
+- `end-to-end-comparison-tracer` (FE-1239) — complete 2026-07-21; the staged 2×2 Petri-editor witness is retained and promoted.
+- `executor-slice-admission-parity` (FE-1240) — complete 2026-07-21; invalid scoped slices are rejected during deterministic plan admission.
+- `comparison-publication-workflow` (FE-1251) — complete 2026-07-22; immutable provenance capture and guarded Comparison Reports publication landed.
+- `prospect-research-workspace-regression` (FE-1253) — complete 2026-07-23; the thin deterministic regression boundary remains, while the unexecuted campaign expansion is retired.
+- `automated-alpha-publishing` (FE-1050) — complete 2026-07-21; the reviewed Changesets alpha path is active and exercised through `v1.0.0-alpha.13`.
+
 ## 2026-07-22 FE-1241 brownfield comparison closeout
 
 `brownfield-comparison-cases` ([FE-1241](https://linear.app/hash/issue/FE-1241/add-isolated-brownfield-comparison-cases), [PR #362](https://github.com/hashintel/brunch/pull/362)) completed the mechanical expansion from the sole greenfield Petri case to frozen Brunch backend and Petrinaut frontend replays. The branch is `ka/fe-1241-brownfield-comparison-cases`, based on `next` after FE-1240 landed.
@@ -25,7 +52,7 @@ The comparison evidence produced after that closure exposed a different planning
 
 The reshaped `automation-observability-dx` frontier is closed on commit `1885130a` in the restacked base. It removed `--dev-tools`, the query-tool/`devAllowedToolNames` channel, and the repo-local `cli-cmux` skill; moved trajectory reports into `.brunch/debug/`; and documented distinct seed-based intra-product and mission-driven cross-product evaluation doors. The consequential-fact evaluator, report, runner, and directive-ablation seam remain compiling dev/eval primitives but are no longer advertised as normal DX.
 
-The earlier `consequential-fact-discovery-tracer` identity and its six-run `warrant-ablation-campaign` are retired rather than left parked. Their fixed actor produced only invalid mechanical pilots. FE-1210 subsequently proved a general push-driven actor and split-judgment substrate; the new `capture-ledger-tracer` owns the next rich mixed-source matched comparison and may reuse the landed FE-1208 primitives. The old campaign card remains as superseded historical evidence and is not an execution pointer.
+The earlier `consequential-fact-discovery-tracer` identity and its six-run `warrant-ablation-campaign` are retired rather than left parked. Their fixed actor produced only invalid mechanical pilots. FE-1210 subsequently proved a general push-driven actor and split-judgment substrate; the new `capture-ledger-tracer` owns the next rich mixed-source matched comparison and may reuse the landed FE-1208 primitives. The historical campaign record now lives in git history and this archive entry; it is not a live execution pointer.
 
 ## 2026-07-17 FE-1210 agent-as-user comparison closeout
 
@@ -37,7 +64,7 @@ Original live frontier definition and detailed round-one protocol: git history o
 
 ## 2026-07-16 FE-1208 reshape (`ln-plan`, `consequential-fact-discovery-tracer` → `automation-observability-dx`)
 
-The FE-1208 frontier (branch `ln/fe-1208-traces-and-evals-1`) was reshaped in place after the warrant-ablation campaign stalled: the v1 deterministic actor could not drive a real structured single-select surface, so all eight retained attempts are mechanical pilots, never campaign evidence. What the original frontier *built and keeps*: the joined real-TUI trajectory tracer (`trajectory.ndjson` → joined report), the deterministic review-diff scorer/evaluator with its proof-boundary corrections, and the campaign runner/replay seam — all preserved and compiling, de-wired from documented DX. The six-run control/ablation campaign itself parked to Later as `warrant-ablation-campaign`, resuming only on general-actor evidence from `agent-as-user-comparison` plus rich scenarios; the approved actor-v2 contract is recorded in the parked card `memory/cards/consequential-fact-discovery-tracer--warrant-ablation-campaign.md`. The successor frontier `automation-observability-dx` (same issue/branch, earned posture) owns the consolidation: kill `--dev-tools` + query tools, remove `cli-cmux`, relocate the trajectory report to `.brunch/debug/`, and land the dev-/PM-facing documentation split between seed-based intra-product testing and mission-driven agent-as-user cross-product comparison. Original definition text: git history of `memory/PLAN.md` at `1020e2f1` and the parked card.
+The FE-1208 frontier (branch `ln/fe-1208-traces-and-evals-1`) was reshaped in place after the warrant-ablation campaign stalled: the v1 deterministic actor could not drive a real structured single-select surface, so all eight retained attempts are mechanical pilots, never campaign evidence. What the original frontier *built and keeps*: the joined real-TUI trajectory tracer (`trajectory.ndjson` → joined report), the deterministic review-diff scorer/evaluator with its proof-boundary corrections, and the campaign runner/replay seam — all preserved and compiling, de-wired from documented DX. The six-run control/ablation campaign itself parked to Later as `warrant-ablation-campaign`, resuming only on general-actor evidence from `agent-as-user-comparison` plus rich scenarios; its approved actor-v2 contract now survives in this archive entry and the branch/git history rather than a live scope card. The successor frontier `automation-observability-dx` (same issue/branch, earned posture) owns the consolidation: kill `--dev-tools` + query tools, remove `cli-cmux`, relocate the trajectory report to `.brunch/debug/`, and land the dev-/PM-facing documentation split between seed-based intra-product testing and mission-driven agent-as-user cross-product comparison. Original definition text: git history of `memory/PLAN.md` at `1020e2f1`.
 
 ## 2026-07-15 Sync archive (`ln-sync`)
 

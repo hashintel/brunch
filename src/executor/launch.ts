@@ -1,6 +1,6 @@
-import { access } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
+import { pathExists } from './path-exists.js';
 import { planFilePath, readPlanFileProvenance, type PlanFileProvenance } from './plan-file.js';
 
 export type LaunchStatus =
@@ -44,7 +44,7 @@ export async function prepareLaunch(args: {
       sideEffects: [],
     };
   }
-  if (!(await fileExists(planPath))) {
+  if (!(await pathExists(planPath))) {
     return {
       status: 'missing_plan',
       runStatus: 'not_started',
@@ -113,15 +113,6 @@ function provenanceMatchesCurrent(provenance: PlanFileProvenance, current: Launc
     provenance.source.visibility === current.source.visibility &&
     provenance.source.graphLsn === current.source.graphLsn
   );
-}
-
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function isSelectedSpecPlanPath(args: {

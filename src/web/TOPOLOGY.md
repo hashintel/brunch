@@ -62,7 +62,6 @@ web/
     app-header.tsx  global header (product identity + workspace path)
     icons.tsx       inline SVG glyphs (chevron / eye / eye-off), no icon dep
     node-card.tsx   plane-accented node presentation primitives
-    drawer-card.tsx reusable card-with-collapsible-drawer
 
   routes/
     root.tsx

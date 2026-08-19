@@ -1,21 +1,13 @@
-import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { pathExists } from '../path-exists.js';
 import { reportsPath } from '../report.js';
 import { runDirPath, runMetadataPath } from '../run.js';
 import { completeSlice } from '../slice-complete.js';
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 async function createTestResultRun(cwd: string): Promise<void> {
   const runDir = runDirPath(cwd, 'run-1');

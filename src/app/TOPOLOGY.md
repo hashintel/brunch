@@ -39,4 +39,6 @@ Model recommendations and latency evidence live in [`docs/model-recommendations.
 
 ## Dependency direction
 
-`app/` may import from `.pi/`, `agents/`, `graph/`, `session/`, `rpc/`, and `projections/` to compose product modes. Domain layers must not import `app/`.
+`app/` may import from `.pi/`, `agents/`, `executor/`, `graph/`, `session/`, `rpc/`, and `projections/` to compose product modes. Domain layers must not import `app/`.
+
+The `executor/` edge is one-way by construction and was already load-bearing before it was written down here (corrected 2026-08-04): the port implementations import the `ExecutionPorts` contract types they satisfy, plus executor-owned primitives that must not be re-copied into this layer (`durable-file.ts`, `canonical-path.ts`, `path-exists.ts`, `candidate-plan.ts`, `execution-public-packet.ts`, `slice-repair-cycle.ts`). The reverse edge is forbidden and enforced — `executor/ x> app/` in [`src/executor/TOPOLOGY.md`](../executor/TOPOLOGY.md), guarded by `src/executor/__tests__/boundaries.test.ts`.

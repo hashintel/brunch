@@ -1,9 +1,10 @@
-import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { pathExists } from '../path-exists.js';
 import { planFilePath } from '../plan-file.js';
 import { populateWorktree } from '../populate.js';
 import { runDirPath, runMetadataPath, createRun } from '../run.js';
@@ -11,15 +12,6 @@ import { copyHostSource } from '../source-copy.js';
 import { selectSourcePolicy, sourcePolicyPath } from '../source-policy.js';
 import { worktreeDirPath, createWorktree } from '../worktree.js';
 import { createFakeGitWorktreePort } from './fake-ports.js';
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 async function createPolicyRun(cwd: string, policy: 'plan_only' | 'host_source_deferred'): Promise<void> {
   const planPath = planFilePath(cwd, '42');

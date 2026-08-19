@@ -1,3 +1,5 @@
 # agents/shared/ — agent context formatting helpers
 
 Owns small formatting helpers used by agent-visible context renders: markdown escaping/tables, XML-style sections, TOON record blocks, and fenced ASCII trees. These helpers are formatting substrate only; they do not choose what facts enter context.
+
+`toon.ts` currently has no production consumer. Its one caller — the ranked-elicitation-gap block in `contexts/data-model/spec/spec-context.ts` — was removed by FE-1116 (`5846c2127`) when D101-L moved gaps to the session-local scratchpad; every record render left in `contexts/` uses markdown tables, which D83-L assigns to small bounded rosters. The wrapper is kept because **D83-L is active** and names TOON data blocks part of the context-render house style (see the *Context-render house style* lexicon entry in `memory/SPEC.md`), so whether that clause survives is an `ln-spec` question rather than a deletion one. Do not re-propose deleting it on unusedness alone — that has now happened once (FE-1311 sweep row A8); resolve the D83-L clause first.
