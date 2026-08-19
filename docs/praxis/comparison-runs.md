@@ -78,6 +78,7 @@ From a trusted top-level project Pi session, run any frozen execution case:
 /compare-execution minimal-petri-net-editor
 /compare-execution brunch-host-landing
 /compare-execution petrinaut-optimization
+/compare-execution prospect-research-workspace
 ```
 
 The project-local operator displays the frozen specification, public contract, selected Brunch/Claude
@@ -112,17 +113,18 @@ produce two independently approved specifications. Each exact byte sequence cros
 handoff into both Brunch and Claude, yielding the closed
 `{brunch_spec, claude_spec} × {brunch, claude_code}` matrix.
 
-The controller contract lives under
-`testing/end-to-end-comparisons/cases/minimal-petri-net-editor/`; the dev-only parsers, adapters, matrix,
-traceability ledger, and redaction boundary live under `src/dev/end-to-end-comparison/`. Controller
-oracle material remains outside target workspaces, and each matrix leaf references the existing
-immutable `ExecutionAttempt` format. Reports must present elicitation validity, exact handoff identity,
-execution validity, and requirement-level output evidence separately. This one-case tracer supports
-within-executor/spec contrasts only—not a winner, reliability estimate, or causal claim.
+Three configured controller contracts live under `testing/end-to-end-comparisons/cases/`:
+`minimal-petri-net-editor`, `brunch-host-landing`, and `petrinaut-optimization`. They define eligible
+study profiles; their existence is not evidence that a study was run. The dev-only parsers, adapters,
+matrix, traceability ledger, and redaction boundary live under `src/dev/end-to-end-comparison/`.
+Controller oracle material remains outside target workspaces, and each matrix leaf references the
+existing immutable `ExecutionAttempt` format. Reports must present elicitation validity, exact handoff
+identity, execution validity, and requirement-level output evidence separately. A completed valid study
+supports within-executor/spec contrasts only—not a winner, reliability estimate, or causal claim.
 
 After the complete end-to-end setup is approved, capture `end_to_end` provenance in its scratch run root before starting either elicitation lane. Promote that exact snapshot beside the handoffs, attempts, ledger, and report; the later execution matrix does not recapture it.
 
-The first promoted witness is
+The one retained end-to-end witness is
 [`petri-editor-e2e-20260721T132600Z`](../../.fixtures/runs/end-to-end-comparison/petri-editor-e2e-20260721T132600Z/).
 It retains both exact handoffs, all four valid failed execution cells, portable common evidence, the
 audience-safe requirement ledger, and the bounded validity-first report.

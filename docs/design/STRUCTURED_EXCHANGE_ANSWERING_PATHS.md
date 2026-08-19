@@ -1,7 +1,7 @@
 # Structured-exchange answering paths
 
-Sibling to [`STRUCTURED_EXCHANGE_COLLAPSE.md`](./STRUCTURED_EXCHANGE_COLLAPSE.md). That document covers
-the exchange *model* (tool families, schema shapes, and the later `ask` cutover). This one covers a
+The historical [`STRUCTURED_EXCHANGE_COLLAPSE.md`](./STRUCTURED_EXCHANGE_COLLAPSE.md) records the
+retired request-side transition and points to current exchange topology. This document covers a
 different question that keeps needing painful re-derivation from `pi-coding-agent` source each time it
 matters: **how does a structured-exchange response actually get submitted, mechanically, across the
 local TUI, Brunch's public RPC, and the live web-driver — and what does that imply for which response
