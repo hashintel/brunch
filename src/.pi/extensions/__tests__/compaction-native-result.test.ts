@@ -26,13 +26,18 @@ afterEach(async () => {
 });
 
 describe('Brunch native compaction result', () => {
-  it('materializes provider headers by preserving strings and consuming null deletion markers', () => {
-    expect(
-      materializeProviderHeaders({
-        authorization: null,
-        'x-provider-version': '2026-08-14',
-      }),
-    ).toEqual({ 'x-provider-version': '2026-08-14' });
+  it('materializes provider headers by preserving only runtime strings', () => {
+    const malformedHeaders = {
+      authorization: null,
+      'x-provider-version': '2026-08-14',
+      'x-undefined': undefined,
+      'x-number': 84,
+      'x-object': { nested: true },
+    } as unknown as Parameters<typeof materializeProviderHeaders>[0];
+
+    expect(materializeProviderHeaders(malformedHeaders)).toEqual({
+      'x-provider-version': '2026-08-14',
+    });
   });
 
   it('persists one native result and rebuilds provider context with continuity immediately', async () => {

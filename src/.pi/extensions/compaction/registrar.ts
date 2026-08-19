@@ -76,7 +76,7 @@ export function materializeProviderHeaders(
 ): Record<string, string> | undefined {
   if (headers === undefined) return undefined;
   return Object.fromEntries(
-    Object.entries(headers).filter((entry): entry is [string, string] => entry[1] !== null),
+    Object.entries(headers).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
   );
 }
 
