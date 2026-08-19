@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
@@ -17,6 +17,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createBrunchFauxModelRuntime, defaultBrunchFauxModel } from '../../probes/faux-provider.js';
 import { userMessage } from '../../probes/test-helpers.js';
+import { acquireSessionWriter } from '../../session/session-writer-guard.js';
 import {
   createWorkspaceSessionCoordinator,
   verifyWorkspaceSessionStores,
@@ -462,6 +463,124 @@ describe('Brunch TUI boot', () => {
       'update:graph.overview',
       'sidecar-close',
     ]);
+  });
+
+  it('releases writer authority after sidecar cleanup failure', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-teardown-'));
+    let target: { specId: number; sessionId: string } | undefined;
+    let adapterDisposed = false;
+
+    await expect(
+      runBrunchTui({
+        cwd,
+        runWorkspaceDialogPreflight: async () => ({ action: 'newSpec', title: 'Teardown' }),
+        webSidecarRunner: async () => ({
+          url: 'http://127.0.0.1:49152',
+          close: async () => {
+            throw new Error('sidecar cleanup failed');
+          },
+        }),
+        launchInteractive: async (context) => {
+          target = { specId: context.workspace.spec.id, sessionId: context.workspace.session.id };
+          context.tuiLiveSessionAdapter!.attachSession({
+            isStreaming: false,
+            prompt: async () => {},
+            subscribe: () => () => {
+              adapterDisposed = true;
+            },
+          });
+        },
+      }),
+    ).rejects.toThrow('sidecar cleanup failed');
+
+    expect(adapterDisposed).toBe(true);
+    const rival = await acquireSessionWriter({ cwd, target: target! });
+    await rival.release();
+  });
+
+  it('releases writer authority after adapter cleanup failure', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-teardown-'));
+    const exitListenersBefore = process.listenerCount('exit');
+    let target: { specId: number; sessionId: string } | undefined;
+
+    await expect(
+      runBrunchTui({
+        cwd,
+        runWorkspaceDialogPreflight: async () => ({ action: 'newSpec', title: 'Teardown' }),
+        webSidecarRunner: async () => null,
+        launchInteractive: async (context) => {
+          target = { specId: context.workspace.spec.id, sessionId: context.workspace.session.id };
+          context.tuiLiveSessionAdapter!.attachSession({
+            isStreaming: false,
+            prompt: async () => {},
+            subscribe: () => () => {
+              throw new Error('adapter cleanup failed');
+            },
+          });
+        },
+      }),
+    ).rejects.toThrow('adapter cleanup failed');
+
+    const rival = await acquireSessionWriter({ cwd, target: target! });
+    await rival.release();
+    expect(process.listenerCount('exit')).toBe(exitListenersBefore);
+  });
+
+  it('retains writer authority when Pi runtime disposal fails', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-teardown-'));
+    let target: { specId: number; sessionId: string } | undefined;
+
+    await expect(
+      runBrunchTui({
+        cwd,
+        runWorkspaceDialogPreflight: async () => ({ action: 'newSpec', title: 'Teardown' }),
+        webSidecarRunner: async () => null,
+        launchInteractive: async (context) => {
+          target = { specId: context.workspace.spec.id, sessionId: context.workspace.session.id };
+          throw new Error('runtime disposal failed');
+        },
+      }),
+    ).rejects.toThrow('runtime disposal failed');
+
+    await expect(acquireSessionWriter({ cwd, target: target! })).rejects.toThrow('already has a writer');
+    await rm(join(cwd, '.brunch', 'writer-locks'), { recursive: true, force: true });
+  });
+
+  it('reports independent TUI teardown failures', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-teardown-'));
+    const events: string[] = [];
+
+    const error = await runBrunchTui({
+      cwd,
+      runWorkspaceDialogPreflight: async () => ({ action: 'newSpec', title: 'Teardown' }),
+      webSidecarRunner: async () => ({
+        url: 'http://127.0.0.1:49152',
+        close: async () => {
+          events.push('sidecar');
+          throw new Error('sidecar cleanup failed');
+        },
+      }),
+      launchInteractive: async (context) => {
+        context.tuiLiveSessionAdapter!.attachSession({
+          isStreaming: false,
+          prompt: async () => {},
+          subscribe: () => () => {
+            events.push('adapter');
+            throw new Error('adapter cleanup failed');
+          },
+        });
+        throw new Error('runtime disposal failed');
+      },
+    }).catch((caught: unknown) => caught);
+
+    expect(events).toEqual(['sidecar', 'adapter']);
+    expect(error).toBeInstanceOf(AggregateError);
+    expect((error as AggregateError).errors).toEqual([
+      expect.objectContaining({ message: 'runtime disposal failed' }),
+      expect.objectContaining({ message: 'sidecar cleanup failed' }),
+      expect.objectContaining({ message: 'adapter cleanup failed' }),
+    ]);
+    await rm(join(cwd, '.brunch', 'writer-locks'), { recursive: true, force: true });
   });
 
   it('threads a supplied provider backend to the sealed runtime factory without disturbing production defaults', async () => {

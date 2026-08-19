@@ -138,6 +138,8 @@ export interface BrunchTuiLaunchContext {
     readonly targetRoot: string;
   };
   reportAsyncDiagnostic?: (diagnostic: { readonly type: 'warning'; readonly message: string }) => void;
+  /** Internal lifecycle signal: true only after the Pi runtime has disposed successfully. */
+  runtimeAuthority?: { ended: boolean };
   /**
    * Provider-backend substitution seam (faux provider in Tier-2 oracles).
    * Swaps only auth/model resolution; session creation, extension
@@ -250,6 +252,9 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
   };
   const routePath = webSidecarRoutePath(target.specId);
   let webSidecar: BrunchWebSidecar | null = null;
+  let runtimeAuthorityEnded = true;
+  const runtimeAuthority = { ended: false };
+  const teardownFailures: unknown[] = [];
   try {
     webSidecar = await (options.webSidecarRunner ?? startDefaultWebSidecar)({
       cwd,
@@ -270,6 +275,7 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
         await (options.openBrowser ?? openBrowser)(webSidecarUrl);
       }
     }
+    runtimeAuthorityEnded = false;
     await (options.launchInteractive ?? launchPiInteractive)({
       workspace: workspaceState,
       coordinator,
@@ -286,14 +292,37 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
       },
       liveAgentSession,
       tuiLiveSessionAdapter,
+      runtimeAuthority,
       ...(options.agentServices ? { agentServices: options.agentServices } : {}),
     });
-  } finally {
-    await webSidecar?.close();
-    await tuiLiveSessionAdapter.dispose();
-    await writer.release();
-    // Last, so a throw from the teardown above still leaves the exit release armed.
-    process.off('exit', releaseWriterOnExit);
+    runtimeAuthorityEnded = true;
+  } catch (error: unknown) {
+    runtimeAuthorityEnded = runtimeAuthority.ended;
+    teardownFailures.push(error);
+  }
+
+  for (const cleanup of [() => webSidecar?.close(), () => tuiLiveSessionAdapter.dispose()]) {
+    try {
+      await cleanup();
+    } catch (error: unknown) {
+      teardownFailures.push(error);
+    }
+  }
+
+  if (runtimeAuthorityEnded) {
+    try {
+      await writer.release();
+      // Disarm only after asynchronous release succeeds. A failed release must
+      // retain the synchronous process-exit fallback.
+      process.off('exit', releaseWriterOnExit);
+    } catch (error: unknown) {
+      teardownFailures.push(error);
+    }
+  }
+
+  if (teardownFailures.length === 1) throw teardownFailures[0];
+  if (teardownFailures.length > 1) {
+    throw new AggregateError(teardownFailures, 'TUI lifecycle and teardown failed');
   }
 }
 
@@ -866,12 +895,32 @@ async function launchPiInteractive(context: BrunchTuiLaunchContext): Promise<voi
     sessionManager: context.workspace.session.manager,
   });
 
-  await runWithScopedBrunchOfflineDefault({
-    env: process.env,
-    run: async () => {
-      await new InteractiveMode(runtime).run();
-    },
-  });
+  let interactionFailure: unknown;
+  try {
+    await runWithScopedBrunchOfflineDefault({
+      env: process.env,
+      run: async () => {
+        await new InteractiveMode(runtime).run();
+      },
+    });
+  } catch (error: unknown) {
+    interactionFailure = error;
+  }
+
+  try {
+    await runtime.dispose();
+    if (context.runtimeAuthority) context.runtimeAuthority.ended = true;
+  } catch (disposalFailure: unknown) {
+    if (interactionFailure !== undefined) {
+      throw new AggregateError(
+        [interactionFailure, disposalFailure],
+        'Interactive TUI and Pi runtime disposal failed',
+      );
+    }
+    throw disposalFailure;
+  }
+
+  if (interactionFailure !== undefined) throw interactionFailure;
 }
 
 export async function runWithScopedBrunchOfflineDefault(options: {
