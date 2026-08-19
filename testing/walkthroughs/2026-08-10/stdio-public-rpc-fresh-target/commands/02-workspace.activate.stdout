@@ -1,0 +1,16 @@
+{
+  "status": "ready",
+  "cwd": "/tmp/brunch-fe1348-stdio-fresh.FsFSuK",
+  "spec": {
+    "id": 1,
+    "title": "FE-1348 stdio fresh target",
+    "kind": "product",
+    "origin": null,
+    "relatesToSpecId": null
+  },
+  "chrome": {},
+  "session": {
+    "id": "019ff59d-45d0-761f-9bca-e7fb655cfdd5",
+    "file": "/tmp/brunch-fe1348-stdio-fresh.FsFSuK/.brunch/sessions/2026-08-12T10-55-52-784Z_019ff59d-45d0-761f-9bca-e7fb655cfdd5.jsonl"
+  }
+}

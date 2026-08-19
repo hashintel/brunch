@@ -6,6 +6,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 import {
+  classifyProviderStandaloneAskOccupancy,
   isStructuredExchangePresentDetails,
   isStructuredExchangeRequestDetails,
 } from '../exchanges/recovery.js';
@@ -144,9 +145,52 @@ export function projectSessionExchanges(entries: readonly unknown[]): SessionExc
   let promptIds: string[] = [];
   let responseIds: string[] = [];
   let openStructuredExchange: PresentDetails | undefined;
+  let openProviderAsk: { exchangeId: string; toolCallId: string } | undefined;
+  const providerAskOccupancies = classifyProviderStandaloneAskOccupancy(entries as readonly never[]);
+  const unresolvedCount = providerAskOccupancies.filter(
+    (occupancy) => occupancy.status === 'unresolved',
+  ).length;
+  const projectableProviderAsks = providerAskOccupancies
+    .filter(
+      (occupancy) =>
+        occupancy.status === 'resolved' || (occupancy.status === 'unresolved' && unresolvedCount === 1),
+    )
+    .map((occupancy) => occupancy.call);
+  const poisonedCallIds = new Set(
+    providerAskOccupancies.flatMap((occupancy) =>
+      occupancy.status === 'protocol_invalid' ? [occupancy.call.toolCallId] : [],
+    ),
+  );
+  const poisonedProviderAskEntries = new Set([
+    ...providerAskOccupancies.flatMap((occupancy) =>
+      occupancy.status === 'protocol_invalid' ? [occupancy.call.entry] : [],
+    ),
+    ...entries.filter((entry) => {
+      if (!isTranscriptEntry(entry) || entry.type !== 'message') return false;
+      const message = entry.message as { role?: unknown; toolName?: unknown; toolCallId?: unknown };
+      return (
+        message.role === 'toolResult' &&
+        message.toolName === 'ask' &&
+        typeof message.toolCallId === 'string' &&
+        poisonedCallIds.has(message.toolCallId)
+      );
+    }),
+  ]);
 
   for (const entry of entries) {
     if (!isTranscriptEntry(entry)) {
+      continue;
+    }
+    if (poisonedProviderAskEntries.has(entry as never)) continue;
+
+    const providerAsk = projectableProviderAsks.find((call) => call.entry === entry);
+    if (providerAsk) {
+      flushResponse();
+      promptIds.push(entry.id);
+      openProviderAsk = {
+        exchangeId: providerAsk.params.exchangeId,
+        toolCallId: providerAsk.toolCallId,
+      };
       continue;
     }
 
@@ -162,8 +206,12 @@ export function projectSessionExchanges(entries: readonly unknown[]): SessionExc
     if (requestDetails) {
       if (
         promptIds.length > 0 &&
-        openStructuredExchange !== undefined &&
-        requestClosesPresent(requestDetails, openStructuredExchange)
+        ((openStructuredExchange !== undefined &&
+          requestClosesPresent(requestDetails, openStructuredExchange)) ||
+          (openProviderAsk !== undefined &&
+            requestDetails.exchange_id === openProviderAsk.exchangeId &&
+            ((entry as SessionMessageEntry).message as { toolCallId?: unknown }).toolCallId ===
+              openProviderAsk.toolCallId))
       ) {
         responseIds.push(entry.id);
       }
@@ -214,6 +262,7 @@ export function projectSessionExchanges(entries: readonly unknown[]): SessionExc
     promptIds = [];
     responseIds = [];
     openStructuredExchange = undefined;
+    openProviderAsk = undefined;
   }
 }
 

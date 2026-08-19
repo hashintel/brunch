@@ -1,0 +1,70 @@
+{
+  "equal": true,
+  "effect": {
+    "specId": 1,
+    "lsn": 2,
+    "decision": "approve",
+    "operation": "accept_review_set",
+    "createdNode": {
+      "draftId": "r1",
+      "id": 1,
+      "code": "REQ1",
+      "plane": "intent",
+      "kind": "requirement",
+      "basis": "explicit",
+      "settlement": "settled",
+      "createdAtLsn": 2,
+      "updatedAtLsn": 2
+    },
+    "createdEdges": []
+  },
+  "sources": {
+    "canonicalJsonl": {
+      "entryId": "c39fe3eb",
+      "receiptStatus": "success",
+      "lsn": 2,
+      "createdNodeCode": "REQ1",
+      "createdEdges": 0
+    },
+    "sessionPresentationA": {
+      "cursor": "14:0d50dd88",
+      "receiptStatus": "success",
+      "lsn": 2,
+      "createdNodeCode": "REQ1",
+      "createdEdges": 0
+    },
+    "sessionPresentationB": {
+      "cursor": "14:0d50dd88",
+      "receiptStatus": "success",
+      "lsn": 2,
+      "createdNodeCode": "REQ1",
+      "createdEdges": 0
+    },
+    "graphOverviewA": {
+      "lsn": 2,
+      "nodeId": 1,
+      "nodeCode": "REQ1",
+      "createdAtLsn": 2,
+      "updatedAtLsn": 2,
+      "edges": 0
+    },
+    "graphOverviewB": {
+      "lsn": 2,
+      "nodeId": 1,
+      "nodeCode": "REQ1",
+      "createdAtLsn": 2,
+      "updatedAtLsn": 2,
+      "edges": 0
+    },
+    "sqlite": {
+      "graphClockLsn": 2,
+      "acceptReviewSetRows": 1,
+      "mutateGraphRows": 0,
+      "nodeId": 1,
+      "nodeCode": "REQ1",
+      "edges": 0
+    }
+  },
+  "presentationAEqualsB": true,
+  "graphAEqualsB": true
+}

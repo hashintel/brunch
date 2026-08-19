@@ -90,6 +90,7 @@ executor/
 ├── workspace-detection.ts        workspace manifests -> non-authoritative facts with file provenance
 ├── executable-plan-draft.ts     shared deterministic/model draft assembly + outline lowering, incl. slice dependencies and scope/design/verification context
 ├── execute-plan-check.ts        ExecutionSpecSnapshot -> read-only plan-input findings
+├── process-move-availability.ts graph projection + current plan provenance -> read-only deterministic Compile/Execute availability
 ├── execute-plan-outline.ts      ExecutionSpecSnapshot -> side-effect-free plan outline
 └── __tests__/
 ```

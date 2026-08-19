@@ -508,6 +508,110 @@ describe('structured exchange loop helpers', () => {
     });
   });
 
+  it('recovers a validated unresolved provider-authored standalone ask from the active branch', () => {
+    const providerEntry = {
+      id: 'provider-ask',
+      type: 'message',
+      parentId: 'binding-1',
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'I need one decision.' },
+          {
+            type: 'toolCall',
+            id: 'toolu_fe1348',
+            name: 'ask',
+            arguments: {
+              exchangeId: 'fe1348-anchor-1',
+              body: 'What should be canonical?',
+              commentPrompt: 'Add context if useful.',
+            },
+          },
+        ],
+      },
+    };
+    const envelope = {
+      header,
+      binding,
+      entries: [header, bindingEntry, providerEntry],
+    } as unknown as BrunchSessionEnvelope;
+
+    const pending = pendingExchangeFromEnvelope(envelope)!;
+    expect(pending).toEqual({
+      exchangeId: 'fe1348-anchor-1',
+      lens: 'intent',
+      mode: 'text',
+      prompt: 'What should be canonical?',
+      details: 'Add context if useful.',
+      options: [],
+      note: { allowed: true },
+    });
+    const accepted = acceptedResponseFromParams(pending, {
+      exchangeId: pending.exchangeId,
+      answer: { text: 'Canonical JSONL.' },
+    });
+    expect(accepted).toMatchObject({
+      ok: true,
+      toolResultMessage: { toolCallId: 'toolu_fe1348' },
+    });
+    expect(accepted).not.toHaveProperty('toolCallMessage');
+
+    for (const details of [
+      { raw: 'pi' },
+      {
+        schema: 'brunch.structured_exchange.request',
+        v: 1,
+        exchange_id: 'another-exchange',
+        tool_meta: { curr: 'ask' },
+        question: { body: 'What should be canonical?' },
+        answered: { text: 'Wrong identity.' },
+      },
+    ]) {
+      expect(
+        pendingExchangeFromEnvelope({
+          ...envelope,
+          entries: [
+            ...envelope.entries,
+            {
+              id: 'occupied-result',
+              type: 'message',
+              parentId: 'provider-ask',
+              message: {
+                role: 'toolResult',
+                toolName: 'ask',
+                toolCallId: 'toolu_fe1348',
+                details,
+              },
+            },
+          ],
+        } as unknown as BrunchSessionEnvelope),
+      ).toBeNull();
+    }
+
+    for (const params of [
+      { exchangeId: 'listed-one', body: 'One?', options: [{ id: 'a', label: 'A' }] },
+      { exchangeId: 'listed-many', body: 'Many?', options: [{ id: 'a', label: 'A' }], multiple: true },
+    ]) {
+      const listed = pendingExchangeFromEnvelope({
+        ...envelope,
+        entries: [
+          header,
+          bindingEntry,
+          {
+            ...providerEntry,
+            message: {
+              ...providerEntry.message,
+              content: [
+                { ...providerEntry.message.content[1]!, id: `toolu_${params.exchangeId}`, arguments: params },
+              ],
+            },
+          },
+        ],
+      } as unknown as BrunchSessionEnvelope);
+      expect(listed?.mode).toBe(params.multiple ? 'multi-select' : 'single-select');
+    }
+  });
+
   it('round-trips present_candidates provenance so answers capture as candidates', () => {
     const envelope: BrunchSessionEnvelope = {
       header: header as unknown as BrunchSessionEnvelope['header'],

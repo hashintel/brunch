@@ -758,6 +758,110 @@ describe('session exchange projection', () => {
     expect(JSON.stringify(activeEntries)).not.toContain('Abandoned follow-up ask');
   });
 
+  it('closes a persisted offer-derived Brunch synthetic ask pair without reopening the offer', () => {
+    const syntheticCall = {
+      id: 'synthetic-call',
+      type: 'message',
+      parentId: 'present-digest-1',
+      message: {
+        role: 'assistant',
+        provider: 'brunch',
+        content: [
+          {
+            type: 'toolCall',
+            id: 'digest-cycle__ask',
+            name: 'ask',
+            arguments: { exchangeId: 'digest-cycle', body: 'Digest review' },
+          },
+        ],
+      },
+    };
+    const syntheticResult = {
+      ...requestDigestReviewToolResult,
+      message: { ...requestDigestReviewToolResult.message, toolCallId: 'digest-cycle__ask' },
+    };
+
+    expect(projectSessionExchanges([presentDigestToolResult, syntheticCall, syntheticResult])).toEqual({
+      status: 'ready',
+      exchanges: [
+        {
+          promptRange: { start: 'present-digest-1', end: 'synthetic-call' },
+          responseRange: { start: 'request-digest-review-1', end: 'request-digest-review-1' },
+          promptEntryIds: ['present-digest-1', 'synthetic-call'],
+          responseEntryIds: ['request-digest-review-1'],
+        },
+      ],
+      openPrompt: null,
+    });
+  });
+
+  it('projects standalone provider asks only when globally unambiguous and validates both terminal identities', () => {
+    const call = (id: string, exchangeId: string, provider?: string) => ({
+      id: `entry-${id}`,
+      type: 'message',
+      message: {
+        role: 'assistant',
+        ...(provider === undefined ? {} : { provider }),
+        content: [
+          { type: 'text', text: `Ask ${exchangeId}.` },
+          { type: 'toolCall', id, name: 'ask', arguments: { exchangeId, body: `Question ${exchangeId}?` } },
+        ],
+      },
+    });
+    const terminal = (id: string, toolCallId: string, exchangeId: string, details?: unknown) => ({
+      id,
+      type: 'message',
+      message: {
+        role: 'toolResult',
+        toolName: 'ask',
+        toolCallId,
+        details: details ?? {
+          schema: 'brunch.structured_exchange.request',
+          v: 1,
+          exchange_id: exchangeId,
+          tool_meta: { curr: 'ask' },
+          question: { body: `Question ${exchangeId}?` },
+          answered: { text: 'Answer.' },
+        },
+      },
+    });
+
+    expect(projectSessionExchanges([call('call-a', 'a'), call('call-b', 'b')])).toMatchObject({
+      status: 'open_prompt',
+      exchanges: [],
+      openPrompt: { promptEntryIds: ['entry-call-a', 'entry-call-b'] },
+    });
+    expect(
+      projectSessionExchanges([call('call-a', 'a', 'anthropic'), terminal('wrong', 'call-a', 'other')]),
+    ).toEqual({
+      status: 'empty',
+      exchanges: [],
+      openPrompt: null,
+    });
+    expect(
+      projectSessionExchanges([
+        call('call-a', 'a', 'anthropic'),
+        terminal('malformed', 'call-a', 'a', { raw: 'pi' }),
+      ]),
+    ).toEqual({ status: 'empty', exchanges: [], openPrompt: null });
+    expect(projectSessionExchanges([call('call-a', 'a')])).toMatchObject({
+      status: 'open_prompt',
+      openPrompt: { promptEntryIds: ['entry-call-a'] },
+    });
+    expect(projectSessionExchanges([call('call-a', 'a'), terminal('answer', 'call-a', 'a')])).toEqual({
+      status: 'ready',
+      exchanges: [
+        {
+          promptRange: { start: 'entry-call-a', end: 'entry-call-a' },
+          responseRange: { start: 'answer', end: 'answer' },
+          promptEntryIds: ['entry-call-a'],
+          responseEntryIds: ['answer'],
+        },
+      ],
+      openPrompt: null,
+    });
+  });
+
   it('loads the selected sibling path from a Pi JSONL tree', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-pi-branch-'));
     const manager = SessionManager.create(cwd, join(cwd, '.brunch/sessions'));

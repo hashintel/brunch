@@ -9,7 +9,7 @@ import { projectRequestChoice } from '../../exchanges/projections/request-respon
 import { projectRequestChoices } from '../../exchanges/projections/request-response.js';
 import { projectRequestReview } from '../../exchanges/projections/request-response.js';
 import { structuredExchangeResponseRequiresComment } from '../../exchanges/schemas/index.js';
-import type { PendingStructuredExchange } from './pending-exchange.js';
+import { providerToolCallIdForPending, type PendingStructuredExchange } from './pending-exchange.js';
 import {
   syntheticExchangeToolCallMessage,
   syntheticExchangeToolResultMessage,
@@ -53,8 +53,8 @@ export type AcceptedStructuredExchangeResponse =
   | {
       ok: true;
       answer: Record<string, unknown>;
-      /** Synthetic assistant tool_use pairing `toolResultMessage`; append both, call first. */
-      toolCallMessage: SyntheticExchangeToolCallMessage;
+      /** Absent when settling an already-persisted provider call. */
+      toolCallMessage?: SyntheticExchangeToolCallMessage;
       toolResultMessage: AcceptedToolResultMessage;
     }
   | {
@@ -66,11 +66,27 @@ export function acceptedResponseFromParams(
   pending: PendingStructuredExchange,
   params: StructuredExchangeResponseInput,
 ): AcceptedStructuredExchangeResponse {
+  const accepted = materializeAcceptedResponse(pending, params);
+  if (!accepted.ok) return accepted;
+  const providerCallId = providerToolCallIdForPending(pending);
+  if (providerCallId === undefined) return accepted;
+  accepted.toolResultMessage.toolCallId = providerCallId;
+  delete accepted.toolCallMessage;
+  return accepted;
+}
+
+function materializeAcceptedResponse(
+  pending: PendingStructuredExchange,
+  params: StructuredExchangeResponseInput,
+): AcceptedStructuredExchangeResponse {
   if ('text' in params.answer) {
     if (pending.mode !== 'text') return invalidResponseMode();
     const answerText = params.answer.text.trim();
     if (answerText.length === 0) return { ok: false, message: 'Elicitation response requires answer text' };
-    if (pending.respondsToPresentTool === 'present_digest') {
+    if (
+      pending.respondsToPresentTool === 'present_digest' ||
+      providerToolCallIdForPending(pending) !== undefined
+    ) {
       const details = projectAsk({
         exchangeId: pending.exchangeId,
         question: askQuestionEcho({ body: pending.prompt }),
@@ -223,6 +239,43 @@ export function acceptedResponseFromParams(
     };
   }
   const comment = params.note?.trim();
+  const details =
+    providerToolCallIdForPending(pending) !== undefined
+      ? projectAsk({
+          exchangeId: pending.exchangeId,
+          status: 'answered',
+          question: askQuestionEcho({
+            body: pending.prompt,
+            options: pending.options.map((option) => ({
+              id: option.id,
+              label: option.label,
+              ...(option.rationale !== undefined ? { description: option.rationale } : {}),
+            })),
+            multiple: true,
+          }),
+          choices: choices.map((choice) => ({
+            id: choice.id,
+            label: choice.label,
+            kind: choiceKind(choice.id),
+          })),
+          options: pending.options.map((option) => ({
+            id: option.id,
+            label: option.label,
+            ...(option.rationale !== undefined ? { description: option.rationale } : {}),
+          })),
+          ...(comment !== undefined ? { comment } : {}),
+        })
+      : projectRequestChoices({
+          exchangeId: pending.exchangeId,
+          status: 'answered',
+          choices: choices.map((choice) => ({
+            id: choice.id,
+            label: choice.label,
+            kind: choiceKind(choice.id),
+          })),
+          options: optionEcho(pending.options),
+          comment,
+        });
   return {
     ok: true,
     answer: { optionIds: choices.map((choice) => choice.id), choices },
@@ -233,32 +286,13 @@ export function acceptedResponseFromParams(
       [
         {
           type: 'text',
-          text: formatRequestChoices(
-            projectRequestChoices({
-              exchangeId: pending.exchangeId,
-              status: 'answered',
-              choices: choices.map((choice) => ({
-                id: choice.id,
-                label: choice.label,
-                kind: choiceKind(choice.id),
-              })),
-              options: optionEcho(pending.options),
-              comment,
-            }),
-          ),
+          text:
+            providerToolCallIdForPending(pending) !== undefined
+              ? formatAsk(details as never)
+              : formatRequestChoices(details as never),
         },
       ],
-      projectRequestChoices({
-        exchangeId: pending.exchangeId,
-        status: 'answered',
-        choices: choices.map((choice) => ({
-          id: choice.id,
-          label: choice.label,
-          kind: choiceKind(choice.id),
-        })),
-        options: optionEcho(pending.options),
-        comment,
-      }),
+      details,
     ),
   };
 }

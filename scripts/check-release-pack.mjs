@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 // Release/CI smoke only: this packs and installs the published artifact shape, so it is
 // intentionally slower than `npm run verify` and is not part of the local gate.
-import { mkdtemp, mkdir, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -84,6 +84,21 @@ export function installedBrunchBinPath(prefixDir, platform = process.platform) {
   return platform === 'win32' ? path.join(prefixDir, 'brunch.cmd') : path.join(prefixDir, 'bin', 'brunch');
 }
 
+export function releasePackInstallArgs(tarballPath, prefixDir, allowScripts) {
+  const reviewedScripts = Object.entries(allowScripts)
+    .filter(([, allowed]) => allowed)
+    .map(([packageName]) => packageName);
+
+  return [
+    'install',
+    '--global',
+    '--prefix',
+    prefixDir,
+    `--allow-scripts=${reviewedScripts.join(',')}`,
+    tarballPath,
+  ];
+}
+
 async function main() {
   const workDir = await mkdtemp(path.join(tmpdir(), 'brunch-release-pack-'));
   const packDir = path.join(workDir, 'pack');
@@ -121,7 +136,8 @@ async function main() {
       assertIncludes(tarEntries, skillPath);
     }
 
-    run(npmCommand, ['install', '--global', '--prefix', prefixDir, tarballPath]);
+    const packageManifest = JSON.parse(await readFile(path.join(repoRoot, 'package.json'), 'utf8'));
+    run(npmCommand, releasePackInstallArgs(tarballPath, prefixDir, packageManifest.allowScripts));
 
     const brunchBin = installedBrunchBinPath(prefixDir);
     if (!existsSync(brunchBin)) {

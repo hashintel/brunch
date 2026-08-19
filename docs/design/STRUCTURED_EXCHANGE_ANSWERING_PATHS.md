@@ -104,8 +104,10 @@ messages:
 # Brunch-owned mutation path, not a client relaying into the tool's UI.
 messages:
   rpc_client -> session.submitExchangeResponse:  { exchangeId, answer }        #B1
-  session.submitExchangeResponse -> transcript:  synthesizes toolCall + toolResult
-                                                  directly (src/rpc/methods/session.ts,
+  session.submitExchangeResponse -> transcript:  offer-derived exchange: synthesize call + result
+                                                  recovered provider standalone ask: append only
+                                                  the terminal correlated to its original toolCallId
+                                                  (src/rpc/methods/session.ts,
                                                   handleSubmitExchangeResponse)          #B2
   session.submitExchangeResponse <- rpc_client:  { status: "accepted", ... }            #B3
 
@@ -128,6 +130,9 @@ notes:
   - Review-set approval converges below these transport mechanics: paths A/C and B call the same
     session-owned settlement operation, which revalidates the persisted offer and commits before
     returning/building the terminal. Pi still owns the A/C append; Brunch owns the B append.
+  - #B2: Active-branch recovery validates standalone ask params and fails closed on malformed,
+    ambiguous, questionnaire, or already-resolved calls. Provider correlation stays internal to the
+    pending value and never enters the public DTO.
   - #B2: Path B is architecturally distinct from A and C, not a variant of either — it's a Brunch
     RPC handler directly authoring transcript entries, matching D49-L ("Brunch-owned over public
     RPC... rather than raw Pi RPC") and D38-L ("JSON-over-editor is the Pi-RPC compatibility seam,

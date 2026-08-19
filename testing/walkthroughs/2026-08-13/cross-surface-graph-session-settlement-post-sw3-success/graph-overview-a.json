@@ -1,0 +1,22 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "specId": 1,
+      "plane": "intent",
+      "kind": "requirement",
+      "kindOrdinal": 1,
+      "title": "Local command saves one plain-text note while offline",
+      "body": "A locally invoked command must save exactly one plain-text note successfully while the environment is offline (no network connectivity required or used).",
+      "basis": "explicit",
+      "settlement": "settled",
+      "detail": {
+        "form": "plain"
+      },
+      "createdAtLsn": 2,
+      "updatedAtLsn": 2
+    }
+  ],
+  "edges": [],
+  "lsn": 2
+}

@@ -1,46 +1,90 @@
 # Walkthrough Findings Log
 
-## Current status — post-PR-305 alpha walkthroughs
+## Current status — FE-1348 alpha usage and verification sweep
 
-Status: `TESTING_PLAN.md` now supersedes the original broad 2026-07-02 plan with a concern-grouped post-PR-305 alpha walkthrough script. PR #305 has merged; today’s work is outer-loop testing on top of the merged surface, not gating that PR. Append observations under this section. Keep the historical findings below as provenance, not as the active checklist.
+FE-1348 is complete and its exhausted sweep ledger has been retired. This file records walkthrough observations with durable fixed, promoted, or retired dispositions; older entries remain provenance, not an active checklist.
 
-Current concern groups:
+A51-L retired SA1/SA2 without implementation. The successful standalone-web, public-stdio, cross-surface settlement, and Execute witnesses closed every required row. The final Execute journey used a real compiled plan and paused run to prove that `/brunch:mode` and `/brunch:consult` display the same state-aware Prepare / Compile / Execute choices while public session/run reads, JSONL, Petri artifacts, reports, and SQLite remain frozen and agree. FE-1187 A48-L remains a separate optional model-backed improvement; KA evidence and all other optional rows retain their existing owners and triggers.
 
-- onboarding and first-run safety: no Pi auth, bare cwd, populated cwd, disposable Brunch 0.x database copy
-- workspace/spec posture orientation and capture logic
-- seeding conditions and initial agent orientation
-- prompt, skill, and model routing audit
-- `.brunch/debug/` mirror and trigger legibility
-- `/brunch:consult` style/action menu options for elicitor and executor
-- merged chrome/rendering carryover: wheel, mode switch, gallery, continue/recovery, persistent editor
-- FE-1187 walkthrough-closure overlap opportunities when naturally witnessed (Execute O7–O9 route to the KA stream)
+### 2026-08-10 retained-corpus reconciliation
 
-### Cross-check against historical findings and new concerns
-
-| Historical item | Current disposition for this session |
+| Sweep observation | Findings disposition |
 | --- | --- |
-| F1–F6 kick prompt/origination/thinking/welcome basics | Historical defects from the first walkthrough. Re-observe only as part of onboarding, debug-mirror, and initial-orientation concerns. |
-| F7, F8, F11 old `present_question` / `request_response` rendering | Superseded by D116-L one-shot `ask` and FE-1169 compact ask rendering. Re-test current `ask`, candidates, and review-set rendering only. |
-| F9 single-select vs multi-select conduct | Fold into prompt/skill routing and `/brunch:consult` style/action audit if it recurs. |
-| F10 Other-label/comment duplication | Old request-response-path finding. Re-observe only through current `ask` Other/comment behavior if encountered. |
-| F12 registry event-order failure | Fixed historical builder issue; no manual action. |
-| F13–F17 welcome placement, kick salience, resume orientation, deterministic menu | Now map to onboarding, initial orientation, posture/capture logic, and consult-menu checks. FE-1187 owns the remaining LN deterministic-orientation evidence; Execute O7–O9 route to the KA stream. |
-| F18–F20 FE-1164 ask free-text/comment defects | Fixed inline on FE-1164; current session should only catch regressions in the reshaped `ask` surface. |
-| Cross-check: stale prompt text about ranked gaps | Actively check during prompt/debug audit; route as prompt/context if still present. |
-| New: no-auth and login onboarding | Partly witnessed in FE-1159, but re-run in a scratch `PI_CODING_AGENT_DIR` because this is alpha-user critical. |
-| New: bare/populated/legacy workspace entry | Not covered by the historical log; record as onboarding-safety findings. |
-| New: durable `spec.posture` semantics | Treat as an open product/spec question unless code/session evidence proves a real carrier exists. |
-| New: dynamic model selection | D123-L settled the alpha surface as Pi-native `/model` with a soft default. Role-tiered recommendations remain SPEC Future Direction and re-enter only when foreground/subagent evidence shows one default is inadequate. |
+| [Authless bare-workspace entry](testing/walkthroughs/2026-08-10/authless-bare-workspace-entry.md) | No finding: creation, `/login` recovery, and no-provider authority checks agreed. |
+| [Populated-workspace posture entry](testing/walkthroughs/2026-08-10/populated-workspace-posture-entry.md) | No finding: dialog choices, public readback, and canonical posture state agreed. |
+| [Specify session interaction](testing/walkthroughs/2026-08-10/specify-session-interaction.md) | No finding: the one invalid provider attempt was quiet, mutation-free, and immediately recovered under the already-settled R6 contract. |
+| [Execute mode interaction](testing/walkthroughs/2026-08-10/execute-mode-interaction-owned-gate.md) | Built. The retained thin-seed E1 gate remains provenance; the 2026-08-13 final witness compiled a real 1-epic/4-slice plan, created paused run `run-msrnsjo7`, froze the boundary, and proved identical state-aware Prepare / Compile / Execute choices through `/brunch:mode` and `/brunch:consult` against matching public and canonical readbacks, with no post-boundary move, assistant turn, or slice start. |
+| [Session resume and active-tree continuity](testing/walkthroughs/2026-08-10/session-resume-active-tree-continuity.md) | No finding: active-branch projections remained stable across relaunch and rejected the append-order rival. |
+| [TUI-companion semantic usefulness](testing/walkthroughs/2026-08-11/tui-companion-semantic-usefulness.md) | SA1/SA2 retired: the colleague found the companion useful and its honest TUI-owned ask refusal understandable; no ownership marker or dual-answer authority is currently warranted. |
+| [Cross-composition writer transfer](testing/walkthroughs/2026-08-10/cross-composition-writer-transfer.md) | No finding: refusal, release, reacquisition, continuity, and cleanup matched the single-writer contract. |
+| [Standalone-web driven session](testing/walkthroughs/2026-08-10/standalone-web-driven-session.md) | SW1 fixed by `b1fa177f8`, `d632ff82a`, `b2df18f8e`, and `08c7f2b87`, focused regressions, and the successful final live/reload/cleanup witness. This journey accepted no graph effect; the separate 2026-08-13 cross-surface journey later closed settlement. |
+| [Stdio public RPC](testing/walkthroughs/2026-08-10/stdio-public-rpc-owned-gate.md) | Prior recovery defect fixed by `f6053d605`, `f741f94df`, `bd77c277f`, and `3cddae4eb`, then proved through the fresh [final same-workspace witness](testing/walkthroughs/2026-08-10/stdio-public-rpc-final/walkthrough.md). The separate duplicate React question rendering is promoted as SW2. |
+| [Print projection](testing/walkthroughs/2026-08-10/print-projection-owned-gate.md) | No finding: source and installed foreign-cwd projections were byte-stable. |
+| [Cross-surface graph/session settlement](testing/walkthroughs/2026-08-13/cross-surface-graph-session-settlement-post-sw3-success/walkthrough.md) | Built. A persistent user-owned host satisfied WI1's re-entry trigger and carried one settled one-requirement/zero-edge proposal through exactly one Approve action and one reload. React, JSONL, public presentation/graph A/B, and stopped-host read-only SQLite agree on receipt LSN 2, one settled explicit REQ1, zero edges, exactly one `accept_review_set`, no `mutate_graph`, and no second acceptance. CS1/SW2/SW3 are fixed and outer-witnessed; prior failed journeys remain immutable provenance. The JSONL's `Do  │ not` is blockquote-gutter harness contamination, recorded as conduct `met-with-divergence`, not a product finding. |
+| [Seeded workbench and fixture validation](testing/walkthroughs/2026-08-10/seeded-workbench-and-fixture-validation.md) | No finding: validator, seed CLI, public reads, and runtime-state disposal agreed. |
+| [TUI-driver lifecycle fallback](testing/walkthroughs/2026-08-10/tui-driver-lifecycle-fallback.md) | No finding: the lifecycle passed; the stale scripted expectation was not a documentation or product defect. |
+| [Component-preview surface](testing/walkthroughs/2026-08-10/component-preview-surface.md) | No finding: the sampled current registry families exposed no defect, architecture question, weak evidence, or measurable simplification. |
+| [Debug-mirror legibility](testing/walkthroughs/2026-08-10/debug-mirror-legibility.md) | No finding: trigger-qualified mirrors agreed with canonical runtime inputs and remained projections. |
+| [Read-only repository gate](testing/walkthroughs/2026-08-10/read-only-repository-gate.md) | No finding: all nine warnings were classified frozen-baseline advisories, not new contradictions. |
+| [Full retained local gate](testing/walkthroughs/2026-08-10/full-retained-local-gate.md) | No finding: the aggregate gate passed; six warnings were the same classified baseline and skipped-test delta was zero. |
+| [Comparison lane entry](testing/walkthroughs/2026-08-10/comparison-lane-entry.md) | No finding: the closed lane passed without implying a fresh provider or mission campaign. |
+| [Conditional CI lane selection](testing/walkthroughs/2026-08-10/conditional-ci-lane-selection.md) | No finding: selector, workflow, and SPEC policy agreed with no omitted capability. |
+| [Installed-package integrity](testing/walkthroughs/2026-08-10/installed-package-integrity.md) | No finding: dependency deprecation warnings did not contradict install, foreign-cwd execution, or SQLite activation. |
+| [Installed interactive-mode boot](testing/walkthroughs/2026-08-10/installed-interactive-mode-boot.md) | No finding: both installed startup surfaces and cleanup passed without provider or publication claims. |
+
+### 2026-08-12 cross-surface settlement journey
+
+#### CS1 · one-node/zero-edge review set rejected · product-critical · fixed in code
+
+Concern: the smallest legal review-set batch—one settled requirement and no edges—must pass structural validation so the user can inspect and approve it through the shared settlement operation.
+Evidence: [`testing/walkthroughs/2026-08-12/cross-surface-graph-session-settlement-final/walkthrough.md`](testing/walkthroughs/2026-08-12/cross-surface-graph-session-settlement-final/walkthrough.md), including the exact 13-entry canonical JSONL, screenshots, public graph read, and read-only SQLite audit.
+Observation: the provider authored exactly one settled `intent` / `requirement` draft with `edgeDrafts: []`; `present_review_set` returned `structural_illegal` because `edgeDrafts must be non-empty`, then the provider authored a plain standalone approval ask. The user correctly made no approval or second answer. React first repeated the canonical ask (existing SW2), then reported `Session transcript cannot be displayed`. Canonical graph authority remained empty at LSN 1. The projection failure is consequential evidence under this finding rather than a second finding: this bounded journey did not independently diagnose another sub-seam, and the closed-inventory stop rule fires at CS1.
+Expected: one settled entity draft with zero edge drafts is structurally legal, remains reviewable through the review-set UI, and cannot force a fallback approval path or destroy session presentation.
+Disposition: fixed in code by `8c23ada95`, `fd10e839c`, and `abb0b8bd6`, focused regressions, and the green `npm run verify` gate. The successful 2026-08-13 post-SW3 journey outer-witnessed the repaired one-settled-node/zero-edge path through approval, receipt LSN 2, public graph readback, and stopped-host SQLite authority.
+
+### 2026-08-11–12 standalone-web reruns
+
+#### SW1 · reload attachment and writer cleanup · product-critical · fixed
+
+Concern: a supported standalone-web session must survive browser reload and release target authority when its bounded host exits.
+Evidence: [`testing/walkthroughs/2026-08-10/standalone-web-driven-session.md`](testing/walkthroughs/2026-08-10/standalone-web-driven-session.md), failed rerun at commit `2b217b865`, focused projection/process/React regressions, and the successful final outer witness at commit `08c7f2b87`.
+Observation: the retained 2026-08-11 run proved the defect: reload failed and graceful shutdown left `owner.json`. Repairs landed as `b1fa177f8`, `d632ff82a`, `b2df18f8e`, and `08c7f2b87`. On 2026-08-12, the user reported the requested live/reload flow looked correct; coordinator inspection of the two named screenshots found the same first assistant turn, one answered first ask, assistant follow-up, and second live ask in order, with no stale form or duplicate. The exact 13-entry canonical JSONL preserves one `validation_failed` intermediate ask result that structured React correctly omits, and contains no accepted graph effect. SIGTERM cleanup for PID `88536` stopped the process/listener and removed the target writer owner on bounded attempt 2 without manual repair.
+Expected: reload reattaches to the existing standalone runtime and projects the same active branch; bounded shutdown releases the writer owner without manual state repair.
+Disposition: fixed by the four named repair commits and their focused regressions. This journey closed SW1 and standalone-web only because it accepted no graph effect; the separate 2026-08-13 cross-surface journey subsequently closed settlement without rewriting this provenance.
+
+#### SW2 · duplicate standalone React actionable controls · product-critical · fixed in code
+
+Concern: standalone React must render one canonical provider ask once.
+Evidence: the user-observed screenshot named in [`stdio-public-rpc-final/handoff.json`](testing/walkthroughs/2026-08-10/stdio-public-rpc-final/handoff.json), its final [`session.jsonl`](testing/walkthroughs/2026-08-10/stdio-public-rpc-final/session.jsonl) and public projections, plus the user transcript report and exact canonical artifacts in [`cross-surface-graph-session-settlement-rerun/walkthrough.md`](testing/walkthroughs/2026-08-12/cross-surface-graph-session-settlement-rerun/walkthrough.md). No screenshot path was supplied for the rerun.
+Observation: the earlier run showed one canonical provider ask rendered twice. In the final authorized rerun, duplicate actionable controls became consequential: the user attempted the first duplicate and React falsely reported `Answer could not be submitted (ask closed)`, while canonical JSONL records that answer succeeding as the financial option. The stale duplicate remained actionable, provider conduct followed that unintended branch, and the later fallback ask duplicated too. Canonical authority stayed singular, but the browser contradiction changed user-visible outcome and derailed conduct before proposal.
+Expected: standalone/web renders one actionable control per canonical ask; the visible submit outcome agrees with canonical settlement, and no stale live/hydrated rival remains after closure.
+Disposition: fixed in code on FE-1348 at the standalone/web live-overlay versus canonical-hydration seam. Route regressions now enforce one actionable representation per exchange, terminal/local-confirmation precedence, `ask_closed` convergence, and subscribe-before-resnapshot monotonicity without deduping durable history. The successful 2026-08-13 journey outer-witnessed no recurrence before approval and no overlay residue after approval or exactly one reload: one initial actionable ask, one proposal, one terminal receipt. Cost/value: the repair prevents a silently committed unintended answer from being reported as failure.
+
+#### SW3 · settled review and continuation semantics collapse in React · product-critical · fixed in code
+
+Concern: a canonical settled review set and its continuation must remain visibly settled and expose the intended approval choices in standalone React.
+Evidence: [`testing/walkthroughs/2026-08-12/cross-surface-graph-session-settlement-witness/walkthrough.md`](testing/walkthroughs/2026-08-12/cross-surface-graph-session-settlement-witness/walkthrough.md), including the exact 13-entry JSONL and supplied pre-approval screenshot.
+Observation: canonical JSONL contains one successful `present_review_set` with one settled requirement, zero edges, and a continuation carrying `approve`, `request_changes`, and `reject`. React rendered one proposal but did not visibly label settlement, rendered no approval choices, exposed only a generic Answer/message input, and showed offer plus continuation copy as two confirmation-like blocks. The user stopped before approval. There was one initial actionable ask and one proposal, so this is not SW2 recurrence.
+Expected: React visibly communicates settled review status and renders the canonical Approve/Request changes/Reject continuation as one semantically clear actionable choice set, without duplicate confirmation-like narration.
+Disposition: fixed in code by `c180eb55e` and `69d6fd7b`, their focused regressions, and the successful 2026-08-13 outer witness. React visibly rendered `settled`, exactly one each of Approve/Request changes/Reject, no generic review Answer, and no duplicate proposal/narration; exactly one approval then produced Decision: Approve and receipt LSN 2 with no controls, and exactly one reload retained that state. JSONL, public presentation/graph A/B, and stopped-host SQLite converged on one accepted REQ1 and zero edges.
+
+#### WI1 · delegated host did not survive approval handoff · witness-infrastructure · promoted
+
+Concern: a one-shot user-owned approval witness must keep its sole source host and browser live after the executor returns the pre-approval handoff.
+Evidence: [`testing/walkthroughs/2026-08-12/cross-surface-graph-session-settlement-post-sw3-final/walkthrough.md`](testing/walkthroughs/2026-08-12/cross-surface-graph-session-settlement-post-sw3-final/walkthrough.md), including host lifecycle output, exact canonical JSONL, passed pre-approval AX/render evidence, public pre-approval projections, read-only SQLite audit, and cleanup.
+Observation: the provider and React reached the exact passed pre-approval state, but the delegated host ended at `2026-08-12T18:45:21.892Z`. The user and coordinator found no listener on port `65333`, so the user could not activate the sole Approve control. No relaunch, retry, approval, reload, receipt, or graph effect occurred.
+Expected: the execution/handoff context keeps the sole owned host and browser live until the user performs the one authorized decision or explicitly cancels the witness.
+Disposition: historical witness-infrastructure divergence retained. It was promoted to the existing FE-1348 cross-surface row rather than a product-code frontier, and its re-entry trigger was satisfied on 2026-08-13 by a persistent user-owned host plus fresh one-shot authorization. The successful journey reached approval, receipt, and reload without reopening SW3 or implying a standalone-host product defect. Prior WI1 failure provenance remains immutable.
 
 ### 2026-07-28 Secure Drop pilot — greenfield elicitation → plan synthesis
 
-#### SD1 · Execute plan preparation · demo-critical · fix in progress
+#### SD1 · Execute plan preparation · demo-critical · fixed
 
 Concern: a review-approved four-scope Secure Drop graph must compile into `plan.json` without manual graph repair.
 Evidence: session `019fa95a-bf25-76b1-afd1-82375712e85f`; `.fixtures/scratch/greenfield-secure-drop-demo/pilot-1/secure-drop-spec.md`; repeated `execute_plan_file` results at 2026-07-28T16:07–16:14 UTC.
 Observation: Specify declared the graph fully covered, but every scope lacked one or more direct D126-L admission edges. Execute-mode preparation tried to backfill them, duplicated REQ3 across scopes, then accumulated superseded scopes/frontiers/milestones and cyclic oracle packaging because settled bad edges could not be removed. Five high-thinking planner rounds timed out at the fixed 120-second deadline. A controlled medium-thinking probe against the retained active graph subsequently wrote `plan.json` in two bounded rounds.
 Expected: plan authoring directly packages each requirement into exactly one active scope and gives every scope direct criterion, design, and verification anchors; the sealed planner returns a structured candidate within the existing timeout without graph mutation.
-Disposition: FE-1289 narrows the planner to medium thinking, makes the direct D126-L scope-edge preflight explicit in mapping guidance, and derives plan-readiness criterion coverage from the canonical scope package rather than future-evidence witness edges. Fresh-workspace rerun remains required before this row closes.
+Disposition: fixed under FE-1289. The planner uses medium thinking, mapping guidance makes the direct D126-L scope-edge preflight explicit, and plan readiness derives criterion coverage from the canonical scope package rather than future-evidence witness edges. The later fresh run reached `promotion_prepared`; SD9 remains the separate open final-application gate.
 
 #### SD2 · Assurance projection wording · demo-critical · fixed
 
@@ -50,13 +94,13 @@ Observation: the read-only check counted only legacy positive criterion witness 
 Expected: plan readiness should recognize direct criterion + requirement co-packaging in a D126-L scope without asking planned assertions to counterfeit evidence.
 Disposition: corrected in FE-1289 by deriving readiness coverage from direct scope packages while retaining readable legacy witnesses; no schema or graph-kind change.
 
-#### SD3 · Parallel greenfield repository foundation · demo-critical · fix in progress
+#### SD3 · Parallel greenfield repository foundation · demo-critical · fixed
 
 Concern: the first independent frontend/crypto and backend slices must run in parallel without inventing incompatible repository roots.
 Evidence: fresh session graph LSN 10; run `run-ms55kdd2`; `reports.jsonl` through `slice_integration_conflict`; Petrinaut terminal marking at 2026-07-28T21:28:04.373Z.
 Observation: S1.1 and S2.1 both started from the same empty base, independently passed `npm test` on repair cycle 3, and then conflicted while integrating separately-created `package.json` files. Adding a shared project-foundation anchor allowed one correct regenerated plan and clean post-foundation parallel firing, but graph LSN 12 later produced an admitted rival with two initially runnable MOD8 carriers. Planner prompt guidance alone is therefore nondeterministic.
 Expected: one accepted design anchor owns the complete root manifest, lockfile, dependency set, build/test configuration, and layout; one foundation slice materializes it before independent crypto/backend slices start in parallel.
-Disposition: FE-1289 retains the shared-root authoring/planner guidance and adds deterministic candidate admission: exactly one shared `Project foundation` carrier is allowed, and every other carrier must transitively depend on it. A fresh regenerated run must demonstrate the repaired dependency shape and conflict-free integration before this row closes.
+Disposition: fixed under FE-1289. Deterministic candidate admission permits exactly one shared `Project foundation` carrier and requires every other carrier to transitively depend on it. Run `run-ms671oww` then fired S2/S3 in parallel and integrated both cycle-1 results without conflict; SD9 remains the separate open final-application gate.
 
 #### SD4 · Worker result artifact leaked into target worktree · demo-critical · fixed
 
@@ -233,7 +277,7 @@ Concern: Richer graph context overload.
 Evidence: `testing/walkthroughs/2026-07-09/2026-07-09-C.md` §whether richer graph context overloads prompt/skill routing.
 Observation: User was not sure how to evaluate overload from this run.
 Expected: Future runs need a sharper oracle for prompt overload, such as repeated tool-call schema errors, missed required skill reads, failure to summarize graph state, excessive latency, or generic-agent behavior despite specific context.
-Disposition: audit-method gap — owner: SPEC §Verification Design blind-spot row "prompt-overload oracle", to be added in the FE-1187 `ln-spec` pass (2026-07-13); until then FE-1187 entry work carries it. Fold the overload markers into the prompt/skill/model audit rather than treating as product failure.
+Disposition: audit-method gap owned by SPEC §Verification Design's prompt-overload blind spot. Fold overload markers into prompt/skill/model audits rather than treating them as a product failure; admit a sharper oracle only when repeated schema errors, missed required resource reads, latency, or generic conduct creates a concrete claim.
 
 ### 2026-07-10 FE-1180 review/witness audit
 
@@ -357,7 +401,7 @@ Concern: cancelled and invalid structured-exchange tool results.
 Evidence: `remediations-3a.md` §§1–2 and screenshots; actual session JSONLs `2026-07-14T08-29-24-216Z_…` and `2026-07-14T08-45-39-646Z_…` under the `workspace-alpha-grounding` workbench.
 Observation: the cancelled `ask` terminal did not read as an intentionally cancelled exchange. The invalid-input errors were diagnosed separately: the model authored reserved option id `other` while enabling `allowOther`, then twice supplied body/options fields that D116-L continuing asks must inherit from the referenced offer. The adapter correctly returned themed `TOOL_INPUT_INVALID` results; this was not raw renderer corruption.
 Expected: cancelled, unavailable, and answered results have deliberately distinct compact rendering. Provider argument rejection remains exact model-facing feedback for retry but creates no persistent human-visible transcript artifact; it is not a user-owned terminal outcome.
-Disposition: reopened by the 2026-07-17 authenticated walkthrough. The valid Answered/Cancelled/Unavailable rail landed in `229c7abc`; `c8f15b3b`'s warning-toned Input rejected presentation is superseded by direct human judgment after the live screenshot showed internal provider retry feedback dominating the transcript. D104-L now preserves validation content/details for the model while requiring empty TUI rendering. Owner: [`walkthrough-remediation-2--tui-presentation-corrections.md`](memory/cards/walkthrough-remediation-2--tui-presentation-corrections.md); the consolidated outer checkpoint judges the corrected live-TUI result.
+Disposition: the valid Answered/Cancelled/Unavailable rail landed in `229c7abc`; `c8f15b3b`'s warning-toned Input rejected presentation is superseded by direct human judgment after the live screenshot showed internal provider retry feedback dominating the transcript. D104-L preserves validation content/details for the model while requiring empty TUI rendering. Mechanical zero-line rendering is built under R14; only authenticated visual judgment remains at the [`consolidated outer checkpoint`](memory/cards/walkthrough-remediation-2--consolidated-outer-checkpoint.md).
 
 #### R7 · offer continuation rendering · high · fixed
 
@@ -486,33 +530,33 @@ Expected: the private-mission boundary holds without a separate actor process.
 Residual risk: `private-mission.md` is stored at the run root, two levels **above** the Brunch target cwd (`targets/brunch`), and the Brunch agent's active tools include generic `read`/`ls`/`find`/`grep` (per `debug/system-prompt.md`). Isolation held **behaviorally** (the agent did not traverse up), not by a filesystem jail; a differently-behaved contender or retry could `read ../../private-mission.md`.
 Disposition: closed by FE-1320. `/compare-specs` now gives each harness a fresh system-temporary external target root outside controller checkout, scratch, and retained trees; actual-entry-point tests reject the `../../private-mission.md` rival and preserve exact controller evidence through target cleanup. This closes ordinary target-relative ancestor traversal, not unrestricted absolute-path or whole-host discovery. The real Brunch + Claude conduct witness remains owned by `saved-mission-comparison-witness`.
 
-#### CS3 · harness cleanup · medium · unverified
+#### CS3 · harness cleanup · medium · retired
 
 Concern: no comparison/background process remains after the run.
 Evidence: run artifacts stopped being written ~19:25Z (last `trajectory.ndjson`/session write); `ps` is not permitted in the reconciling shell, so lingering-process absence could not be independently confirmed from the artifact side.
 Observation: operator reported the run completed; scratch tree is quiescent.
 Expected: the direct shell and any child process are dismissed after cleanup.
-Disposition: logged — process-cleanup confirmation remains the operator/top-level session's responsibility for this scratch run; not a code defect. Re-entry trigger: confirm process teardown in the operator session at run end.
+Disposition: retired as an unverifiable historical scratch-run limitation, not a product defect. Current comparison procedures require bounded cleanup and retained cleanup evidence for each new run; no live frontier can reconstruct this old process state.
 
 ### 2026-08-07 FE-1321 shared-session-host-tracer — structured-ask companion questions
 
-Both entries are design questions raised by the structured-ask slice, not defects. The slice proved the correctness half automatically (`src/app/__tests__/session-runtime-contract-structured-ask.slow.test.ts`); the presentation half needs a human judgment the slice deliberately did not make. Owner frontier: `shared-session-host-tracer`. Re-entry trigger for both: A51-L's colleague walkthrough, which is a precondition of retiring A51-L.
+Both entries were design questions raised by the structured-ask slice, not defects. The slice proved the correctness half automatically (`src/app/__tests__/session-runtime-contract-structured-ask.slow.test.ts`); the 2026-08-11 A51-L colleague walkthrough supplied the presentation judgment and retired both questions.
 
-#### SA1 · consult menu / chrome carryover · medium · open design question
+#### SA1 · consult menu / chrome carryover · medium · retired
 
 Concern: under the normal-TUI composition the companion browser renders a TUI-owned ask with its ordinary answer form, but submitting it is refused as `ask_closed` and surfaces as a visible error.
 Evidence: `src/app/__tests__/session-runtime-contract-structured-ask.slow.test.ts` (single-answering-authority leaf); the refusal path is `src/session/tui-live-session-adapter.ts` `answerExchange` → `ask_closed`, rendered by the `Ask` form's error branch in `src/web/routes/session.tsx`.
 Observation: the refusal is honest and requires no contract change, but a colleague sees an inviting form that cannot succeed.
 Expected: a human judges whether that is confusing enough to warrant the deliberately excluded ownership marker on `OpenAsk` (e.g. `owner: 'tui'` / `answerable: false`) so the companion can render a TUI-owned ask read-only.
-Disposition: deferred — owner frontier `shared-session-host-tracer` (`memory/PLAN.md`), re-entry trigger the A51-L colleague walkthrough. Cost/value: the marker is a small field but ripples through `zOpenAsk`, the `SessionPresentationEntry` ask variant, the overlay reducer, and the `Ask` component — perhaps half a day — for a UX-polish gain the automated oracle does not require; cheap to defer because the correctness half is already guarded.
+Disposition: retired — the A51-L colleague deliberately attempted the visible companion form, saw `answer could not be submitted` followed by `ask closed`, and judged the result understandable. The TUI-owned ask remained open and accepted the sole successful answer. The marker's cross-contract cost has no demonstrated current value; re-enter only on a concrete confusion report. Evidence: [`testing/walkthroughs/2026-08-11/tui-companion-semantic-usefulness.md`](testing/walkthroughs/2026-08-11/tui-companion-semantic-usefulness.md).
 
-#### SA2 · consult menu / chrome carryover · medium · open design question
+#### SA2 · consult menu / chrome carryover · medium · retired
 
 Concern: whether observation-without-answering is sufficient companion value for structured asks.
 Evidence: the same witness — the companion observes the ask and converges at settlement, but the TUI is the sole answering authority (assumption A51-L in `memory/SPEC.md`).
 Observation: the slice chose observation over dual-answer because dismissing a TUI picker from outside is not reachable — the extension holds only Pi's tool-execution `AbortSignal`, and aborting it cancels the whole turn.
 Expected: a human judges whether a colleague watching an ask they cannot answer is useful, or whether dual-answer authority is a real product requirement.
-Disposition: deferred — owner frontier `shared-session-host-tracer`, re-entry trigger the A51-L colleague walkthrough. Cost/value: if dual-answer is required, picker dismissal becomes upstream Pi work and the answering-authority design changes, shifting `shared-session-host-cutover`'s semantic-contract sweep rows; expensive to build speculatively, cheap to answer with one walkthrough.
+Disposition: retired — the colleague found the companion useful while the TUI retained sole structured-ask answer authority; both presentations updated immediately and converged after the TUI answer. Dual-answer authority is not a current product requirement. Re-enter only if a future workflow requires a companion observer to answer a TUI-owned ask. Evidence: [`testing/walkthroughs/2026-08-11/tui-companion-semantic-usefulness.md`](testing/walkthroughs/2026-08-11/tui-companion-semantic-usefulness.md).
 
 Use future entries like:
 

@@ -87,6 +87,8 @@ function commandHarness(
     branch?: readonly EntryLike[];
     appendOrderRivals?: readonly EntryLike[];
     inputResult?: string;
+    processMoveAvailability?: unknown;
+    processMoveAvailabilityError?: Error;
   } = {},
 ) {
   const entries: RuntimeEntry[] = [];
@@ -162,6 +164,10 @@ function commandHarness(
 
   const orientationDeps: BrunchSessionOrientationDeps | undefined = options.orientation
     ? {
+        resolveProcessMoveAvailability: () => {
+          if (options.processMoveAvailabilityError) throw options.processMoveAvailabilityError;
+          return options.processMoveAvailability;
+        },
         resolveKickContext: () => ({
           specId: 7,
           specName: 'Alpha',
@@ -363,6 +369,71 @@ describe('Brunch menu command', () => {
         data: { schemaVersion: 1, move: 'prepare_execution' },
       }),
     );
+  });
+
+  it('uses resolved Execute availability for consult and dismissal has no carrier or kick', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      customResult: undefined,
+      processMoveAvailability: { compile_plan: true, execute_plan: true },
+    });
+    harness.entries.push({
+      type: 'custom',
+      customType: BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+      data: {
+        schemaVersion: 1,
+        reason: 'switch',
+        source: 'user',
+        state: { schemaVersion: 1, operationalMode: 'execute' },
+      },
+    });
+
+    await harness.commands.get(BRUNCH_CONSULT_COMMAND)?.handler('', harness.ctx);
+
+    const rendered = (
+      harness.customCalls[0]!.factory(undefined, createTestLabTheme(), undefined, () => {}) as {
+        render(width: number): string[];
+      }
+    )
+      .render(80)
+      .join('\n');
+    expect(rendered).toContain('Compile a plan');
+    expect(rendered).toContain('Execute the plan');
+    expect(harness.entries.filter((entry) => entry.customType === BRUNCH_PROCESS_MOVE_CUSTOM_TYPE)).toEqual(
+      [],
+    );
+    expect(harness.sent).toEqual([]);
+  });
+
+  it('fails closed to Prepare-only when consult availability resolution throws', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      customResult: undefined,
+      processMoveAvailabilityError: new Error('unreadable'),
+    });
+    harness.entries.push({
+      type: 'custom',
+      customType: BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+      data: {
+        schemaVersion: 1,
+        reason: 'switch',
+        source: 'user',
+        state: { schemaVersion: 1, operationalMode: 'execute' },
+      },
+    });
+
+    await harness.commands.get(BRUNCH_CONSULT_COMMAND)?.handler('', harness.ctx);
+
+    const rendered = (
+      harness.customCalls[0]!.factory(undefined, createTestLabTheme(), undefined, () => {}) as {
+        render(width: number): string[];
+      }
+    )
+      .render(80)
+      .join('\n');
+    expect(rendered).toContain('Prepare execution');
+    expect(rendered).not.toContain('Compile a plan');
+    expect(rendered).not.toContain('Execute the plan');
   });
 
   it('reports unavailable resume when no incomplete structured exchange exists and no kick seam is bound', async () => {
@@ -802,16 +873,26 @@ describe('Brunch runtime switch commands', () => {
     expect(orientationJunctureGate(harness.orientationDeps!).suppressNextAbortJuncture).toBe(false);
   });
 
-  it('runs the CODE-side orientation menu and kicks on the selected choice after switching to Execute', async () => {
+  it('uses resolved Execute availability after a real mode switch and kicks on the selected choice', async () => {
     const harness = commandHarness({
       orientation: true,
       customResult: { id: 'prepare_execution' },
+      processMoveAvailability: { compile_plan: true, execute_plan: true },
     });
 
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
 
     expect(harness.customCalls).toHaveLength(1);
     expect(harness.selectCalls).toEqual([]);
+    const rendered = (
+      harness.customCalls[0]!.factory(undefined, createTestLabTheme(), undefined, () => {}) as {
+        render(width: number): string[];
+      }
+    )
+      .render(80)
+      .join('\n');
+    expect(rendered).toContain('Compile a plan');
+    expect(rendered).toContain('Execute the plan');
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
         type: 'custom',

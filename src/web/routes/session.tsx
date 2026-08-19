@@ -1,12 +1,19 @@
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { createRoute } from '@tanstack/react-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { QuestionnaireAnswer, QuestionnaireQuestion } from '../../exchanges/schemas/questionnaire.js';
-import type { SessionPresentationEntry } from '../../projections/session/session-presentation.js';
+import type {
+  SessionPresentationEntry,
+  SessionPresentationResult,
+} from '../../projections/session/session-presentation.js';
 import { openAsksResultSchema } from '../../rpc/live-session-contract.js';
 import type { LiveSessionEvent, LiveSessionHostResult } from '../../session/live-session-host.js';
-import { reduceLiveSessionOverlay } from '../features/session/live-overlay.js';
+import {
+  mergeSessionPresentation,
+  reduceLiveSessionOverlay,
+  settleConfirmedAnswer,
+} from '../features/session/live-overlay.js';
 import { sessionPresentationQueryOptions } from '../queries/session-presentation.js';
 import { queryKeys } from '../query-keys.js';
 import { parseSpecId } from '../spec-id.js';
@@ -31,18 +38,8 @@ export const sessionRoute = createRoute({
       }
     };
     try {
-      // Hydrate asks already open before this attachment: their ask_opened events
-      // fired before load, so only the live registry — not the transcript or the
-      // live stream — can surface them to a reconnecting client.
-      const openAsks = openAsksResultSchema.safeParse(
-        await context.rpcClient.request('session.openAsks', target),
-      );
       await presentation;
-      if (!openAsks.success) {
-        await close();
-        return { error: 'Session protocol load failed.' } as const;
-      }
-      return { target, openAsks: openAsks.data.openAsks } as const;
+      return { target } as const;
     } catch (error) {
       await close();
       throw error;
@@ -54,42 +51,78 @@ export const sessionRoute = createRoute({
 function SessionPage() {
   const loaderData = sessionRoute.useLoaderData();
   if ('error' in loaderData) return <main role="alert">{loaderData.error}</main>;
-  return <ReadySessionPage target={loaderData.target} openAsks={loaderData.openAsks} />;
+  return <ReadySessionPage target={loaderData.target} />;
 }
 
-function ReadySessionPage({
-  target,
-  openAsks,
-}: {
-  target: { specId: number; sessionId: string };
-  openAsks: ReturnType<typeof openAsksResultSchema.parse>['openAsks'];
-}) {
+function ReadySessionPage({ target }: { target: { specId: number; sessionId: string } }) {
   const { rpcClient } = sessionRoute.useRouteContext();
   const queryClient = useQueryClient();
   const { data: result } = useSuspenseQuery(sessionPresentationQueryOptions(rpcClient, target));
-  const [overlay, setOverlay] = useState<SessionPresentationEntry[]>(() =>
-    openAsks.reduce<SessionPresentationEntry[]>(
-      (entries, ask) => [
-        ...reduceLiveSessionOverlay(entries, { target, seq: 0, delta: { type: 'ask_opened', ask } }),
-      ],
-      [],
-    ),
-  );
+  const [overlay, setOverlay] = useState<SessionPresentationEntry[]>([]);
+  const [protocolError, setProtocolError] = useState(false);
+  const reconciliationEpoch = useRef(0);
+  const routeActive = useRef(true);
+  const attachmentClosed = useRef(false);
+  const [locallyClosedAsks, setLocallyClosedAsks] = useState<ReadonlySet<string>>(() => new Set());
   const [prompt, setPrompt] = useState('');
   const [busy, setBusy] = useState(false);
   const [turnError, setTurnError] = useState<string>();
+  const [assistantResponding, setAssistantResponding] = useState(false);
   const driverId = useMemo(browserDriverId, []);
 
   useEffect(() => {
+    let active = true;
+    routeActive.current = true;
+    const generation = ++reconciliationEpoch.current;
+    const reconcileOpenAsks = async () => {
+      const epoch = reconciliationEpoch.current;
+      const value = await rpcClient.request('session.openAsks', target);
+      if (!active || generation !== reconciliationEpoch.current || epoch !== reconciliationEpoch.current)
+        return;
+      const parsed = openAsksResultSchema.safeParse(value);
+      if (!parsed.success) throw new Error('Malformed session.openAsks response');
+      setOverlay((entries) => {
+        const terminals = entries.filter((entry) => entry.kind === 'ask' && entry.terminal);
+        return parsed.data.openAsks.reduce<SessionPresentationEntry[]>(
+          (current, ask) => [
+            ...reduceLiveSessionOverlay(current, {
+              target,
+              seq: 0,
+              delta: { type: 'ask_opened', ask },
+            }),
+          ],
+          terminals,
+        );
+      });
+      return parsed.data.openAsks;
+    };
     const unsubscribe = rpcClient.subscribeSessionEvents(
       target,
       (event: LiveSessionEvent) => {
         const delta = event.delta;
-        if (delta.type === 'assistant_text_delta' || delta.type === 'ask_opened') {
+        if (delta.type === 'assistant_text_delta') {
+          reconciliationEpoch.current++;
           setOverlay((entries) => [...reduceLiveSessionOverlay(entries, event)]);
         }
+        if (delta.type === 'ask_opened') {
+          // The ask boundary is the only live signal that durable intermediate
+          // presentation is ready when a paused turn never settles. Drop the
+          // superseded overlay before refetching, but retain this ask across the
+          // asynchronous canonical refresh so it remains answerable.
+          reconciliationEpoch.current++;
+          setOverlay((entries) => [
+            ...reduceLiveSessionOverlay(
+              entries.filter((entry) => entry.kind === 'ask' && entry.terminal),
+              event,
+            ),
+          ]);
+          setAssistantResponding(false);
+          void queryClient.invalidateQueries({ queryKey: queryKeys.session.presentation(target) });
+        }
         if (delta.type === 'agent_settled') {
+          reconciliationEpoch.current++;
           setBusy(false);
+          setAssistantResponding(false);
           setOverlay([]);
           void queryClient.invalidateQueries({ queryKey: queryKeys.session.presentation(target) });
         }
@@ -100,23 +133,124 @@ function ReadySessionPage({
         },
       },
     );
+    // Subscribe first, then close the attachment race with an authoritative snapshot.
+    void reconcileOpenAsks().catch(() => {
+      if (active && generation === reconciliationEpoch.current) {
+        setProtocolError(true);
+        attachmentClosed.current = true;
+        void rpcClient.request('session.close', target).catch(() => {});
+      }
+    });
     return () => {
+      active = false;
+      routeActive.current = false;
+      reconciliationEpoch.current++;
       unsubscribe();
       try {
-        void rpcClient.request('session.close', target).catch(() => {});
+        if (!attachmentClosed.current) void rpcClient.request('session.close', target).catch(() => {});
       } catch {
         // Best-effort release must not block route cleanup.
       }
     };
   }, [queryClient, rpcClient, target]);
 
+  if (protocolError) return <main role="alert">Session protocol load failed.</main>;
   if (result.status !== 'ready') return <main role="alert">Session transcript cannot be displayed.</main>;
-  const entries = [...result.presentation.entries, ...overlay];
+  const entries = mergeSessionPresentation(result.presentation.entries, overlay).filter(
+    (entry) => entry.kind !== 'ask' || entry.terminal || !locallyClosedAsks.has(entry.exchangeId),
+  );
+  const actionableReviewAsks = new Map(
+    entries.flatMap((entry) =>
+      entry.kind === 'present_review_set' && entry.continuation
+        ? entries.flatMap((candidate) =>
+            candidate.kind === 'ask' && candidate.exchangeId === entry.exchangeId && !candidate.terminal
+              ? [[entry.exchangeId, candidate] as const]
+              : [],
+          )
+        : [],
+    ),
+  );
+  const visibleEntries = entries.filter(
+    (entry) => entry.kind !== 'ask' || entry.terminal || !actionableReviewAsks.has(entry.exchangeId),
+  );
+  const answerExchange = async (
+    entry: Extract<SessionPresentationEntry, { kind: 'ask' }>,
+    answer: string,
+  ): Promise<LiveSessionHostResult> => {
+    const answerEpoch = reconciliationEpoch.current;
+    const outcome = await rpcClient.request<LiveSessionHostResult>('session.answerExchange', {
+      ...target,
+      driverId,
+      exchangeId: entry.exchangeId,
+      answer,
+    });
+    if (!routeActive.current || answerEpoch !== reconciliationEpoch.current) return outcome;
+    if (outcome.status === 'completed') {
+      setOverlay((entries) => [
+        ...settleConfirmedAnswer(
+          entries.some((candidate) => candidate.kind === 'ask' && candidate.exchangeId === entry.exchangeId)
+            ? entries
+            : [...entries, entry],
+          entry.exchangeId,
+          answer,
+        ),
+      ]);
+      setAssistantResponding(true);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.session.presentation(target) });
+    }
+    if (outcome.status === 'ask_closed') {
+      try {
+        const [openValue, canonical] = await Promise.all([
+          rpcClient.request('session.openAsks', target),
+          rpcClient.request<SessionPresentationResult>('session.presentation', target),
+        ]);
+        if (!routeActive.current || answerEpoch !== reconciliationEpoch.current) return outcome;
+        const parsed = openAsksResultSchema.safeParse(openValue);
+        if (!parsed.success || canonical.status !== 'ready') throw new Error('Ask reconciliation failed');
+        const stillOpen = parsed.data.openAsks.find((ask) => ask.exchangeId === entry.exchangeId);
+        const canonicalIsStale =
+          !stillOpen &&
+          canonical.presentation.entries.some(
+            (candidate) =>
+              candidate.kind === 'ask' && candidate.exchangeId === entry.exchangeId && !candidate.terminal,
+          );
+        if (!canonicalIsStale) queryClient.setQueryData(queryKeys.session.presentation(target), canonical);
+        if (!routeActive.current || answerEpoch !== reconciliationEpoch.current) return outcome;
+        setOverlay((entries) => {
+          const retained = entries.filter(
+            (candidate) =>
+              candidate.kind === 'ask' && candidate.terminal && candidate.exchangeId !== entry.exchangeId,
+          );
+          return stillOpen
+            ? [
+                ...reduceLiveSessionOverlay(retained, {
+                  target,
+                  seq: 0,
+                  delta: { type: 'ask_opened', ask: stillOpen },
+                }),
+              ]
+            : retained;
+        });
+        setLocallyClosedAsks((closed) => {
+          const next = new Set(closed);
+          if (stillOpen) next.delete(entry.exchangeId);
+          else next.add(entry.exchangeId);
+          return next;
+        });
+        if (canonicalIsStale)
+          void queryClient.invalidateQueries({ queryKey: queryKeys.session.presentation(target) });
+        if (stillOpen) return { status: 'invalid_answer' };
+      } catch {
+        return { status: 'invalid_answer' };
+      }
+    }
+    return outcome;
+  };
   return (
     <main className="session-page" aria-busy={busy}>
       <h1>Session {target.sessionId}</h1>
       <ol aria-label="Session transcript">
-        {entries.map((entry) => (
+        {visibleEntries.map((entry) => (
           <li key={entry.cursor}>
             {entry.kind === 'message' ? (
               <p>
@@ -125,25 +259,24 @@ function ReadySessionPage({
             ) : entry.kind === 'present_candidates' ? (
               <CandidateOffer entry={entry} />
             ) : entry.kind === 'present_review_set' ? (
-              <ReviewSetOffer entry={entry} />
+              <ReviewSetOffer
+                entry={entry}
+                {...(actionableReviewAsks.get(entry.exchangeId)
+                  ? {
+                      answer: (answer: string) =>
+                        answerExchange(actionableReviewAsks.get(entry.exchangeId)!, answer),
+                    }
+                  : {})}
+              />
             ) : entry.kind === 'present_digest' ? (
               <DigestOffer entry={entry} />
             ) : (
-              <Ask
-                entry={entry}
-                answer={(answer) =>
-                  rpcClient.request<LiveSessionHostResult>('session.answerExchange', {
-                    ...target,
-                    driverId,
-                    exchangeId: entry.exchangeId,
-                    answer,
-                  })
-                }
-              />
+              <Ask entry={entry} answer={(answer) => answerExchange(entry, answer)} />
             )}
           </li>
         ))}
       </ol>
+      {assistantResponding ? <p role="status">Assistant is responding…</p> : null}
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -250,8 +383,10 @@ function CandidateOffer({
 
 function ReviewSetOffer({
   entry,
+  answer,
 }: {
   entry: Extract<SessionPresentationEntry, { kind: 'present_review_set' }>;
+  answer?: (value: string) => Promise<LiveSessionHostResult>;
 }) {
   return (
     <section aria-label={entry.heading}>
@@ -267,6 +402,8 @@ function ReviewSetOffer({
             <dd>{node.plane}</dd>
             <dt>Kind</dt>
             <dd>{node.kind}</dd>
+            <dt>Settlement</dt>
+            <dd>{node.settlement}</dd>
             {node.body ? (
               <>
                 <dt>Body</dt>
@@ -283,6 +420,15 @@ function ReviewSetOffer({
           <ReviewSetConsequences draftId={node.draft_id} entry={entry} />
         </article>
       ))}
+      {answer && entry.continuation ? (
+        <ReviewDecision
+          options={entry.continuation.params.options}
+          {...(entry.continuation.params.commentPrompt
+            ? { commentPrompt: entry.continuation.params.commentPrompt }
+            : {})}
+          answer={answer}
+        />
+      ) : null}
       {entry.reviewSet.edges.filter((edge) => !edgeHostDraftId(edge)).length > 0 ? (
         <section aria-label="Other proposed consequences">
           <h3>Other proposed consequences</h3>
@@ -295,6 +441,84 @@ function ReviewSetOffer({
           </ul>
         </section>
       ) : null}
+    </section>
+  );
+}
+
+function ReviewDecision({
+  options,
+  commentPrompt,
+  answer,
+}: {
+  options: readonly { readonly id: string; readonly label: string }[];
+  commentPrompt?: string;
+  answer: (value: string) => Promise<LiveSessionHostResult>;
+}) {
+  const [requestingChanges, setRequestingChanges] = useState(false);
+  const [comment, setComment] = useState('');
+  const [error, setError] = useState<string>();
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+
+  const submit = (value: string) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    setError(undefined);
+    void answer(value)
+      .then((outcome) => {
+        if (outcome.status === 'completed' || outcome.status === 'ask_closed') return;
+        submittingRef.current = false;
+        setSubmitting(false);
+        setError(`Review could not be submitted (${outcome.status.replaceAll('_', ' ')}).`);
+      })
+      .catch(() => {
+        submittingRef.current = false;
+        setSubmitting(false);
+        setError('Review failed. Please retry.');
+      });
+  };
+
+  return (
+    <section aria-label="Review choices">
+      <h3>Review</h3>
+      {options.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          disabled={submitting}
+          onClick={() => {
+            if (submittingRef.current) return;
+            if (option.id === 'request_changes') {
+              setRequestingChanges(true);
+              return;
+            }
+            submit(option.id);
+          }}
+        >
+          {option.label}
+        </button>
+      ))}
+      {requestingChanges ? (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (comment.trim()) submit(`request_changes:${comment.trim()}`);
+          }}
+        >
+          <label>
+            {commentPrompt ?? 'Required change request'}
+            <input
+              value={comment}
+              onChange={(event) => setComment(event.target.value)}
+              disabled={submitting}
+              required
+            />
+          </label>
+          <button disabled={submitting || !comment.trim()}>Submit change request</button>
+        </form>
+      ) : null}
+      {error ? <p role="alert">{error}</p> : null}
     </section>
   );
 }
@@ -344,7 +568,7 @@ function edgeHostDraftId(
 function reviewEdgeText(
   edge: Extract<SessionPresentationEntry, { kind: 'present_review_set' }>['reviewSet']['edges'][number],
 ): string {
-  return `${edge.category.replaceAll('_', ' ')}${edge.rationale ? ` — ${edge.rationale}` : ''}`;
+  return `${edge.category.replaceAll('_', ' ')} [${edge.settlement}]${edge.rationale ? ` — ${edge.rationale}` : ''}`;
 }
 
 function digestDecisionLabel(decision: 'approve' | 'request_changes' | 'reject'): string {
@@ -386,6 +610,7 @@ function Ask({
   const [values, setValues] = useState<string[]>([]);
   const [error, setError] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   if (entry.terminal) {
     const terminal = entry.terminal;
     return (
@@ -485,17 +710,22 @@ function Ask({
       onSubmit={(event) => {
         event.preventDefault();
         const answerValue = entry.mode === 'multi-select' ? values.join(',') : value;
-        if (!answerValue.trim() || submitting) return;
+        if (!answerValue.trim() || submittingRef.current) return;
+        submittingRef.current = true;
         setSubmitting(true);
         setError(undefined);
         void answer(answerValue)
           .then((outcome) => {
-            if (outcome.status !== 'completed') {
-              setError(`Answer could not be submitted (${outcome.status.replaceAll('_', ' ')}).`);
-            }
+            if (outcome.status === 'completed' || outcome.status === 'ask_closed') return;
+            submittingRef.current = false;
+            setSubmitting(false);
+            setError(`Answer could not be submitted (${outcome.status.replaceAll('_', ' ')}).`);
           })
-          .catch(() => setError('Answer failed. Please retry.'))
-          .finally(() => setSubmitting(false));
+          .catch(() => {
+            submittingRef.current = false;
+            setSubmitting(false);
+            setError('Answer failed. Please retry.');
+          });
       }}
     >
       {entry.options ? (

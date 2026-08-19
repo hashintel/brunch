@@ -1,0 +1,981 @@
+{
+  "methods": [
+    {
+      "method": "workspace.state",
+      "description": "Return the current Brunch workspace/spec/session state for the invocation cwd without changing activation state.",
+      "paramsSchema": {
+        "type": "void",
+        "description": "Omit JSON-RPC params."
+      },
+      "resultSchema": {
+        "type": "object",
+        "required": ["status", "cwd", "spec", "chrome"],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "cwd": {
+            "type": "string"
+          },
+          "spec": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true
+              }
+            ]
+          },
+          "session": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true
+              }
+            ]
+          },
+          "chrome": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "examples": [
+        {
+          "jsonrpc": "2.0",
+          "id": 2,
+          "method": "workspace.state"
+        }
+      ]
+    },
+    {
+      "method": "workspace.activate",
+      "description": "Apply an explicit workspace→spec→session activation decision such as continuing, opening a session, creating a session, creating a spec, or cancelling.",
+      "paramsSchema": {
+        "type": "object",
+        "required": ["decision"],
+        "properties": {
+          "decision": {
+            "anyOf": [
+              {
+                "type": "object",
+                "required": ["action", "specId", "sessionFile"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "const": "continue"
+                  },
+                  "specId": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "sessionFile": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["action", "specId", "sessionFile"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "const": "openSession"
+                  },
+                  "specId": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "sessionFile": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["action", "specId"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "const": "newSession"
+                  },
+                  "specId": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["action", "title"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "const": "newSpec"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["action"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "const": "cancel"
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "resultSchema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": ["status", "spec", "session", "chrome"],
+            "properties": {
+              "status": {
+                "type": "string",
+                "const": "ready"
+              },
+              "spec": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true
+              },
+              "session": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true
+              },
+              "chrome": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          },
+          {
+            "type": "object",
+            "required": ["status", "chrome"],
+            "properties": {
+              "status": {
+                "type": "string",
+                "const": "cancelled"
+              },
+              "chrome": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true
+              }
+            },
+            "additionalProperties": true
+          }
+        ]
+      },
+      "examples": [
+        {
+          "jsonrpc": "2.0",
+          "id": 4,
+          "method": "workspace.activate",
+          "params": {
+            "decision": {
+              "action": "newSpec",
+              "title": "POC spec"
+            }
+          }
+        },
+        {
+          "jsonrpc": "2.0",
+          "id": 5,
+          "method": "workspace.activate",
+          "params": {
+            "decision": {
+              "action": "openSession",
+              "specId": 1,
+              "sessionFile": ".brunch/sessions/session-1.jsonl"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "method": "session.exchanges",
+      "description": "Project session exchanges from the selected or explicitly named linear Brunch session transcript.",
+      "paramsSchema": {
+        "type": "object",
+        "required": ["sessionId"],
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "specId": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "resultSchema": {
+        "type": "object",
+        "required": ["status", "exchanges"],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "exchanges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      },
+      "examples": [
+        {
+          "jsonrpc": "2.0",
+          "id": 6,
+          "method": "session.exchanges",
+          "params": {
+            "sessionId": "session-1",
+            "specId": 1
+          }
+        }
+      ]
+    },
+    {
+      "method": "session.runtimeState",
+      "description": "Return flattened transcript-backed runtime posture, mention, world-watermark, and lifecycle state for an explicit Brunch session.",
+      "paramsSchema": {
+        "type": "object",
+        "required": ["sessionId", "specId"],
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "specId": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "resultSchema": {
+        "type": "object",
+        "required": ["status", "specId", "sessionId", "agent", "mentions", "world", "lifecycle"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ready"
+          },
+          "specId": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sessionId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "agent": {
+            "type": "object",
+            "required": ["operationalMode", "role"],
+            "properties": {
+              "operationalMode": {
+                "type": "string",
+                "const": "specify"
+              },
+              "role": {
+                "type": "string",
+                "const": "elicitor"
+              }
+            },
+            "additionalProperties": false
+          },
+          "mentions": {
+            "type": "object",
+            "required": ["graphNodes", "files"],
+            "properties": {
+              "graphNodes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["id"],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    },
+                    "handle": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    },
+                    "title": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    },
+                    "seenLsn": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["path"],
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    },
+                    "seenGitHead": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "world": {
+            "type": "object",
+            "required": ["graph", "git"],
+            "properties": {
+              "graph": {
+                "type": "object",
+                "required": ["latestLsn"],
+                "properties": {
+                  "latestLsn": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "git": {
+                "type": "object",
+                "required": ["head"],
+                "properties": {
+                  "head": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "lifecycle": {
+            "type": "object",
+            "required": [
+              "specOrigin",
+              "sessionOrigin",
+              "sessionIndexInSpec",
+              "isFirstSessionForSpec",
+              "isTenthSessionForSpec"
+            ],
+            "properties": {
+              "specOrigin": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "new"
+                  },
+                  {
+                    "type": "string",
+                    "const": "existing"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sessionOrigin": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "new"
+                  },
+                  {
+                    "type": "string",
+                    "const": "resumed"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sessionIndexInSpec": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "isFirstSessionForSpec": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "isTenthSessionForSpec": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "examples": [
+        {
+          "jsonrpc": "2.0",
+          "id": 14,
+          "method": "session.runtimeState",
+          "params": {
+            "sessionId": "session-1",
+            "specId": 1
+          }
+        }
+      ]
+    },
+    {
+      "method": "session.triggerExchange",
+      "description": "Kick the selected session: seed origination context and report pending-exchange state. Pending exchanges exist only when the assistant has created one (D49-L/D78-L revised 2026-06-12); the product mints no deterministic exchange.",
+      "paramsSchema": {
+        "type": "void",
+        "description": "Omit JSON-RPC params."
+      },
+      "resultSchema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": ["status", "exchange"],
+            "properties": {
+              "status": {
+                "type": "string",
+                "const": "pending"
+              },
+              "exchange": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "exchangeId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "lens": {
+                    "type": "string",
+                    "const": "intent"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": ["text", "single-select", "multi-select", "review"]
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "details": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "options": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "content": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "rationale": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": ["id", "label", "content"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "note": {
+                    "type": "object",
+                    "properties": {
+                      "allowed": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": ["allowed"],
+                    "additionalProperties": false
+                  },
+                  "reviewSet": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
+                  "digestAbstract": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "respondsToPresentTool": {
+                    "type": "string",
+                    "enum": ["present_candidates", "present_review_set", "present_digest"]
+                  }
+                },
+                "required": ["exchangeId", "lens", "mode", "prompt", "options", "note"],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["status", "exchange"],
+            "properties": {
+              "status": {
+                "type": "string",
+                "const": "idle"
+              },
+              "exchange": {
+                "type": "null"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "examples": [
+        {
+          "jsonrpc": "2.0",
+          "id": 8,
+          "method": "session.triggerExchange"
+        }
+      ]
+    },
+    {
+      "method": "session.pendingExchange",
+      "description": "Read the current transcript-backed pending structured exchange from the selected or explicitly named linear Brunch session.",
+      "paramsSchema": {
+        "type": "object",
+        "required": ["sessionId"],
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "specId": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "resultSchema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": ["status", "exchange"],
+            "properties": {
+              "status": {
+                "type": "string",
+                "const": "pending"
+              },
+              "exchange": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "exchangeId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "lens": {
+                    "type": "string",
+                    "const": "intent"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": ["text", "single-select", "multi-select", "review"]
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "details": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "options": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "content": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "rationale": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": ["id", "label", "content"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "note": {
+                    "type": "object",
+                    "properties": {
+                      "allowed": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": ["allowed"],
+                    "additionalProperties": false
+                  },
+                  "reviewSet": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
+                  "digestAbstract": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "respondsToPresentTool": {
+                    "type": "string",
+                    "enum": ["present_candidates", "present_review_set", "present_digest"]
+                  }
+                },
+                "required": ["exchangeId", "lens", "mode", "prompt", "options", "note"],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["status", "exchange"],
+            "properties": {
+              "status": {
+                "type": "string",
+                "const": "idle"
+              },
+              "exchange": {
+                "type": "null"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "examples": [
+        {
+          "jsonrpc": "2.0",
+          "id": 9,
+          "method": "session.pendingExchange"
+        },
+        {
+          "jsonrpc": "2.0",
+          "id": 10,
+          "method": "session.pendingExchange",
+          "params": {
+            "sessionId": "session-1",
+            "specId": 1
+          }
+        }
+      ]
+    },
+    {
+      "method": "session.submitExchangeResponse",
+      "description": "Submit a text, single-choice, or multi-choice answer for the selected session's current deterministic tuple-shaped pending structured exchange.",
+      "paramsSchema": {
+        "type": "object",
+        "required": ["exchangeId", "answer"],
+        "properties": {
+          "exchangeId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "type": "object",
+                "required": ["text"],
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["optionId"],
+                "properties": {
+                  "optionId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["optionIds"],
+                "properties": {
+                  "optionIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "\\S"
+                    },
+                    "minItems": 1
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["review"],
+                "properties": {
+                  "review": {
+                    "type": "object",
+                    "required": ["decision"],
+                    "properties": {
+                      "decision": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "const": "approve"
+                          },
+                          {
+                            "type": "string",
+                            "const": "request_changes"
+                          },
+                          {
+                            "type": "string",
+                            "const": "reject"
+                          }
+                        ]
+                      },
+                      "comment": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "resultSchema": {
+        "type": "object",
+        "required": ["status", "exchangeId", "answer"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "accepted"
+          },
+          "exchangeId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "answer": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "review": {
+            "anyOf": [
+              {
+                "type": "object",
+                "required": ["status", "lsn", "createdNodes"],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "const": "approved"
+                  },
+                  "lsn": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "createdNodes": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": true
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "request_changes"
+                      },
+                      {
+                        "type": "string",
+                        "const": "rejected"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": ["status", "diagnostics"],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "const": "structural_illegal"
+                  },
+                  "diagnostics": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {},
+                      "additionalProperties": true
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "examples": [
+        {
+          "jsonrpc": "2.0",
+          "id": 11,
+          "method": "session.submitExchangeResponse",
+          "params": {
+            "exchangeId": "deterministic-grounding-choice",
+            "answer": {
+              "optionId": "new-from-scratch"
+            },
+            "note": "This is a greenfield product."
+          }
+        }
+      ]
+    }
+  ]
+}

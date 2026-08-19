@@ -1,0 +1,57 @@
+{
+  "sourceHead": "19c8151a6961670d8ba1371125fdde969bb83ee4",
+  "sourceBranch": "ln/fe-1348-audit-all-usage-and-testing-paths",
+  "workspace": "/tmp/brunch-fe1348-post-sw3-final.jYIzva",
+  "target": {
+    "specId": 1,
+    "sessionId": "019ff748-8a4b-73cb-b260-ec45ba3b061c"
+  },
+  "url": "http://127.0.0.1:65333/session/1/019ff748-8a4b-73cb-b260-ec45ba3b061c",
+  "host": {
+    "commandPid": 46823,
+    "listenerPid": 46910,
+    "port": 65333,
+    "startedAt": "2026-08-12T18:43:09.914Z",
+    "endedAt": "2026-08-12T18:45:21.892Z",
+    "remainedLiveForUserApproval": false
+  },
+  "counts": {
+    "initialAskCalls": 1,
+    "fixedInstructionSubmissions": 1,
+    "successfulPresentReviewSets": 1,
+    "reviewDecisionActivations": 0,
+    "approveActivations": 0,
+    "reloads": 0,
+    "relaunches": 0,
+    "retries": 0,
+    "mutationToolCalls": 0
+  },
+  "preApprovalGate": {
+    "passed": true,
+    "reviewExchangeId": "fe1348-single-req-1",
+    "settledRequirementCount": 1,
+    "edgeCount": 0,
+    "approveControls": 1,
+    "requestChangesControls": 1,
+    "rejectControls": 1,
+    "reviewAnswerControls": 0,
+    "duplicateProposalNarration": false
+  },
+  "stop": {
+    "reason": "witness_infrastructure_host_lifetime",
+    "userCouldApprove": false
+  },
+  "absent": [
+    "approval",
+    "review terminal",
+    "graph receipt",
+    "session presentation A",
+    "settled-before-reload browser evidence",
+    "reload",
+    "session presentation B",
+    "presentation comparison",
+    "settled-after-reload browser evidence",
+    "accept_review_set effect",
+    "receipt convergence"
+  ]
+}

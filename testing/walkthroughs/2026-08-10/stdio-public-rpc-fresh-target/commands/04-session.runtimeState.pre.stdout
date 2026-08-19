@@ -1,0 +1,28 @@
+{
+  "status": "ready",
+  "specId": 1,
+  "sessionId": "019ff59d-45d0-761f-9bca-e7fb655cfdd5",
+  "agent": {
+    "operationalMode": "specify",
+    "role": "elicitor"
+  },
+  "mentions": {
+    "graphNodes": [],
+    "files": []
+  },
+  "world": {
+    "graph": {
+      "latestLsn": null
+    },
+    "git": {
+      "head": null
+    }
+  },
+  "lifecycle": {
+    "specOrigin": null,
+    "sessionOrigin": null,
+    "sessionIndexInSpec": null,
+    "isFirstSessionForSpec": null,
+    "isTenthSessionForSpec": null
+  }
+}

@@ -1,0 +1,63 @@
+- generic [ref=e1] clickable [onclick]
+  - banner
+    - StaticText "brunch"
+    - StaticText "v"
+    - StaticText "1.0.0-alpha.13"
+    - StaticText "AI-guided spec elicitation"
+    - StaticText "/tmp/brunch-fe1348-post-sw3-final.jYIzva"
+  - main
+    - heading "Session 019ff748-8a4b-73cb-b260-ec45ba3b061c" [level=1, ref=e2]
+      - StaticText "Session 019ff748-8a4b-73cb-b260-ec45ba3b061c"
+    - list "Session transcript"
+      - listitem [level=1]
+        - paragraph
+          - strong
+            - StaticText "assistant"
+          - StaticText ": Spec 1 is empty — zero nodes, so everything about \"FE-1348 post-SW3 final settlement witness\" is still just a title. I can read that title as: a witness (test/oracle machinery?) for final settlement, in a state that comes after something called SW3, tracked as ticket FE-1348. But I'd be guessing at every one of those words. Let me anchor the frame before capturing anything."
+      - listitem [level=1]
+        - region "The graph is empty, so I need the smallest real anchor first. **1. What is this spec actually for?** In one or two sentences: what problem does FE-1348 answer, and for whom? **2. Decode the title.** What are: - `SW3` — a release? a migration wave? a system? - `final settlement` — settlement of what (payments, trades, ledger balances, disputes)? - `witness` — do you mean verification/observability machinery, or is this domain vocabulary? **3. What makes it real?** The hard constraint or deadline that forces this work now. **4. Existing source material?** Point me at any ticket text, design doc, URL, or code area in this workspace I should treat as source context rather than invent from scratch." [ref=e4]
+          - paragraph
+            - StaticText "The graph is empty, so I need the smallest real anchor first. **1. What is this spec actually for?** In one or two sentences: what problem does FE-1348 answer, and for whom? **2. Decode the title.** What are: - `SW3` — a release? a migration wave? a system? - `final settlement` — settlement of what (payments, trades, ledger balances, disputes)? - `witness` — do you mean verification/observability machinery, or is this domain vocabulary? **3. What makes it real?** The hard constraint or deadline that forces this work now. **4. Existing source material?** Point me at any ticket text, design doc, URL, or code area in this workspace I should treat as source context rather than invent from scratch."
+          - paragraph
+            - StaticText "Answered: This disposable specification has one requirement: a local command must save one plain-text note while offline. Show only that requirement as one settled graph proposal for my review. Do not commit it before I approve the exact graph draft, do not add an edge or another graph item, and do not propose or commit anything else in this journey."
+      - listitem [level=1]
+        - region "Single requirement: offline note save" [ref=e5]
+          - heading "Single requirement: offline note save" [level=2, ref=e7]
+          - paragraph
+            - StaticText "One settled intent-plane requirement capturing the only stated obligation for this disposable spec — a local command saves a single plain-text note with no network available. No edges and no companion nodes are included, per instruction."
+          - article "REQ1 Local command saves one plain-text note while offline" [ref=e8]
+            - heading "Local command saves one plain-text note while offline" [level=3, ref=e10]
+            - DescriptionList
+              - term "Proposed code"
+              - definition
+                - StaticText "REQ1"
+              - term "Plane"
+              - definition
+                - StaticText "intent"
+              - term "Kind"
+              - definition
+                - StaticText "requirement"
+              - term "Settlement"
+              - definition
+                - StaticText "settled"
+              - term "Body"
+              - definition
+                - StaticText "A local command must save one plain-text note while offline. The save succeeds with no network connectivity available."
+              - term "Detail"
+              - definition
+                - StaticText "{\"form\":\"plain\"}"
+          - region "Review choices" [ref=e9]
+            - heading "Review" [level=3, ref=e11]
+            - button "Approve" [ref=e12]
+            - button "Request changes" [ref=e13]
+            - button "Reject" [ref=e14]
+      - listitem [level=1]
+        - paragraph
+          - strong
+            - StaticText "assistant"
+          - StaticText ": Validated. One node, no edges, nothing else."
+    - form
+      - LabelText
+        - StaticText "Message "
+        - textbox "Message " [ref=e6]
+      - button "Send" [disabled, ref=e3]

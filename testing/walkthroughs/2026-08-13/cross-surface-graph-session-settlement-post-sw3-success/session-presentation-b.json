@@ -1,0 +1,113 @@
+{
+  "status": "ready",
+  "presentation": {
+    "target": {
+      "specId": 1,
+      "sessionId": "019ffa35-a778-7ddc-bd73-c0acb6ba72d3"
+    },
+    "cursor": "14:0d50dd88",
+    "entries": [
+      {
+        "id": "e8625b51",
+        "cursor": "7:e8625b51",
+        "kind": "message",
+        "role": "assistant",
+        "text": "Spec 1 is an empty shell: title only — \"FE-1348 settlement final witness\" — zero nodes, no posture recorded. So everything is still open, including what \"settlement final witness\" actually names here.\n\nLet me get the frame before anything else."
+      },
+      {
+        "id": "6e349c20",
+        "cursor": "8:6e349c20",
+        "kind": "ask",
+        "exchangeId": "fe1348-anchor-1",
+        "question": "The graph is empty, so I have only the ticket-ish title to work from.\n\nTwo things I need before I can ask anything sharper:\n\n1. **What problem does FE-1348 answer?** In your words — what's broken, missing, or risky today that this spec exists to fix.\n2. **What does \"settlement final witness\" refer to?** Is it a payments/settlement domain concept, a Brunch-graph witness edge concern, a test/verification artifact, or something else entirely?\n\nFeel free to answer both in one go, plus any existing material (docs, code paths, tickets) I should treat as source context.",
+        "terminal": {
+          "status": "answered",
+          "value": {
+            "text": "This disposable specification has one requirement: a local command must save one plain-text note while offline. Show only that requirement as one settled graph proposal for my review. Do  │ not commit it before I approve the exact graph draft, do not add an edge or another graph item, and do not propose or commit anything else in this journey."
+          }
+        }
+      },
+      {
+        "id": "48154953",
+        "cursor": "10:48154953",
+        "kind": "present_review_set",
+        "exchangeId": "fe1348-rs-1",
+        "heading": "Offline local note-save requirement",
+        "body": "One settled requirement node capturing the sole stated obligation: a local command saves a single plain-text note with no network available. No edges and no additional nodes, per your instruction.",
+        "reviewSet": {
+          "nodes": [
+            {
+              "draft_id": "r1",
+              "proposed_code": "REQ1",
+              "settlement": "settled",
+              "plane": "intent",
+              "kind": "requirement",
+              "title": "Local command saves one plain-text note while offline",
+              "body": "A locally invoked command must save exactly one plain-text note successfully while the environment is offline (no network connectivity required or used).",
+              "detail": {
+                "form": "plain"
+              }
+            }
+          ],
+          "edges": []
+        },
+        "continuation": {
+          "tool": "ask",
+          "params": {
+            "body": "Offline local note-save requirement\n\nOne settled requirement node capturing the sole stated obligation: a local command saves a single plain-text note with no network available. No edges and no additional nodes, per your instruction.",
+            "options": [
+              {
+                "id": "approve",
+                "label": "Approve"
+              },
+              {
+                "id": "request_changes",
+                "label": "Request changes"
+              },
+              {
+                "id": "reject",
+                "label": "Reject"
+              }
+            ],
+            "commentPrompt": "Required change request"
+          }
+        }
+      },
+      {
+        "id": "c39fe3eb",
+        "cursor": "12:c39fe3eb",
+        "kind": "ask",
+        "exchangeId": "fe1348-rs-1",
+        "question": "Review decision",
+        "terminal": {
+          "status": "answered",
+          "value": {
+            "decision": "approve",
+            "receipt": {
+              "status": "success",
+              "lsn": 2,
+              "createdNodes": {
+                "r1": {
+                  "id": 1,
+                  "code": "REQ1"
+                }
+              },
+              "createdEdges": [],
+              "updatedNodes": [],
+              "updatedEdges": [],
+              "deletedNodes": [],
+              "deletedEdges": []
+            }
+          }
+        }
+      },
+      {
+        "id": "0d50dd88",
+        "cursor": "14:0d50dd88",
+        "kind": "message",
+        "role": "assistant",
+        "text": "Committed: REQ1 — \"Local command saves one plain-text note while offline\" (settled, intent plane). Graph at LSN 2, one node, no edges. Nothing else proposed or captured, as instructed."
+      }
+    ]
+  }
+}

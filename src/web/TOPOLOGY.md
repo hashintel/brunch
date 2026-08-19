@@ -4,7 +4,7 @@ Canonical references: `docs/architecture/prd.md` §Browser / web client, `src/rp
 
 This directory owns the browser client currently served by both the transitional TUI sidecar and the standalone `--mode web` combined host. The browser is a thin remote head over the Brunch host: one React app, one WebSocket-backed Brunch JSON-RPC client, TanStack Router for route/data preloading, and TanStack Query for cache ownership and update scheduling. Standalone session routes drive explicitly targeted existing JSONL sessions without constructing `InteractiveMode`.
 
-**Migration state:** the client already consumes the target-addressed `brunch.liveSessionEvent` contract and deliberately ignores raw `brunch.sessionEvent`; that semantic contract is canonical for both D141-L launch compositions. Normal TUI and standalone web own different runtime compositions, while companion and standalone React now share `session.presentation`, target-addressed `session.*` methods, and `subscribeSessionEvents`; the PTY witness over real `InteractiveMode` behavior has landed, and `src/app/__tests__/session-runtime-contract-companion.slow.test.ts` now drives this exact client — real WebSocket, real router/Query stack, real session route — against that composition, proving semantic-only intake, settled equality with a fresh JSONL projection, and inert detach. The remaining open proofs are a structured ask over the same composition, rival refusal, and post-shutdown reopen. The active arc removes `/rpc/driver` and raw Pi events rather than teaching this client two browser dialects; it does not require the companion browser to outlive the TUI process. See [`docs/design/WEB_UI_ARCHITECTURE.md`](../../docs/design/WEB_UI_ARCHITECTURE.md).
+**Migration state:** the client consumes the target-addressed `brunch.liveSessionEvent` contract and deliberately ignores raw `brunch.sessionEvent`; that semantic contract is canonical for both D141-L launch compositions. Normal TUI and standalone web own different runtime compositions, while companion and standalone React share `session.presentation`, target-addressed `session.*` methods, and `subscribeSessionEvents`. The production PTY witnesses now cover ordinary turns, an observe-only structured ask with TUI-only answer authority, rival-writer refusal, shutdown/reopen transfer, and settled equality with fresh JSONL. FE-1348 then outer-witnessed standalone live/reload reconciliation and one settled review through approval and reload. The remaining arc work is cutover deletion of `/rpc/driver`, raw Pi events, and duplicate browser semantics; the companion browser need not outlive the TUI process. See [`docs/design/WEB_UI_ARCHITECTURE.md`](../../docs/design/WEB_UI_ARCHITECTURE.md).
 
 The web client must not read SQLite, Pi RPC, local JSONL, or `.brunch/workspace.json` directly. It speaks Brunch public RPC method names and renders product projections. Its current graph observer subset is `graph.overview` + `graph.nodeNeighborhood`; `src/graph/TOPOLOGY.md` owns the observed-shape ledger and keeps additional graph-owned shapes deliberate rather than accidental bleed-through from agent/RPC needs.
 
@@ -38,6 +38,7 @@ web/
     method-shaped product query keys:
       workspace.state
       session.runtimeState
+      session.presentation
       graph.overview
       graph.nodeNeighborhood
       execute.runs
@@ -45,10 +46,11 @@ web/
       execute.runTraceIndex
 
   queries/
-    workspace.ts -> workspace.state + workspace.selectionState query options
-    session.ts   -> session.runtimeState query options
-    graph.ts     -> graph overview/neighborhood query options
-    execute.ts   -> executor run list/detail/trace-index query options (run observer)
+    workspace.ts            -> workspace.state + workspace.selectionState query options
+    session.ts              -> session.runtimeState query options
+    session-presentation.ts -> canonical session.presentation query options
+    graph.ts                -> graph overview/neighborhood query options
+    execute.ts              -> executor run list/detail/trace-index query options (run observer)
 
   subscriptions/
     brunch-updates.ts
@@ -71,7 +73,7 @@ web/
       `/spec/$specId` loader primes workspace.state + graph.overview
       renders the knowledge-graph structured list
     session.tsx
-      `/session/$specId/$sessionId` opens and hydrates an exact target, best-effort closes it on post-open loader failure and route exit, submits text and ask answers with a reload-stable browser driver id, renders free-text/single-select/multi-select/questionnaire asks plus candidate/digest/review-set semantic entries without decoding raw details, preserves receipt-bearing review settlement, consumes only rpc-client.ts's validated target-filtered semantic subscription, reduces cumulative semantic deltas, and discards its live overlay for a durable refetch on `agent_settled`
+      `/session/$specId/$sessionId` opens and hydrates an exact target, best-effort closes it on post-open loader failure and route exit, submits text and ask answers with a reload-stable browser driver id, renders free-text/single-select/multi-select/questionnaire asks plus candidate/digest/review-set semantic entries without decoding raw details, preserves receipt-bearing review settlement, consumes only rpc-client.ts's validated target-filtered semantic subscription, subscribes before an authoritative generation-scoped open-ask resnapshot, semantically reconciles competing actionable ask representations by exchange id without deduping durable history, confirms successful answers locally, validates `ask_closed` against both open asks and refreshed canonical presentation, and discards its live overlay for a durable refetch on `agent_settled`
     runs.tsx
       `/runs` loader primes execute.runs; run list with presence flags
       `/runs/$runId` loader primes execute.run; crank status, honest
@@ -81,6 +83,10 @@ web/
       (events lead the run.json snapshot by design), derived Petri projection
       summary plus raw net disclosure, unreadable-run marking, requirement
       rows link back to graph nodes and slice-log anchors
+
+  features/session/
+    live-overlay.ts
+      generation-scoped semantic overlay reconciled against canonical presentation
 
   features/graph/
     structured-list-view.tsx

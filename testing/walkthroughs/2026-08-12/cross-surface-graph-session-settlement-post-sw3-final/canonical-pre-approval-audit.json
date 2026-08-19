@@ -1,0 +1,41 @@
+{
+  "entryCount": 13,
+  "fixedInstructionOccurrences": 2,
+  "initialAskCalls": 1,
+  "initialAskResults": 1,
+  "successfulPresentReviewSets": 1,
+  "reviewExchangeId": "fe1348-single-req-1",
+  "reviewNodes": [
+    {
+      "draft_id": "req-offline-note-save",
+      "proposed_code": "REQ1",
+      "settlement": "settled",
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Local command saves one plain-text note while offline",
+      "body": "A local command must save one plain-text note while offline. The save succeeds with no network connectivity available.",
+      "detail": {
+        "form": "plain"
+      }
+    }
+  ],
+  "reviewEdges": [],
+  "continuationCalls": 1,
+  "continuationOptions": [
+    {
+      "id": "approve",
+      "label": "Approve"
+    },
+    {
+      "id": "request_changes",
+      "label": "Request changes"
+    },
+    {
+      "id": "reject",
+      "label": "Reject"
+    }
+  ],
+  "reviewTerminals": 0,
+  "approveTerminals": 0,
+  "mutationToolCalls": 0
+}

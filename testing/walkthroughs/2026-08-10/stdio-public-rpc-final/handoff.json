@@ -1,0 +1,25 @@
+{
+  "phase": "ready_for_stdio",
+  "sourceCommit": "3cddae4eb",
+  "workspace": "/tmp/brunch-fe1348-stdio-final.SmRMCO",
+  "specId": 1,
+  "sessionId": "019ff5de-130f-7abe-b651-0db9e0932963",
+  "sessionFile": "/tmp/brunch-fe1348-stdio-final.SmRMCO/.brunch/sessions/2026-08-12T12-06-39-631Z_019ff5de-130f-7abe-b651-0db9e0932963.jsonl",
+  "sessionSha256": "29116a67a9fe061719646ec4091be77b8bc00cda39a3161bf9d9a48ed0639e92",
+  "entryCount": 9,
+  "exchangeId": "fe1348-anchor-1",
+  "providerToolCallId": "toolu_01KPTx4A71oSce6R1RDVM7D2",
+  "exchangeMode": "free-text",
+  "question": "Starting cold. Before anything else: what is this spec actually about?",
+  "provider": "anthropic",
+  "model": "claude-opus-5",
+  "hostPid": 22785,
+  "hostUrl": "http://127.0.0.1:57724",
+  "shutdown": {
+    "boundedAttempt": 2,
+    "processStopped": true,
+    "listenerStopped": true,
+    "writerOwnerAbsent": true
+  },
+  "userObservation": "The question was visible and unanswered. React rendered the same canonical question twice; canonical JSONL contains exactly one provider ask. Screenshot: /Users/lunelson/Library/Application Support/CleanShot/media/media_4gviZB0XJA/CleanShot 2026-08-12 at 17.13.26@2x.png"
+}

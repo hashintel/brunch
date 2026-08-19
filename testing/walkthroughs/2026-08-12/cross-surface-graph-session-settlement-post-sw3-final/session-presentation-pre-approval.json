@@ -1,0 +1,85 @@
+{
+  "status": "ready",
+  "presentation": {
+    "target": {
+      "specId": 1,
+      "sessionId": "019ff748-8a4b-73cb-b260-ec45ba3b061c"
+    },
+    "cursor": "11:7ead7d92",
+    "entries": [
+      {
+        "id": "cc76f25b",
+        "cursor": "7:cc76f25b",
+        "kind": "message",
+        "role": "assistant",
+        "text": "Spec 1 is empty — zero nodes, so everything about \"FE-1348 post-SW3 final settlement witness\" is still just a title. I can read that title as: a witness (test/oracle machinery?) for final settlement, in a state that comes after something called SW3, tracked as ticket FE-1348. But I'd be guessing at every one of those words.\n\nLet me anchor the frame before capturing anything."
+      },
+      {
+        "id": "44501300",
+        "cursor": "8:44501300",
+        "kind": "ask",
+        "exchangeId": "fe1348-anchor-1",
+        "question": "The graph is empty, so I need the smallest real anchor first.\n\n**1. What is this spec actually for?** In one or two sentences: what problem does FE-1348 answer, and for whom?\n\n**2. Decode the title.** What are:\n- `SW3` — a release? a migration wave? a system?\n- `final settlement` — settlement of what (payments, trades, ledger balances, disputes)?\n- `witness` — do you mean verification/observability machinery, or is this domain vocabulary?\n\n**3. What makes it real?** The hard constraint or deadline that forces this work now.\n\n**4. Existing source material?** Point me at any ticket text, design doc, URL, or code area in this workspace I should treat as source context rather than invent from scratch.",
+        "terminal": {
+          "status": "answered",
+          "value": {
+            "text": "This disposable specification has one requirement: a local command must save one plain-text note while offline. Show only that requirement as one settled graph proposal for my review. Do not commit it before I approve the exact graph draft, do not add an edge or another graph item, and do not propose or commit anything else in this journey."
+          }
+        }
+      },
+      {
+        "id": "cfec69b0",
+        "cursor": "10:cfec69b0",
+        "kind": "present_review_set",
+        "exchangeId": "fe1348-single-req-1",
+        "heading": "Single requirement: offline note save",
+        "body": "One settled intent-plane requirement capturing the only stated obligation for this disposable spec — a local command saves a single plain-text note with no network available. No edges and no companion nodes are included, per instruction.",
+        "reviewSet": {
+          "nodes": [
+            {
+              "draft_id": "req-offline-note-save",
+              "proposed_code": "REQ1",
+              "settlement": "settled",
+              "plane": "intent",
+              "kind": "requirement",
+              "title": "Local command saves one plain-text note while offline",
+              "body": "A local command must save one plain-text note while offline. The save succeeds with no network connectivity available.",
+              "detail": {
+                "form": "plain"
+              }
+            }
+          ],
+          "edges": []
+        },
+        "continuation": {
+          "tool": "ask",
+          "params": {
+            "body": "Single requirement: offline note save\n\nOne settled intent-plane requirement capturing the only stated obligation for this disposable spec — a local command saves a single plain-text note with no network available. No edges and no companion nodes are included, per instruction.",
+            "options": [
+              {
+                "id": "approve",
+                "label": "Approve"
+              },
+              {
+                "id": "request_changes",
+                "label": "Request changes"
+              },
+              {
+                "id": "reject",
+                "label": "Reject"
+              }
+            ],
+            "commentPrompt": "Required change request"
+          }
+        }
+      },
+      {
+        "id": "7ead7d92",
+        "cursor": "11:7ead7d92",
+        "kind": "message",
+        "role": "assistant",
+        "text": "Validated. One node, no edges, nothing else."
+      }
+    ]
+  }
+}

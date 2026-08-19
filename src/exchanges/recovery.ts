@@ -1,5 +1,6 @@
-import type { PresentDetails, RequestDetails } from './schemas/index.js';
+import type { PresentDetails, RequestDetails, StandaloneAskParams } from './schemas/index.js';
 import {
+  parseAskParams,
   zAskDetails,
   zPresentDetails,
   zPresentDigestDetails,
@@ -46,8 +47,99 @@ export interface EntryLike {
   type?: unknown;
   message?: {
     role?: unknown;
+    provider?: unknown;
+    content?: unknown;
+    toolCallId?: unknown;
+    toolName?: unknown;
     details?: unknown;
   };
+}
+
+export interface UnresolvedStandaloneAsk {
+  entry: EntryLike;
+  toolCallId: string;
+  params: StandaloneAskParams;
+}
+
+export type ProviderStandaloneAskOccupancy =
+  | { call: UnresolvedStandaloneAsk; status: 'unresolved' }
+  | { call: UnresolvedStandaloneAsk; status: 'resolved'; terminal: EntryLike }
+  | { call: UnresolvedStandaloneAsk; status: 'protocol_invalid'; invalidResult: EntryLike };
+
+/** Recover only an unambiguous, provider-authored standalone ask on the supplied active branch. */
+export function findProviderStandaloneAskCalls(entries: readonly EntryLike[]): UnresolvedStandaloneAsk[] {
+  const calls: UnresolvedStandaloneAsk[] = [];
+
+  for (const entry of entries) {
+    const message = entry.type === 'message' ? entry.message : undefined;
+    if (message?.role === 'assistant' && message.provider !== 'brunch' && Array.isArray(message.content)) {
+      for (const block of message.content) {
+        if (
+          !isRecord(block) ||
+          block.type !== 'toolCall' ||
+          block.name !== 'ask' ||
+          typeof block.id !== 'string'
+        )
+          continue;
+        const parsed = parseAskParams(block.arguments);
+        if (!parsed.success || 'continues' in parsed.data || parsed.data.questions !== undefined) continue;
+        calls.push({ entry, toolCallId: block.id, params: parsed.data });
+      }
+    }
+  }
+  return calls;
+}
+
+export function classifyProviderStandaloneAskOccupancy(
+  entries: readonly EntryLike[],
+): ProviderStandaloneAskOccupancy[] {
+  const calls = findProviderStandaloneAskCalls(entries);
+  const uniqueCalls = calls.filter(
+    (call) => calls.filter((candidate) => candidate.toolCallId === call.toolCallId).length === 1,
+  );
+  return uniqueCalls.map((call) => {
+    let terminal: EntryLike | undefined;
+    for (const entry of entries) {
+      const message = entry.type === 'message' ? entry.message : undefined;
+      if (
+        message?.role !== 'toolResult' ||
+        message.toolName !== 'ask' ||
+        message.toolCallId !== call.toolCallId
+      )
+        continue;
+      const parsed = zAskDetails.safeParse(message.details);
+      if (!parsed.success || parsed.data.exchange_id !== call.params.exchangeId)
+        return { call, status: 'protocol_invalid', invalidResult: entry };
+      terminal ??= entry;
+    }
+    return terminal ? { call, status: 'resolved', terminal } : { call, status: 'unresolved' };
+  });
+}
+
+export function findUnresolvedStandaloneAsk(
+  entries: readonly EntryLike[],
+): UnresolvedStandaloneAsk | undefined {
+  const unresolved = classifyProviderStandaloneAskOccupancy(entries).filter(
+    (occupancy) => occupancy.status === 'unresolved',
+  );
+  return unresolved.length === 1 ? unresolved[0]?.call : undefined;
+}
+
+/** A provider ask closes only through a schema-valid terminal carrying both original identities. */
+export function findCorrelatedStandaloneAskTerminal(
+  entries: readonly EntryLike[],
+  call: UnresolvedStandaloneAsk,
+): EntryLike | undefined {
+  const occupancy = classifyProviderStandaloneAskOccupancy(entries).find(
+    (candidate) =>
+      candidate.call.toolCallId === call.toolCallId &&
+      candidate.call.params.exchangeId === call.params.exchangeId,
+  );
+  return occupancy?.status === 'resolved' ? occupancy.terminal : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 function toolResultDetails(entry: EntryLike): unknown {

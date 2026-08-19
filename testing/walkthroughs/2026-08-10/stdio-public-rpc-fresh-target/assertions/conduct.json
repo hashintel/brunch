@@ -1,0 +1,36 @@
+{
+  "result": "parked",
+  "firstFailedBoundary": "session.triggerExchange",
+  "expected": {
+    "status": "pending",
+    "exchangeId": "fe1348-anchor-1",
+    "mode": "free-text"
+  },
+  "actual": {
+    "status": "idle",
+    "exchange": null
+  },
+  "target": {
+    "cwd": "/tmp/brunch-fe1348-stdio-fresh.FsFSuK",
+    "specId": 1,
+    "sessionId": "019ff59d-45d0-761f-9bca-e7fb655cfdd5"
+  },
+  "canonical": {
+    "sha256Before": "b2066a55f75c9cc74c15c960d31797005e39281d6ee09050aebaa65ff6c113e3",
+    "sha256After": "b2066a55f75c9cc74c15c960d31797005e39281d6ee09050aebaa65ff6c113e3",
+    "entryCount": 9,
+    "endsInUnresolvedAsk": true
+  },
+  "calls": {
+    "rpc.discover": 1,
+    "workspace.activate": 1,
+    "workspace.state": 1,
+    "session.runtimeState": 1,
+    "session.triggerExchange": 1,
+    "session.pendingExchange": 0,
+    "session.exchanges": 0,
+    "session.submitExchangeResponse": 0
+  },
+  "forbiddenConductObserved": false,
+  "workspaceRemovedAfterEvidenceCopy": true
+}

@@ -23,7 +23,9 @@ import {
   appendEntryContentToDebugCache,
   appendOriginationRecordToDebugCache,
 } from '../.pi/extensions/dev-mode/index.js';
+import { buildCurrentProjectionForSpec } from '../.pi/extensions/executor/current-projection.js';
 import { isBrunchDevelopmentRuntime } from '../build-info.js';
+import { resolveDeterministicProcessMoveAvailability } from '../executor/process-move-availability.js';
 import {
   openWorkspaceGraphRuntime,
   type EdgeCategory,
@@ -656,6 +658,14 @@ export function createBrunchAgentSessionRuntimeFactory(
               };
             },
             sessionOrientation: {
+              resolveProcessMoveAvailability: async () => {
+                const { projection, current } = await buildCurrentProjectionForSpec({
+                  cwd,
+                  specId: currentWorkspace.spec.id,
+                  reads: graph.forSpec(currentWorkspace.spec.id),
+                });
+                return resolveDeterministicProcessMoveAvailability({ cwd, projection, current });
+              },
               // Option-2 J1: origination + kick now run inside the
               // `session_start` (reason `startup`) handler in the
               // session-orientation extension registrar, which fires from

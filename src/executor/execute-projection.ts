@@ -15,6 +15,7 @@ import {
   type ProjectExecutionSpecSnapshotInput,
 } from './execution-spec-snapshot.js';
 import { previewPlan, type PlanPreview } from './plan-preview.js';
+import type { PlanValidationFinding } from './plan-validation.js';
 
 export interface ExecuteGraphProjectionSource {
   readonly graphLsn: number;
@@ -73,12 +74,40 @@ export function projectExecuteGraph(input: ProjectExecuteGraphInput): ExecuteGra
 }
 
 export function assertExecuteProjectionPlanReady(projection: ExecuteGraphProjection): void {
-  if (projection.check.status === 'ok') return;
-
   const errors = projection.check.findings.filter((finding) => finding.severity === 'error');
-  const summary =
-    errors.length > 0 ? errors.map((finding) => finding.message).join('; ') : 'unknown plan-input error';
+  if (errors.length === 0) return;
+  const summary = errors.map((finding) => finding.message).join('; ');
   throw new Error(`Execution plan projection is blocked: ${summary}`);
+}
+
+/** Complete deterministic admission shared by plan compilation and menu availability. */
+export function deterministicCompileAdmissionFindings(
+  projection: ExecuteGraphProjection,
+): readonly PlanValidationFinding[] {
+  return [
+    ...projection.executionContract.blocked.map((entry) => ({
+      code: 'capability_unsupported' as const,
+      severity: 'error' as const,
+      ...(entry.source.kind === 'elicited' ? { itemId: entry.source.itemId } : {}),
+      message: entry.message ?? `Capability ${entry.id} is blocked (${entry.reason}).`,
+    })),
+    ...projection.executionContract.conflicts.map((conflict) => ({
+      code: 'capability_conflict' as const,
+      severity: 'error' as const,
+      itemId: conflict.requiredId,
+      message: conflict.message,
+    })),
+    ...(projection.executionContract.resolvedActions.verify.length === 0
+      ? [
+          {
+            code: 'no_verification_capability' as const,
+            severity: 'error' as const,
+            message:
+              'No authored execute.verify recipe resolves a verification action; settle an oracle/vv_method named Project execution harness with one plain execute.verify command.',
+          },
+        ]
+      : []),
+  ];
 }
 
 function withRecipeIssues(contract: ExecutionContract, recipe: SpecRecipeExtraction): ExecutionContract {

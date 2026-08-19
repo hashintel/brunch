@@ -1,0 +1,3 @@
+host_pid_12791=stopped
+listener_50834=stopped
+writer_owner_count=0

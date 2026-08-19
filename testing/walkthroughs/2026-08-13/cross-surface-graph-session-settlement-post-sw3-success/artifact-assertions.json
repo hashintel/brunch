@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "assertions": {
+    "canonicalJsonlEntries": 16,
+    "successfulReviewOffers": 1,
+    "approvedReviewTerminals": 1,
+    "acceptedReviewReceipts": 1,
+    "modelAuthoredMutateGraphCalls": 0,
+    "presentationAStatus": "ready",
+    "presentationBStatus": "ready",
+    "presentationAEqualsBByteForByte": true,
+    "presentationTargetsEqual": true,
+    "presentationCursorsEqual": true,
+    "presentationEntriesEqual": true,
+    "graphAEqualsBByteForByte": true,
+    "graphLsn": 2,
+    "graphNodes": 1,
+    "graphEdges": 0,
+    "sqliteChangeLogOperations": ["create_spec", "accept_review_set"],
+    "sqliteAcceptReviewSetRows": 1,
+    "sqliteMutateGraphRows": 0,
+    "approveActivations": 1,
+    "reloads": 1
+  }
+}

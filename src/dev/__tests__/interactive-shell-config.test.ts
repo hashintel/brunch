@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 const projectRoot = fileURLToPath(new URL('../../../', import.meta.url));
 
 describe('project interactive shell configuration', () => {
-  it('uses the upstream shell package without overriding project extension discovery', async () => {
+  it('uses the upstream shell package with the portable project subagent extension', async () => {
     const config = JSON.parse(await readFile(`${projectRoot}.pi/interactive-shell.json`, 'utf8')) as {
       overlayHeightPercent?: number;
     };
@@ -17,6 +17,6 @@ describe('project interactive shell configuration', () => {
 
     expect(config.overlayHeightPercent).toBe(80);
     expect(settings.packages).toEqual(['npm:pi-interactive-shell@0.13.0']);
-    expect(settings.extensions).toBeUndefined();
+    expect(settings.extensions).toEqual(['+extensions/subagents/index.ts']);
   });
 });

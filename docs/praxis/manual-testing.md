@@ -2,14 +2,17 @@
 
 Outer-loop verification for slices that touch the user-facing boundary. Manual testing is irreplaceable for qualitative judgment — UX feel, content quality, flow coherence. For audience-specific seed walkthroughs, deterministic reads, trajectory evidence, and the separate cross-product approach, see [Comparison Runs](comparison-runs.md).
 
-## Setup
+## Setup: choose the control surface by the claim
 
-1. **Interactive TUI control**: use the project-local `pi-interactive-shell` package when the host permits overlays. It gives the agent a real PTY and bounded terminal queries while a human watches, takes over by typing, and presses `Ctrl+G` to return a hands-free session to the agent. Root `.pi/settings.json` declares this permanent developer extension; it remains outside Brunch's shipped package manifest, sealed `src/.pi` profile, and runtime dependency graph.
-2. **Sandboxed/headless TUI control**: when host-capable overlay execution is unavailable, use the project-owned `npm run tui-driver` fallback described below. The web UI is served as a sidecar of the running TUI process.
-   - **Standalone web** (`brunch --mode web`): also supported since FE-1200. It starts a combined cwd-scoped host without `InteractiveMode`, prints its loopback URL on stdout, and serves the target-addressed React session route (`/session/$specId/$sessionId`) directly. Use this when driving a browser chat without a TUI process.
-3. **Browser observation**: use `agent-browser` (`/cli-agent-browser`) as the primary observer — daemon-backed Chrome with AX-tree snapshots, clicks, and screenshots. Use CDP tools (`/cli-cdp`) for console and network detail.
+1. **Machine-facing conduct**: use the target's supported structured interface when terminal rendering is not part of the claim. Brunch uses public Brunch JSON-RPC where the required operation is represented; Pi uses its JSONL RPC (or its SDK for same-process typed control); Claude uses stream-JSON CLI or the Agent SDK. Do not introduce a PTY merely to exchange text.
+2. **Browser behavior or presentation**: use `agent-browser` (`/cli-agent-browser`) as the primary observer — daemon-backed Chrome with AX-tree snapshots, clicks, and screenshots. Use CDP tools (`/cli-cdp`) for console and network detail. Standalone web (`brunch --mode web`) starts a combined cwd-scoped host without `InteractiveMode`, prints its loopback URL, and serves the target-addressed React session route (`/session/$specId/$sessionId`) directly.
+3. **Terminal semantics or deliberate human observation**: use a real Herdr pane when available. Herdr is the preferred PTY host because the agent can control a normal pane while the rendered interaction stays visible to the human. Use its native layout/pane/agent controls, preserve focus for background work, and close only resources created for the walkthrough.
+4. **Non-Herdr overlay option**: use the project-local `pi-interactive-shell` package when a supervised overlay is required and the host permits it. It provides bounded terminal queries plus human takeover. Root `.pi/settings.json` declares this permanent developer package; it remains outside Brunch's shipped package manifest, sealed `src/.pi` profile, and runtime dependency graph.
+5. **Headless PTY fallback**: use the project-owned `npm run tui-driver` only when the claim still requires terminal rendering or key/focus/lifecycle behavior and neither Herdr nor a host overlay is available. The web UI is served as a sidecar of the running TUI process.
 
-Install or reconcile the pinned project package from the repository root, then confirm Pi reports it under `Project packages`:
+The current Brunch Execute comparison is an explicit temporary exception to the machine-first rule: stdio RPC has no live `AgentSession`, and hosted web RPC cannot select Move to execution / Prepare / Compile / Execute. Keep that path terminal-driven until PLAN `cli-mode-entry` and `comparison-machine-interface-cutover` land; do not emulate process moves by editing JSONL or private state.
+
+If the non-Herdr overlay option is needed, install or reconcile the pinned project package from the repository root, then confirm Pi reports it under `Project packages`:
 
 ```bash
 pi install -l npm:pi-interactive-shell@0.13.0
@@ -32,7 +35,7 @@ The normal TUI and standalone web host are two legitimate runtime compositions. 
 
 Record the current/desired path and exact deletion evidence in the frontier's walkthrough artifact. The cutover is not witnessed while `SessionEventRelay`, `brunch.sessionEvent`, or `/rpc/driver` remains load-bearing. See [`docs/design/WEB_UI_ARCHITECTURE.md`](../design/WEB_UI_ARCHITECTURE.md).
 
-Before relying on it, use `interactive_shell` to start a trivial command, accept input, resize, report a final status, and prove no background session remains. Repeat this health check after any pinned package, Pi, Node, OS, architecture, or resolved-`zigpty` change. Then ask the agent to run these in hands-free mode:
+Before relying on `pi-interactive-shell`, use it to start a trivial command, accept input, resize, report a final status, and prove no background session remains. Repeat this health check after any pinned package, Pi, Node, OS, architecture, or resolved-`zigpty` change. Then ask the agent to run these in hands-free mode:
 
 ```text
 npm run dev:components -- tui-lab
@@ -42,7 +45,7 @@ npm run dev-cli -- --workspace .fixtures/workbenches/workspace-alpha-grounding -
 
 Use structured `input`, `inputKeys`, `inputPaste`, status, and kill operations rather than embedding terminal escapes. Keep model-visible queries bounded; use status to capture the final exit result. Version 0.13.0 was witnessed on Pi 0.80.x, Node v24.18.0, and macOS 26.5.2 arm64 with its resolved `zigpty` 0.1.6 `darwin-arm64` prebuild. It declares `zigpty ^0.1.6` while upstream was on 0.2.1. macOS is the witnessed platform; Linux remains unproven here.
 
-### Sandboxed/headless fallback: tui-driver
+### Headless PTY fallback: tui-driver
 
 If overlays or socket-backed tooling cannot bind (for example `listen EPERM .../*.pipe`), use `npm run tui-driver` (`src/dev/tui-driver.ts`). It is an `expect`-pumped PTY per named session, with true screen rendering through a headless xterm and wait-for-text instead of sleep-and-hope. Sessions live under gitignored `.fixtures/scratch/tui-driver/<name>/`. It does not provide human overlay takeover, runtime resize, or bracketed/multiline paste; switch back to the project-local extension when those are acceptance requirements and the host permits it.
 

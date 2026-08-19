@@ -1,6 +1,10 @@
 import type { z } from 'zod';
 
 import {
+  classifyProviderStandaloneAskOccupancy,
+  findUnresolvedStandaloneAsk,
+} from '../../exchanges/recovery.js';
+import {
   zPresentCandidatesDetails,
   zPresentDigestDetails,
   zPresentReviewSetDetails,
@@ -182,6 +186,14 @@ export function projectSessionPresentation(
   entries: readonly unknown[],
 ): SessionPresentationResult {
   const projected: SessionPresentationEntry[] = [];
+  const providerAskOccupancies = classifyProviderStandaloneAskOccupancy(entries as readonly never[]);
+  const poisonedAsk = providerAskOccupancies.find((occupancy) => occupancy.status === 'protocol_invalid');
+  if (poisonedAsk?.status === 'protocol_invalid') {
+    const invalidResult = poisonedAsk.invalidResult as { id?: unknown };
+    if (typeof invalidResult.id === 'string')
+      return { status: 'malformed_detail', entryId: invalidResult.id, family: 'ask' };
+  }
+  const openProviderAsk = findUnresolvedStandaloneAsk(entries as readonly never[]);
   for (const [index, entry] of entries.entries()) {
     if (
       !isRecord(entry) ||
@@ -195,10 +207,23 @@ export function projectSessionPresentation(
     if (message.role === 'user' || message.role === 'assistant') {
       const text = messageText(message.content);
       if (text !== null) projected.push({ id: entry.id, cursor, kind: 'message', role: message.role, text });
+      if (openProviderAsk?.entry === entry) {
+        const openAsk = openProviderAsk;
+        projected.push({
+          id: `${entry.id}:ask`,
+          cursor: `${cursor}:ask`,
+          kind: 'ask',
+          exchangeId: openAsk.params.exchangeId,
+          question: openAsk.params.body,
+          ...(openAsk.params.multiple ? { mode: 'multi-select' as const } : {}),
+          ...(openAsk.params.options ? { options: openAsk.params.options } : {}),
+        });
+      }
       continue;
     }
     if (message.role !== 'toolResult') continue;
     if (message.toolName === 'present_review_set') {
+      if (isRecognizedPresentFailureDetails(message.toolName, message.details)) continue;
       const parsed = zPresentReviewSetDetails.safeParse(message.details);
       if (!parsed.success)
         return { status: 'malformed_detail', entryId: entry.id, family: 'present_review_set' };
@@ -216,6 +241,7 @@ export function projectSessionPresentation(
       continue;
     }
     if (message.toolName === 'present_digest') {
+      if (isRecognizedPresentFailureDetails(message.toolName, message.details)) continue;
       const parsed = zPresentDigestDetails.safeParse(message.details);
       if (!parsed.success) return { status: 'malformed_detail', entryId: entry.id, family: 'present_digest' };
       const details = parsed.data;
@@ -232,6 +258,7 @@ export function projectSessionPresentation(
       continue;
     }
     if (message.toolName === 'present_candidates') {
+      if (isRecognizedPresentFailureDetails(message.toolName, message.details)) continue;
       const parsed = zPresentCandidatesDetails.safeParse(message.details);
       if (!parsed.success)
         return { status: 'malformed_detail', entryId: entry.id, family: 'present_candidates' };
@@ -263,6 +290,7 @@ export function projectSessionPresentation(
     if (message.toolName !== 'ask') continue;
     const parsed = zAskDetails.safeParse(message.details);
     if (!parsed.success) {
+      if (isAskValidationFailureDetails(message.details)) continue;
       const reviewSet = zRequestReviewSetDetails.safeParse(message.details);
       if (reviewSet.success) {
         const details = reviewSet.data;
@@ -390,4 +418,48 @@ function messageText(content: unknown): string | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function hasExactDiagnostics(value: unknown): value is Record<string, unknown> & { diagnostics: unknown[] } {
+  return (
+    isRecord(value) &&
+    !Array.isArray(value) &&
+    Array.isArray(value.diagnostics) &&
+    value.diagnostics.length > 0 &&
+    value.diagnostics.every(
+      (diagnostic) =>
+        isRecord(diagnostic) &&
+        !Array.isArray(diagnostic) &&
+        Object.keys(diagnostic).every((key) => key === 'field' || key === 'message') &&
+        typeof diagnostic.field === 'string' &&
+        typeof diagnostic.message === 'string',
+    )
+  );
+}
+
+function isRecognizedPresentFailureDetails(
+  toolName: 'present_candidates' | 'present_digest' | 'present_review_set',
+  value: unknown,
+): boolean {
+  if (!hasExactDiagnostics(value)) return false;
+  if (value.status === 'validation_failed') {
+    return (
+      Object.keys(value).every((key) => ['status', 'tool', 'diagnostics'].includes(key)) &&
+      value.tool === toolName
+    );
+  }
+  return (
+    toolName === 'present_review_set' &&
+    value.status === 'structural_illegal' &&
+    Object.keys(value).every((key) => key === 'status' || key === 'diagnostics')
+  );
+}
+
+function isAskValidationFailureDetails(value: unknown): boolean {
+  return (
+    hasExactDiagnostics(value) &&
+    Object.keys(value).every((key) => ['status', 'tool', 'diagnostics'].includes(key)) &&
+    value.status === 'validation_failed' &&
+    value.tool === 'ask'
+  );
 }

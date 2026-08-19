@@ -23,6 +23,11 @@ function fixture(
   outcomes: {
     driveTurn?: unknown;
     answerExchange?: unknown;
+    presentationAfterRefresh?: readonly SessionPresentationEntry[];
+    openAsksAfterAnswer?: readonly unknown[];
+    initialOpenAsks?: Promise<{ openAsks: readonly unknown[] }>;
+    afterAnswerOpenAsksResult?: Promise<{ openAsks: readonly unknown[] }>;
+    presentationAfterRefreshResult?: Promise<SessionPresentationResult>;
   } = {},
 ) {
   const listeners = new Set<WebSocketRpcNotificationListener>();
@@ -31,7 +36,13 @@ function fixture(
   const client = {
     async request<T>(method: string, params?: unknown): Promise<T> {
       calls.push({ method, params });
-      if (method === 'session.openAsks') return { openAsks } as T;
+      if (method === 'session.openAsks') {
+        const answered = calls.some(({ method: called }) => called === 'session.answerExchange');
+        if (!answered && outcomes.initialOpenAsks) return (await outcomes.initialOpenAsks) as T;
+        if (answered && outcomes.afterAnswerOpenAsksResult)
+          return (await outcomes.afterAnswerOpenAsksResult) as T;
+        return { openAsks: answered ? (outcomes.openAsksAfterAnswer ?? openAsks) : openAsks } as T;
+      }
       if (method === 'workspace.state') {
         return {
           status: 'ready',
@@ -42,6 +53,7 @@ function fixture(
         } as T;
       }
       if (method === 'session.open') return { status: 'opened' } as T;
+      if (method === 'session.close') return { status: 'closed' } as T;
       if (method === 'session.driveTurn' || method === 'session.answerExchange') {
         const outcome = outcomes[method === 'session.driveTurn' ? 'driveTurn' : 'answerExchange'];
         if (outcome instanceof Error) throw outcome;
@@ -49,6 +61,8 @@ function fixture(
       }
       if (method === 'session.presentation') {
         reads += 1;
+        if (reads > 1 && outcomes.presentationAfterRefreshResult)
+          return (await outcomes.presentationAfterRefreshResult) as T;
         return {
           status: 'ready',
           presentation: {
@@ -58,7 +72,7 @@ function fixture(
               { id: 'u1', cursor: 'durable:user', kind: 'message', role: 'user', text: 'History' },
               ...terminalEntries,
               ...(reads > 1
-                ? [
+                ? (outcomes.presentationAfterRefresh ?? [
                     {
                       id: 'a1',
                       cursor: 'durable:assistant',
@@ -66,7 +80,7 @@ function fixture(
                       role: 'assistant' as const,
                       text: 'Hello',
                     },
-                  ]
+                  ])
                 : []),
             ],
           },
@@ -108,6 +122,48 @@ function fixture(
   };
   return { client, calls, emit, emitNotification, reads: () => reads };
 }
+
+function reviewEntry(): SessionPresentationEntry {
+  return {
+    id: 'review-offer',
+    cursor: 'durable:review-offer',
+    kind: 'present_review_set',
+    exchangeId: 'review-set',
+    heading: 'Offline note requirement',
+    body: 'One settled requirement with no additional items.',
+    reviewSet: {
+      nodes: [
+        {
+          draft_id: 'req',
+          proposed_code: 'REQ1',
+          settlement: 'settled',
+          plane: 'intent',
+          kind: 'requirement',
+          title: 'Save one note offline',
+        },
+      ],
+      edges: [],
+    },
+    continuation: {
+      tool: 'ask',
+      params: {
+        body: 'Offline note requirement',
+        options: [
+          { id: 'approve', label: 'Approve' },
+          { id: 'request_changes', label: 'Request changes' },
+          { id: 'reject', label: 'Reject' },
+        ],
+        commentPrompt: 'Required change request',
+      },
+    },
+  };
+}
+
+const reviewAsk = {
+  exchangeId: 'review-set',
+  mode: 'review',
+  question: { body: 'One settled requirement with no additional items.' },
+} as const;
 
 describe('session route', () => {
   it.each(['0', '01', 'not-a-number'])('rejects invalid spec token %s before session RPC', async (token) => {
@@ -163,7 +219,72 @@ describe('session route', () => {
     },
   );
 
-  it.each(['driver_conflict', 'busy', 'not_open', 'ask_closed', 'invalid_answer'] as const)(
+  it('reconciles durable presentation at the next ask while keeping only that ask live', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      presentationAfterRefresh: [
+        {
+          id: 'a1',
+          cursor: 'durable:assistant',
+          kind: 'message',
+          role: 'assistant',
+          text: 'Durable explanation',
+        },
+        {
+          id: 'digest',
+          cursor: 'durable:digest',
+          kind: 'present_digest',
+          exchangeId: 'digest-1',
+          heading: 'Durable digest',
+          digest: { abstract: 'Persisted before the next ask.' },
+        },
+      ],
+    });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+
+    expect(await screen.findByText('Answered: Yes')).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: 'Proceed?' })).toBeNull();
+    expect(screen.getByRole('status').textContent).toMatch(/assistant.*responding/i);
+
+    await act(async () => {
+      f.emit({
+        target: { specId: 1, sessionId: 's1' },
+        seq: 1,
+        delta: { type: 'assistant_text_delta', runId: 'run-1', text: 'Durable explanation' },
+      });
+      f.emit({
+        target: { specId: 1, sessionId: 's1' },
+        seq: 2,
+        delta: {
+          type: 'ask_opened',
+          ask: { exchangeId: 'next', mode: 'text', question: { body: 'Anything else?' } },
+        },
+      });
+    });
+    await waitFor(() => expect(f.reads()).toBeGreaterThan(1));
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByText('Durable digest')).toBeTruthy();
+    expect(
+      screen.getByRole('list', { name: 'Session transcript' }).textContent?.match(/Durable explanation/gu),
+    ).toHaveLength(1);
+    expect(screen.getByRole('textbox', { name: 'Anything else?' })).toBeTruthy();
+    expect(screen.getByText('Answered: Yes')).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: 'Proceed?' })).toBeNull();
+
+    const askBoundaryReads = f.reads();
+    await act(async () => {
+      f.emit({ target: { specId: 1, sessionId: 's1' }, seq: 3, delta: { type: 'agent_settled' } });
+    });
+    await waitFor(() => expect(f.reads()).toBeGreaterThan(askBoundaryReads));
+    expect(screen.queryByText('Answered: Yes')).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Anything else?' })).toBeNull();
+  });
+
+  it.each(['driver_conflict', 'busy', 'not_open', 'invalid_answer'] as const)(
     'keeps ask failure local and permits retry after %s status',
     async (status) => {
       const outcome = { status };
@@ -184,6 +305,251 @@ describe('session route', () => {
       );
     },
   );
+
+  it('submits exactly one answer RPC for two immediate clicks', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    let resolveAnswer!: (value: { status: 'completed' }) => void;
+    const answer = new Promise<{ status: 'completed' }>((resolve) => {
+      resolveAnswer = resolve;
+    });
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      answerExchange: answer,
+    });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    const button = screen.getByRole('button', { name: 'Answer' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toHaveLength(1);
+    resolveAnswer({ status: 'completed' });
+    await act(async () => answer);
+  });
+
+  it('does not let deferred open-ask hydration erase newer assistant text', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    let resolveSnapshot!: (value: { openAsks: readonly unknown[] }) => void;
+    const initialOpenAsks = new Promise<{ openAsks: readonly unknown[] }>((resolve) => {
+      resolveSnapshot = resolve;
+    });
+    const f = fixture([], [], { initialOpenAsks });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    await screen.findByText(/History/u);
+
+    await act(async () => {
+      f.emit({
+        target: { specId: 1, sessionId: 's1' },
+        seq: 1,
+        delta: { type: 'assistant_text_delta', runId: 'run-1', text: 'New live text' },
+      });
+      resolveSnapshot({ openAsks: [] });
+      await initialOpenAsks;
+    });
+
+    expect(screen.getByText(/New live text/u)).toBeTruthy();
+  });
+
+  it('does not start stale ask_closed reconciliation after newer assistant text', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    let resolveAnswer!: (value: { status: 'ask_closed' }) => void;
+    const answerExchange = new Promise<{ status: 'ask_closed' }>((resolve) => {
+      resolveAnswer = resolve;
+    });
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      answerExchange,
+    });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+
+    await act(async () => {
+      f.emit({
+        target: { specId: 1, sessionId: 's1' },
+        seq: 1,
+        delta: { type: 'assistant_text_delta', runId: 'run-1', text: 'New live text' },
+      });
+      resolveAnswer({ status: 'ask_closed' });
+      await answerExchange;
+    });
+
+    expect(f.calls.filter(({ method }) => method === 'session.openAsks')).toHaveLength(1);
+    expect(f.reads()).toBe(1);
+    expect(screen.getByText(/New live text/u)).toBeTruthy();
+  });
+
+  it('does not reconcile a deferred ask_closed result after unmount', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    let resolveAnswer!: (value: { status: 'ask_closed' }) => void;
+    const answerExchange = new Promise<{ status: 'ask_closed' }>((resolve) => {
+      resolveAnswer = resolve;
+    });
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      answerExchange,
+    });
+    const view = render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+    view.unmount();
+
+    await act(async () => {
+      resolveAnswer({ status: 'ask_closed' });
+      await answerExchange;
+    });
+
+    expect(f.calls.filter(({ method }) => method === 'session.openAsks')).toHaveLength(1);
+    expect(f.reads()).toBe(1);
+    expect(f.calls.filter(({ method }) => method === 'session.close')).toHaveLength(1);
+  });
+
+  it('performs no stale ask_closed presentation write after a newer event', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    let resolveOpen!: (value: { openAsks: readonly unknown[] }) => void;
+    let resolvePresentation!: (value: SessionPresentationResult) => void;
+    const afterAnswerOpenAsksResult = new Promise<{ openAsks: readonly unknown[] }>((resolve) => {
+      resolveOpen = resolve;
+    });
+    const presentationAfterRefreshResult = new Promise<SessionPresentationResult>((resolve) => {
+      resolvePresentation = resolve;
+    });
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      answerExchange: { status: 'ask_closed' },
+      afterAnswerOpenAsksResult,
+      presentationAfterRefreshResult,
+    });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+    await waitFor(() => expect(f.reads()).toBe(2));
+
+    await act(async () => {
+      f.emit({
+        target: { specId: 1, sessionId: 's1' },
+        seq: 2,
+        delta: {
+          type: 'ask_opened',
+          ask: { exchangeId: 'new', mode: 'text', question: { body: 'New ask?' } },
+        },
+      });
+      resolveOpen({ openAsks: [] });
+      resolvePresentation({
+        status: 'ready',
+        presentation: {
+          target: { specId: 1, sessionId: 's1' },
+          cursor: 'stale',
+          entries: [
+            {
+              id: 'stale',
+              cursor: 'stale',
+              kind: 'message',
+              role: 'assistant',
+              text: 'Stale canonical',
+            },
+          ],
+        },
+      });
+      await Promise.all([afterAnswerOpenAsksResult, presentationAfterRefreshResult]);
+    });
+
+    expect(screen.getByRole('textbox', { name: 'New ask?' })).toBeTruthy();
+    expect(screen.queryByText('Stale canonical')).toBeNull();
+  });
+
+  it('does not cache malformed ask_closed presentation and keeps the ask retryable', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      answerExchange: { status: 'ask_closed' },
+      openAsksAfterAnswer: [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }],
+      presentationAfterRefreshResult: Promise.resolve({
+        status: 'malformed_detail',
+        entryId: 'bad',
+        family: 'ask',
+      }),
+    });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/invalid answer/i);
+    expect(screen.getByText(/History/u)).toBeTruthy();
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Answer' }).disabled).toBe(false);
+  });
+
+  it('suppresses a canonically stale ask when openAsks says it is closed', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const unresolved: SessionPresentationEntry = {
+      id: 'pending',
+      cursor: 'pending',
+      kind: 'ask',
+      exchangeId: 'pending',
+      question: 'Proceed?',
+    };
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      answerExchange: { status: 'ask_closed' },
+      openAsksAfterAnswer: [],
+      presentationAfterRefreshResult: Promise.resolve({
+        status: 'ready',
+        presentation: {
+          target: { specId: 1, sessionId: 's1' },
+          cursor: 'stale',
+          entries: [unresolved],
+        },
+      }),
+    });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull());
+    expect(f.reads()).toBeGreaterThan(2);
+  });
+
+  it('keeps a truly open ask actionable with its reconciliation error', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const ask = { exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } };
+    const f = fixture([], [ask], {
+      answerExchange: { status: 'ask_closed' },
+      openAsksAfterAnswer: [ask],
+    });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/invalid answer/i);
+    expect(screen.getAllByRole('button', { name: 'Answer' })).toHaveLength(1);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Answer' }).disabled).toBe(false);
+  });
+
+  it('converges ask_closed without retrying the stale control', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([], [{ exchangeId: 'pending', mode: 'text', question: { body: 'Proceed?' } }], {
+      answerExchange: { status: 'ask_closed' },
+      openAsksAfterAnswer: [],
+    });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Proceed?' }), {
+      target: { value: 'Yes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
+
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Proceed?' })).toBeNull());
+    expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toHaveLength(1);
+    expect(f.calls.filter(({ method }) => method === 'session.openAsks')).toHaveLength(2);
+    expect(f.reads()).toBeGreaterThan(1);
+  });
 
   it.each([
     ['session.driveTurn', 'Send', 'Turn failed. Please retry.'],
@@ -340,6 +706,8 @@ describe('session route', () => {
       method: 'session.answerExchange',
       params: expect.objectContaining({ exchangeId: 'live-choice', answer: 'safe' }),
     });
+    expect(await screen.findByText('Selected: Safe path')).toBeTruthy();
+    expect(screen.queryByRole('radio', { name: /Safe path/u })).toBeNull();
   });
 
   it('renders durable multi-choice selections and submits a live checkbox selection list', async () => {
@@ -402,6 +770,9 @@ describe('session route', () => {
       method: 'session.answerExchange',
       params: expect.objectContaining({ exchangeId: 'live-choices', answer: 'fast,safe' }),
     });
+    expect(await screen.findByText('Selected: Fast path')).toBeTruthy();
+    expect(screen.getByText('Selected: Safe path')).toBeTruthy();
+    expect(screen.queryByRole('checkbox', { name: /Fast path/u })).toBeNull();
   });
 
   it('renders candidate proposal cards while the existing ask owns the choice continuation', async () => {
@@ -460,6 +831,133 @@ describe('session route', () => {
       method: 'session.answerExchange',
       params: expect.objectContaining({ exchangeId: 'candidate-direction', answer: 'local' }),
     });
+  });
+
+  it('renders a settled review and its open continuation as one explicit review interaction', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const narrative = 'One settled requirement with no additional items.';
+    const f = fixture(
+      [
+        {
+          id: 'review-offer',
+          cursor: 'durable:review-offer',
+          kind: 'present_review_set',
+          exchangeId: 'review-set',
+          heading: 'Offline note requirement',
+          body: narrative,
+          reviewSet: {
+            nodes: [
+              {
+                draft_id: 'req',
+                proposed_code: 'REQ1',
+                settlement: 'settled' as const,
+                plane: 'intent',
+                kind: 'requirement',
+                title: 'Save one note offline',
+              },
+            ],
+            edges: [],
+          },
+          continuation: {
+            tool: 'ask',
+            params: {
+              body: `Offline note requirement\n\n${narrative}`,
+              options: [
+                { id: 'approve', label: 'Approve' },
+                { id: 'request_changes', label: 'Request changes' },
+                { id: 'reject', label: 'Reject' },
+              ],
+              commentPrompt: 'Required change request',
+            },
+          },
+        },
+      ],
+      [{ exchangeId: 'review-set', mode: 'review', question: { body: narrative } }],
+    );
+
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    expect(await screen.findByRole('region', { name: 'Offline note requirement' })).toBeTruthy();
+    expect(screen.getByRole('article', { name: 'REQ1 Save one note offline' }).textContent).toContain(
+      'Settlementsettled',
+    );
+    expect(screen.getAllByText(narrative)).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Approve' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Request changes' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Reject' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: narrative })).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Message' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Request changes' }));
+    const changes = screen.getByRole('textbox', { name: 'Required change request' });
+    fireEvent.change(changes, { target: { value: 'Clarify offline behavior.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit change request' }));
+    expect(f.calls).toContainEqual({
+      method: 'session.answerExchange',
+      params: expect.objectContaining({
+        exchangeId: 'review-set',
+        answer: 'request_changes:Clarify offline behavior.',
+      }),
+    });
+  });
+
+  it.each([
+    ['Approve', 'approve'],
+    ['Reject', 'reject'],
+  ] as const)('encodes the %s review decision independently', async (label, answer) => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([reviewEntry()], [reviewAsk]);
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: label }));
+
+    expect(f.calls).toContainEqual({
+      method: 'session.answerExchange',
+      params: expect.objectContaining({ exchangeId: 'review-set', answer }),
+    });
+  });
+
+  it.each(['completed', 'ask_closed'] as const)(
+    'makes a review locally non-actionable after %s and emits one RPC despite conflicting clicks',
+    async (status) => {
+      window.history.pushState(null, '', '/session/1/s1');
+      let resolveAnswer!: (value: { status: typeof status }) => void;
+      const answerExchange = new Promise<{ status: typeof status }>((resolve) => {
+        resolveAnswer = resolve;
+      });
+      const f = fixture([reviewEntry()], [reviewAsk], {
+        answerExchange,
+        ...(status === 'ask_closed' ? { openAsksAfterAnswer: [] } : {}),
+      });
+      render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+      const approve = await screen.findByRole('button', { name: 'Approve' });
+      fireEvent.click(approve);
+      fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Request changes' }));
+
+      expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toHaveLength(1);
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Approve' }).disabled).toBe(true);
+
+      await act(async () => {
+        resolveAnswer({ status });
+        await answerExchange;
+      });
+      await waitFor(() => expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull());
+      expect(screen.queryByRole('region', { name: 'Review choices' })).toBeNull();
+    },
+  );
+
+  it('does not render a blank transcript item for the correlated review ask', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture([reviewEntry()], [reviewAsk]);
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    await screen.findByRole('button', { name: 'Approve' });
+    const items = screen.getByRole('list', { name: 'Session transcript' }).querySelectorAll(':scope > li');
+    expect(items).toHaveLength(2);
+    expect([...items].every((item) => item.textContent?.trim())).toBe(true);
   });
 
   it('renders a proposition-first review set and exact approved receipt without acceptance controls', async () => {
@@ -540,8 +1038,14 @@ describe('session route', () => {
       'G1 Clear outcome',
       'REQ1 Atomic approval',
     ]);
+    expect(screen.getByRole('article', { name: 'G1 Clear outcome' }).textContent).toContain(
+      'Settlementsettled',
+    );
+    expect(screen.getByRole('article', { name: 'REQ1 Atomic approval' }).textContent).toContain(
+      'Settlementsettled',
+    );
     expect(screen.getByRole('region', { name: 'Proposed consequences' }).textContent).toContain(
-      'dependency — Requirement serves goal.',
+      'dependency [settled] — Requirement serves goal.',
     );
     expect(screen.getByText('Decision: Approve')).toBeTruthy();
     expect(screen.getByLabelText('Graph commit receipt').textContent).toContain('LSN7');
@@ -752,6 +1256,106 @@ describe('session route', () => {
     );
     expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
     expect(f.calls.filter(({ method }) => method === 'session.answerExchange')).toEqual([]);
+  });
+
+  it('merges competing canonical and hydrated asks without collapsing durable history', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture(
+      [
+        {
+          id: 'offer',
+          cursor: 'durable:offer',
+          kind: 'present_digest',
+          exchangeId: 'shared',
+          heading: 'Durable offer',
+          digest: { abstract: 'Keep me.' },
+        },
+        {
+          id: 'ask',
+          cursor: 'durable:ask',
+          kind: 'ask',
+          exchangeId: 'shared',
+          question: 'Canonical question',
+        },
+      ],
+      [{ exchangeId: 'shared', mode: 'text', question: { body: 'Hydrated rival' } }],
+    );
+
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    expect(await screen.findByText('Durable offer')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Answer' })).toHaveLength(1);
+    expect(screen.queryByRole('textbox', { name: 'Hydrated rival' })).toBeNull();
+  });
+
+  it('canonical terminal wins over a stale hydrated ask', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    const f = fixture(
+      [
+        {
+          id: 'terminal',
+          cursor: 'durable:terminal',
+          kind: 'ask',
+          exchangeId: 'shared',
+          question: 'Canonical question',
+          terminal: { status: 'answered', value: { text: 'Done' } },
+        },
+      ],
+      [{ exchangeId: 'shared', mode: 'text', question: { body: 'Hydrated rival' } }],
+    );
+
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+
+    expect(await screen.findByText('Answered: Done')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();
+  });
+
+  it('does not let a deferred initial open-ask snapshot overwrite a newer ask event', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    let resolveSnapshot!: (value: { openAsks: readonly unknown[] }) => void;
+    const initialOpenAsks = new Promise<{ openAsks: readonly unknown[] }>((resolve) => {
+      resolveSnapshot = resolve;
+    });
+    const f = fixture([], [], { initialOpenAsks });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    await screen.findByText(/History/u);
+    await act(async () => {
+      f.emit({
+        target: { specId: 1, sessionId: 's1' },
+        seq: 1,
+        delta: {
+          type: 'ask_opened',
+          ask: { exchangeId: 'new', mode: 'text', question: { body: 'New ask?' } },
+        },
+      });
+      resolveSnapshot({
+        openAsks: [{ exchangeId: 'old', mode: 'text', question: { body: 'Old ask?' } }],
+      });
+      await initialOpenAsks;
+    });
+
+    expect(screen.getByRole('textbox', { name: 'New ask?' })).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: 'Old ask?' })).toBeNull();
+  });
+
+  it('does not resurrect a deferred initial open ask after settlement', async () => {
+    window.history.pushState(null, '', '/session/1/s1');
+    let resolveSnapshot!: (value: { openAsks: readonly unknown[] }) => void;
+    const initialOpenAsks = new Promise<{ openAsks: readonly unknown[] }>((resolve) => {
+      resolveSnapshot = resolve;
+    });
+    const f = fixture([], [], { initialOpenAsks });
+    render(<BrunchWebApp runtime={createBrunchWebRuntime({ rpcClient: f.client })} />);
+    await screen.findByText(/History/u);
+    await act(async () => {
+      f.emit({ target: { specId: 1, sessionId: 's1' }, seq: 1, delta: { type: 'agent_settled' } });
+      resolveSnapshot({
+        openAsks: [{ exchangeId: 'old', mode: 'text', question: { body: 'Old ask?' } }],
+      });
+      await initialOpenAsks;
+    });
+
+    expect(screen.queryByRole('textbox', { name: 'Old ask?' })).toBeNull();
   });
 
   it('hydrates an already-open ask on load so a reconnecting client can answer it', async () => {

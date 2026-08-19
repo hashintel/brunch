@@ -642,9 +642,9 @@ async function handleSubmitExchangeResponse(
     (accepted.toolResultMessage as { details: Record<string, unknown> }).details = review.details;
   }
 
-  // Call first, then result — the synthetic pair keeps the transcript
-  // provider-legal (an orphan tool_result is a real-provider 400).
-  state.session.manager.appendMessage(accepted.toolCallMessage);
+  // Offer-derived responses need a synthetic provider-legal pair. A recovered
+  // provider call is already present, so settlement appends only its terminal.
+  if (accepted.toolCallMessage) state.session.manager.appendMessage(accepted.toolCallMessage);
   state.session.manager.appendMessage(accepted.toolResultMessage);
   flushSessionManagerToFile(state.session.manager, state.session.file);
 

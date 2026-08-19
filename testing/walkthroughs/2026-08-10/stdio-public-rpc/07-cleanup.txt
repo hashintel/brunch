@@ -1,0 +1,1 @@
+scratch removed: .fixtures/scratch/fe-1348-stdio-public-rpc

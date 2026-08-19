@@ -1,0 +1,6 @@
+cleanupUtc=2026-08-12T17:52:52Z
+hostPid=57049 stopped (reported before reconciliation; sandbox denied ps inspection)
+listener58673=absent
+workspace=absent
+writerOwner=absent before removal (.brunch/writer-locks was empty); workspace absent after removal
+removedOnly=/tmp/brunch-fe1348-settlement-final.L0wZG7

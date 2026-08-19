@@ -1,0 +1,10 @@
+cleanupUtc=2026-08-12T18:47:53Z
+✓ Browser closed
+hostPid46823=absent
+listenerPid46910=absent
+listener65333=absent
+writerOwnersBeforeRemoval=
+openWorkspaceFiles=absent
+workspace=absent
+externalEvidenceStaging=absent
+removedOnly=/tmp/brunch-fe1348-post-sw3-final.jYIzva,/tmp/brunch-fe1348-post-sw3-evidence.NLIFvD

@@ -1,0 +1,16 @@
+---
+pid: 46823
+cwd: "/Users/lunelson/Code/hashintel/brunch"
+command: "npm run dev-cli -- --workspace \"$FRESH_EXTERNAL_WORKSPACE\" --mode web"
+started_at: 2026-08-12T18:43:09.914Z
+running_for_ms: 130025   
+---
+npm notice run @hashintel/brunch@1.0.0-alpha.13 dev-cli
+npm notice run nub scripts/dev.ts --workspace /tmp/brunch-fe1348-post-sw3-final.jYIzva --mode web
+Brunch web running at http://127.0.0.1:65333
+
+---
+exit_code: unknown
+elapsed_ms: 131978
+ended_at: 2026-08-12T18:45:21.892Z
+---

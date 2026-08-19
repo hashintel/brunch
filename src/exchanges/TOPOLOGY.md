@@ -12,7 +12,7 @@ runtime surfaces; agent context modules render model-facing content.
 ```text
 exchanges/
   schemas/                Zod-authored params, details, capture, and editor envelopes
-  recovery.ts             transcript detail recognizers and pending-present scan
+  recovery.ts             transcript detail recognizers, pending-present scan, and validated provider standalone-ask call recovery
   editor-envelope.ts      request_choices editor wire-envelope prefill/parse helpers
   text.ts                 shared text normalization for projections and editor relays
   projections/

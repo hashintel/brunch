@@ -49,6 +49,7 @@ import {
 import { ASK_TOOL, collectAskContinuationResponse } from '../exchanges/ask.js';
 import type { StructuredExchangeUiContext } from '../exchanges/shared/ui-context.js';
 import {
+  buildSessionOrientationMenu,
   CODE_SESSION_ORIENTATION_MENU,
   SESSION_ORIENTATION_MENU,
   type SessionOrientationMenuDescriptor,
@@ -191,12 +192,7 @@ async function applyModeSwitchAndOrient(
   }
   applyModeSwitch(pi, ctx, nextMode, options);
   if (!options.sessionOrientation) return;
-  await runModeSwitchOrientation(
-    pi,
-    ctx,
-    options.sessionOrientation,
-    MODE_SWITCH_ORIENTATION_MENUS[nextMode],
-  );
+  await runModeSwitchOrientation(pi, ctx, options.sessionOrientation, nextMode);
 }
 
 async function settleInFlightTurn(
@@ -225,7 +221,7 @@ async function runModeSwitchOrientation(
   pi: ExtensionAPI,
   ctx: RuntimeSwitchContext,
   deps: BrunchSessionOrientationDeps,
-  menu: SessionOrientationMenuDescriptor,
+  mode: OperationalModeId,
 ): Promise<void> {
   const gate = orientationJunctureGate(deps);
   const claim = forceClaimOrientationJuncture(gate);
@@ -242,7 +238,7 @@ async function runModeSwitchOrientation(
       },
       trigger: 'mode-switch',
       mode: 'follow-choice',
-      menu,
+      menu: await resolveOrientationMenu(mode, deps),
       kick: kickContext
         ? { ...kickContext, sendCustomMessage: sendCustomMessageViaExtensionApi(pi) }
         : undefined,
@@ -346,11 +342,26 @@ function registerRuntimeSwitchCommands(pi: ExtensionAPI, options: ModeSwitchOpti
   });
 }
 
-function menuForCurrentOperationalMode(ctx: {
-  readonly sessionManager: RuntimeSwitchContext['sessionManager'];
-}): SessionOrientationMenuDescriptor {
+async function resolveOrientationMenu(
+  mode: OperationalModeId,
+  deps: BrunchSessionOrientationDeps,
+): Promise<SessionOrientationMenuDescriptor> {
+  if (mode !== 'execute') return MODE_SWITCH_ORIENTATION_MENUS[mode];
+  let availability: unknown;
+  try {
+    availability = await deps.resolveProcessMoveAvailability?.();
+  } catch {
+    availability = undefined;
+  }
+  return buildSessionOrientationMenu({ mode, availability });
+}
+
+async function menuForCurrentOperationalMode(
+  ctx: { readonly sessionManager: RuntimeSwitchContext['sessionManager'] },
+  deps: BrunchSessionOrientationDeps,
+): Promise<SessionOrientationMenuDescriptor> {
   const state = projectBrunchAgentState(ctx.sessionManager.getBranch());
-  return state.operationalMode === 'execute' ? CODE_SESSION_ORIENTATION_MENU : SESSION_ORIENTATION_MENU;
+  return resolveOrientationMenu(state.operationalMode, deps);
 }
 
 function registerConsultCommand(
@@ -373,7 +384,7 @@ function registerConsultCommand(
           ctx,
           trigger: 'consult',
           mode: 'follow-choice',
-          menu: menuForCurrentOperationalMode(ctx),
+          menu: await menuForCurrentOperationalMode(ctx, options.sessionOrientation),
           kick: kickContext
             ? { ...kickContext, sendCustomMessage: sendCustomMessageViaExtensionApi(pi) }
             : undefined,

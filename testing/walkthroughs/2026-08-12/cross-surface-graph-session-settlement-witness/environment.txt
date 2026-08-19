@@ -1,0 +1,14 @@
+sourceHead=21cf48c502645ba31c4cf6f706421a6382861572
+sourceBranch=ln/fe-1348-audit-all-usage-and-testing-paths
+workspace=/tmp/brunch-fe1348-settlement-final.L0wZG7
+url=http://127.0.0.1:58673/session/1/019ff710-ca4c-7014-baf6-395121277794
+hostPid=57049
+hostState=stopped (reported; sandbox denied ps inspection)
+listener58673=absent (lsof returned no listener)
+writerOwner=absent (.brunch/writer-locks contained no files)
+node=v24.19.0
+npm=12.0.2
+os=Darwin 25.6.0 arm64
+provider=anthropic
+model=claude-opus-5
+thinkingLevel=medium

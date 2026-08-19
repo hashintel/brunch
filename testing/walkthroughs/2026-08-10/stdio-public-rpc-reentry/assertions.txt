@@ -1,0 +1,10 @@
+first_true_boundary_failure=workspace.activate returned status needs_human with reason "Selected session is not available for the selected spec."
+submission_attempts=0
+source_jsonl_before_after=byte-identical ca2a176b3c63a32cd934daebf10c92840047dcf2dbffb3483bafb81d1f13114e
+clone_jsonl_after_read_calls=byte-identical to source
+writer_owner_files_source_before_after=0
+preflight_disposition=coordinator's earlier rpc.discover with explicit {} was read-only and excluded from conduct; discovery advertises omitted params, used by conduct
+read_phase_note=the command harness treated needs_human as exit 0, so workspace.state/runtimeState/trigger/pending/exchanges read-only calls were captured before semantic inspection; no response was attempted
+trigger_pending_wrapper_normalized_equality=true (both idle/null), but this does not satisfy the required pending exchange
+canonical_active_branch=13-entry JSONL ends in provider-authored fe1348-anchor-2 ask with no terminal result; public stdio projection returned open_prompt with no projected exchange
+negative_space=no provider launch, graph effect, private handler, direct state edit, raw Pi/WebSocket call, or submit occurred

@@ -3,6 +3,20 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-08-13 FE-1348 post-hardening alpha validation closeout
+
+`post-hardening-alpha-validation` ([FE-1348](https://linear.app/hash/issue/FE-1348/validate-current-brunch-usage-and-testing-paths)) closed its frozen coverage inventory after every required product and developer/verification path reached `built`. A51-L's colleague judgment, public stdio recovery, standalone-web lifecycle, cross-surface one-requirement/zero-edge settlement, source/package entry points, canonical gates, and installed-package paths remain linked from `TESTING_FINDINGS.md`; prior failed journeys remain immutable provenance.
+
+The final Execute witness ran from source commit `0302c41c1` in disposable workspace `/tmp/brunch-fe1348-execute-final.Fb6Spv` using `rust-todo-cli/base` (spec 1, 44 nodes, 69 edges). Setup compiled a 1-epic/4-slice plan in two synthesis rounds at graph LSN 3, then created run `run-msrnsjo7` and paused it at `reports_initialized` before any slice. Across the frozen boundary, `/brunch:mode` and `/brunch:consult` displayed identical Prepare / Compile / Execute choices; public workspace/session/run reads, JSONL, plan/provenance, Petri artifacts, reports, and final read-only SQLite agreed, with zero post-boundary process moves or assistant messages. Cleanup left no process, listener, writer lock, or TUI residue. Full retained evidence and prior-gate provenance live in [`testing/walkthroughs/2026-08-10/execute-mode-interaction-owned-gate.md`](../../testing/walkthroughs/2026-08-10/execute-mode-interaction-owned-gate.md).
+
+The bounded deterministic production availability repair is therefore built and witnessed. FE-1187 still separately owns optional A48-L model-backed improvement and its paused campaign; KA Execute evidence and every other optional/deferred row retain their prior owner and re-entry trigger. The exhausted FE-1348 sweep ledger was deleted rather than advertised as active. `cli-mode-entry` is now the honest next proving frontier.
+
+## 2026-08-11 FE-1321 shared session host tracer closeout
+
+`shared-session-host-tracer` ([FE-1321](https://linear.app/hash/issue/FE-1321/prove-shared-session-host-attachment-for-tui-and-react)) validated D141-L's two-composition contract without introducing an independent shared daemon. Production witnesses prove the real TUI and companion React converge through target-addressed semantic deltas and one canonical JSONL, structured asks retain TUI-only answer authority, rival runtimes fail closed before construction, and normal TUI shutdown permits standalone-web takeover of the same target.
+
+FE-1348's A51-L colleague walkthrough supplied the final product judgment: ordinary turns and observe-only asks remained useful, and the honest browser refusal of a TUI-owned answer was understandable. SA1's proposed ownership marker and SA2's dual-answer authority were retired without implementation. The `shared-session-host-convergence` arc remains active for `shared-session-host-cutover`, wait-gated on FE-1348's standalone-web and cross-surface settlement evidence.
+
 ## 2026-08-05 FE-1320 comparison mission isolation closeout
 
 `comparison-mission-isolation-hardening` ([FE-1320](https://linear.app/hash/issue/FE-1320/structural-private-mission-isolation-for-compare-specs)) closed the CS2 placement risk without introducing a controller runtime or generic sandbox. The prompt-owned `/compare-specs` procedure now allocates each harness a fresh system-temporary external target root outside controller checkout, scratch, and retained trees; Brunch still launches from the repository root and receives the target through `--workspace`.

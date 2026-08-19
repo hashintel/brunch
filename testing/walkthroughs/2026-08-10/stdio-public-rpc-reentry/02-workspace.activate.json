@@ -1,0 +1,10 @@
+{
+  "status": "needs_human",
+  "cwd": "/tmp/brunch-fe1348-stdio-reentry.hTx07h",
+  "spec": {
+    "id": 1,
+    "title": "FE-1348 final live convergence"
+  },
+  "chrome": {},
+  "reason": "Selected session is not available for the selected spec."
+}

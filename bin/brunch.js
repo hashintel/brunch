@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { runBrunchCli } from "../dist/app/brunch.js"
 
-runBrunchCli()
+runBrunchCli({ awaitWebTermination: true })
   .then((code) => {
     process.exitCode = code
   })

@@ -1,0 +1,21 @@
+{
+  "phase": "ready_for_stdio",
+  "sourceCommit": "5097ac86440f6c270eadc5c6cdd9d741425a855e",
+  "workspace": "/tmp/brunch-fe1348-stdio-fresh.FsFSuK",
+  "specId": 1,
+  "sessionId": "019ff59d-45d0-761f-9bca-e7fb655cfdd5",
+  "sessionFile": "/tmp/brunch-fe1348-stdio-fresh.FsFSuK/.brunch/sessions/2026-08-12T10-55-52-784Z_019ff59d-45d0-761f-9bca-e7fb655cfdd5.jsonl",
+  "sessionSha256": "b2066a55f75c9cc74c15c960d31797005e39281d6ee09050aebaa65ff6c113e3",
+  "entryCount": 9,
+  "exchangeId": "fe1348-anchor-1",
+  "exchangeMode": "free-text",
+  "hostPid": 12791,
+  "hostUrl": "http://127.0.0.1:50834",
+  "shutdown": {
+    "boundedAttempt": 2,
+    "processStopped": true,
+    "listenerStopped": true,
+    "writerOwnerAbsent": true
+  },
+  "userObservation": "The unanswered question is visible; the user did not answer it."
+}

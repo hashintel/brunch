@@ -68,6 +68,35 @@ describe('CommandExecutor.acceptReviewSet', () => {
     db.insert(graphClock).values({ spec_id: specId, lsn: 0 }).run();
   });
 
+  it('accepts one settled node and zero edges in one audited effect', () => {
+    const entityDraft = validPayload().entityDrafts[0]!;
+    const result = executor.acceptReviewSet({
+      specId,
+      payload: validPayload({ entityDrafts: [entityDraft], edgeDrafts: [] }),
+    });
+
+    expect(result).toMatchObject({
+      status: 'success',
+      lsn: 1,
+      createdNodes: { [entityDraft.draftId]: { code: entityDraft.proposedCode } },
+      createdEdges: [],
+    });
+    expect(db.select().from(nodes).all()).toEqual([
+      expect.objectContaining({ title: entityDraft.title, settlement: 'settled', basis: 'explicit' }),
+    ]);
+    expect(db.select().from(edges).all()).toEqual([]);
+    expect(graphClockLsn(db, specId)).toBe(1);
+    const logs = db.select().from(changeLog).all();
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({ spec_id: specId, lsn: 1, operation: 'accept_review_set' });
+    expect(JSON.parse(logs[0]!.payload)).toMatchObject({
+      specId,
+      createBasis: 'explicit',
+      createdNodes: { [entityDraft.draftId]: expect.any(Number) },
+      createdEdges: [],
+    });
+  });
+
   it('writes all reviewed nodes and edges with explicit basis', () => {
     const result = executor.acceptReviewSet({
       specId,

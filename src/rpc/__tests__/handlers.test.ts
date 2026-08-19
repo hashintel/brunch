@@ -17,6 +17,7 @@ import { projectPresentReviewSet } from '../../exchanges/projections/present-rev
 import { runCreateOnlyMutation } from '../../graph/__tests__/support/create-only-mutation.js';
 import { openWorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { assistantMessage, userMessage } from '../../probes/test-helpers.js';
+import { projectSessionPresentationFile } from '../../projections/session/session-presentation.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import { createLiveAskRegistry } from '../../session/live-ask-registry.js';
 import {
@@ -404,6 +405,171 @@ function sessionBindingEntry(sessionId = 'session-1', specId = 1) {
 }
 
 describe('JSON-RPC handlers', () => {
+  it('refuses persisted provider asks occupied by malformed or exchange-mismatched results without mutation', async () => {
+    for (const [name, details] of [
+      ['malformed', { raw: 'pi' }],
+      [
+        'mismatched',
+        {
+          schema: 'brunch.structured_exchange.request',
+          v: 1,
+          exchange_id: 'other-exchange',
+          tool_meta: { curr: 'ask' },
+          question: { body: 'Choose?' },
+          answered: { text: 'Wrong identity.' },
+        },
+      ],
+    ] as const) {
+      const cwd = await mkdtemp(join(tmpdir(), `brunch-rpc-poisoned-ask-${name}-`));
+      const setup = await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
+        specTitle: 'Poisoned persisted ask',
+      });
+      const manager = SessionManager.open(setup.session.file);
+      manager.appendMessage({
+        role: 'assistant',
+        content: [
+          {
+            type: 'toolCall',
+            id: 'provider-call',
+            name: 'ask',
+            arguments: { exchangeId: 'ask-1', body: 'Choose?' },
+          },
+        ],
+        api: 'anthropic-messages',
+        provider: 'anthropic',
+        model: 'test',
+        usage: {
+          input: 0,
+          output: 0,
+          cacheRead: 0,
+          cacheWrite: 0,
+          totalTokens: 0,
+          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+        },
+        stopReason: 'toolUse',
+        timestamp: 0,
+      } as never);
+      manager.appendMessage({
+        role: 'toolResult',
+        toolName: 'ask',
+        toolCallId: 'provider-call',
+        content: [],
+        details,
+        isError: false,
+        timestamp: 1,
+      } as never);
+      flushSessionManagerToFile(manager, setup.session.file);
+      const before = await readFile(setup.session.file, 'utf8');
+      const handlers = createRpcHandlers({ coordinator: createWorkspaceSessionCoordinator({ cwd }), cwd });
+      const call = (id: number, method: string, params?: unknown) =>
+        handlers.handle({ jsonrpc: '2.0', id, method, ...(params === undefined ? {} : { params }) });
+
+      await expect(call(1, 'session.pendingExchange')).resolves.toMatchObject({ result: { status: 'idle' } });
+      await expect(
+        call(2, 'session.submitExchangeResponse', { exchangeId: 'ask-1', answer: { text: 'Duplicate.' } }),
+      ).resolves.toMatchObject({ error: { code: -32008, message: 'No pending structured exchange' } });
+      await expect(readFile(setup.session.file, 'utf8')).resolves.toBe(before);
+    }
+  });
+
+  it('drives a persisted provider-authored standalone ask through one-shot public RPC', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-persisted-ask-'));
+    const setup = await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
+      specTitle: 'Persisted ask spec',
+    });
+    const manager = SessionManager.open(setup.session.file);
+    manager.appendMessage({
+      role: 'assistant',
+      content: [
+        { type: 'text', text: 'Retained assistant framing.' },
+        {
+          type: 'toolCall',
+          id: 'toolu_fe1348_anchor',
+          name: 'ask',
+          arguments: { exchangeId: 'fe1348-anchor-1', body: 'What should be canonical?' },
+        },
+      ],
+      api: 'anthropic-messages',
+      provider: 'anthropic',
+      model: 'test',
+      usage: {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 0,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      },
+      stopReason: 'toolUse',
+      timestamp: 0,
+    } as never);
+    flushSessionManagerToFile(manager, setup.session.file);
+    const before = await readFile(setup.session.file, 'utf8');
+    const call = async (id: number, method: string, params?: unknown) =>
+      createRpcHandlers({ coordinator: createWorkspaceSessionCoordinator({ cwd }), cwd }).handle({
+        jsonrpc: '2.0',
+        id,
+        method,
+        ...(params === undefined ? {} : { params }),
+      });
+
+    for (const [id, method] of [
+      [1, 'session.triggerExchange'],
+      [2, 'session.pendingExchange'],
+    ] as const) {
+      await expect(call(id, method)).resolves.toMatchObject({
+        result: { status: 'pending', exchange: { exchangeId: 'fe1348-anchor-1', mode: 'text' } },
+      });
+      await expect(readFile(setup.session.file, 'utf8')).resolves.toBe(before);
+    }
+    await expect(call(3, 'session.exchanges')).resolves.toMatchObject({ result: { status: 'open_prompt' } });
+    await expect(
+      call(4, 'session.submitExchangeResponse', {
+        exchangeId: 'fe1348-anchor-1',
+        answer: { text: 'Canonical JSONL.' },
+      }),
+    ).resolves.toMatchObject({ result: { status: 'accepted' } });
+
+    const after = await readFile(setup.session.file, 'utf8');
+    const delta = after
+      .slice(before.length)
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    expect(delta).toHaveLength(1);
+    expect(delta[0].message).toMatchObject({
+      role: 'toolResult',
+      toolName: 'ask',
+      toolCallId: 'toolu_fe1348_anchor',
+      details: { exchange_id: 'fe1348-anchor-1', answered: { text: 'Canonical JSONL.' } },
+    });
+    await expect(call(5, 'session.pendingExchange')).resolves.toMatchObject({ result: { status: 'idle' } });
+    await expect(call(6, 'session.exchanges')).resolves.toMatchObject({ result: { status: 'ready' } });
+    await expect(
+      projectSessionPresentationFile({
+        target: { specId: setup.spec.id, sessionId: setup.session.id },
+        sessionFile: setup.session.file,
+      }),
+    ).resolves.toMatchObject({
+      status: 'ready',
+      presentation: {
+        entries: expect.arrayContaining([
+          expect.objectContaining({
+            kind: 'ask',
+            exchangeId: 'fe1348-anchor-1',
+            terminal: expect.objectContaining({ status: 'answered' }),
+          }),
+        ]),
+      },
+    });
+    await expect(
+      call(7, 'session.submitExchangeResponse', {
+        exchangeId: 'fe1348-anchor-1',
+        answer: { text: 'Duplicate.' },
+      }),
+    ).resolves.toMatchObject({ error: { code: -32008 } });
+    await expect(readFile(setup.session.file, 'utf8')).resolves.toBe(after);
+  });
   it('rejects combined standalone-host and sidecar-driver authority', () => {
     const hostedSession = {} as HostedSessionRpcBoundary;
     // @ts-expect-error hosted-session authority and sidecar handles are mutually exclusive

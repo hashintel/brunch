@@ -140,7 +140,9 @@ only through a separately authorized study contract.
 
 ## Agent recipe: drive, then join evidence
 
-On an overlay-capable host, drive the real TUI with the pinned project-local `pi-interactive-shell` package. In a sandbox or headless environment, use `npm run tui-driver` as the fallback. Follow the bounded observation, named-key input, and deterministic cleanup protocol in [Manual Testing](manual-testing.md).
+Choose control by the evidence claim, following [Manual Testing](manual-testing.md): use native machine interfaces for conduct, a browser for browser behavior, and a PTY only for terminal rendering, key/focus/lifecycle semantics, or deliberate human-visible observation. Herdr is the preferred PTY host; `pi-interactive-shell` remains the non-Herdr overlay option and `npm run tui-driver` the headless fallback.
+
+The current `/compare-specs` and `/compare-execution` prompts still prescribe `interactive_shell`. That is present implementation truth, not the preferred nonvisual architecture. D142-L and PLAN `comparison-machine-interface-cutover` own migration to hosted Brunch JSON-RPC and Claude stream-JSON; Brunch Execute remains terminal-driven until `cli-mode-entry` supplies terminal-independent mode activation. Do not claim those cutovers before they land.
 
 After a run has produced `<workspace>/.brunch/debug/trajectory.ndjson`, join it to Pi's active session branch:
 
@@ -162,7 +164,7 @@ For a plain-language introduction and operator walkthrough, start with the
 
 ### Approachable operator workflow
 
-Invoke `/compare-specs` in one trusted top-level project Pi session. That session alone receives the private saved mission, acts as the simulated user, and drives selected comparison harnesses sequentially. It opens exactly one direct `interactive_shell` harness at a time at normal host dimensions, sends only approved minimal framing plus natural mission-grounded messages, and fully cleans up that harness before starting another. All choices and approvals work through ordinary typed text.
+Invoke `/compare-specs` in one trusted top-level project Pi session. That session alone receives the private saved mission, acts as the simulated user, and drives selected comparison harnesses sequentially. Until `comparison-machine-interface-cutover` lands, the actual prompt opens exactly one direct `interactive_shell` harness at a time at normal host dimensions; treat this as the current compatibility path, not a reason to use PTY control in new nonvisual harnesses. It sends only approved minimal framing plus natural mission-grounded messages and fully cleans up one harness before starting another. All choices and approvals work through ordinary typed text.
 
 This path favors an understandable operator experience. Harness order and the shared top-level actor context are disclosed; it does **not** claim fresh-per-harness actor isolation, matched budgets, blinding, or structured adjudication. Future retained setup snapshots use `harness-setup.md`; historical `contender-setup.md` files remain immutable.
 
