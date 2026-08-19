@@ -105,6 +105,26 @@ describe('runSubagent structured output', () => {
               listener?.({
                 type: 'message_update',
                 message: {} as never,
+                assistantMessageEvent: {
+                  type: 'text_delta',
+                  contentIndex: 0,
+                  delta: ' with context',
+                  partial: {} as never,
+                },
+              });
+              listener?.({
+                type: 'message_update',
+                message: {} as never,
+                assistantMessageEvent: {
+                  type: 'text_delta',
+                  contentIndex: 0,
+                  delta: '\n  and indentation',
+                  partial: {} as never,
+                },
+              });
+              listener?.({
+                type: 'message_update',
+                message: {} as never,
                 assistantMessageEvent: { type: 'thinking_delta', delta: 'private' } as never,
               });
               listener?.({ type: 'message_update', message: {} } as never);
@@ -124,6 +144,63 @@ describe('runSubagent structured output', () => {
     expect(result).toMatchObject({ status: 'ok', text: 'final response' });
     expect(updates.filter(({ kind }) => kind === 'message')).toEqual([
       { kind: 'message', message: 'Preview from the child' },
+      { kind: 'message', message: 'Preview from the child with context' },
+      { kind: 'message', message: 'Preview from the child with context\n  and indentation' },
+    ]);
+  });
+
+  it('caps cumulative stream previews at the existing 800-character ellipsis limit', async () => {
+    const updates: Array<{ kind: string; message: string }> = [];
+
+    await runSubagent({
+      definition: definition as never,
+      task: 'plan',
+      ctx,
+      deps,
+      onUpdate: (update) => updates.push(update),
+      createServices: async () => ({}) as never,
+      createSession: async () => {
+        let listener: ((event: AgentSessionEvent) => void) | undefined;
+        const emitText = (delta: string) =>
+          listener?.({
+            type: 'message_update',
+            message: {} as never,
+            assistantMessageEvent: {
+              type: 'text_delta',
+              contentIndex: 0,
+              delta,
+              partial: {} as never,
+            },
+          });
+        return {
+          session: {
+            subscribe: (nextListener: (event: AgentSessionEvent) => void) => {
+              listener = nextListener;
+              return () => undefined;
+            },
+            prompt: async () => {
+              emitText('a'.repeat(796));
+              emitText(' bcde');
+              emitText('ignored after the bounded prefix');
+              listener?.({ type: 'tool_execution_start', toolName: 'read' } as never);
+              listener?.({ type: 'tool_execution_end', toolName: 'read' } as never);
+            },
+            getLastAssistantText: () => 'final response',
+            dispose: () => undefined,
+          },
+        } as never;
+      },
+    });
+
+    const messages = updates.filter(({ kind }) => kind === 'message');
+    expect(messages).toHaveLength(3);
+    expect(messages[0]?.message).toBe('a'.repeat(796));
+    expect(messages[1]?.message).toBe(`${'a'.repeat(796)} ...`);
+    expect(messages[2]?.message).toBe(messages[1]?.message);
+    expect(messages[2]?.message).toHaveLength(800);
+    expect(updates.filter(({ kind }) => kind === 'tool')).toEqual([
+      { kind: 'tool', message: 'tool read started' },
+      { kind: 'tool', message: 'tool read completed' },
     ]);
   });
 

@@ -479,8 +479,9 @@ function subscribeToSessionStream(
   onUpdate: RunSubagentInput['onUpdate'],
 ): (() => void) | undefined {
   if (!onUpdate || !hasSubscribe(session)) return undefined;
+  const preview = { text: '', truncated: false };
   return session.subscribe((event) => {
-    const update = streamUpdateFromSessionEvent(event);
+    const update = streamUpdateFromSessionEvent(event, preview);
     if (update) onUpdate(update);
   });
 }
@@ -496,7 +497,10 @@ function hasSubscribe(
   );
 }
 
-function streamUpdateFromSessionEvent(event: AgentSessionEvent): SubagentStreamUpdate | undefined {
+function streamUpdateFromSessionEvent(
+  event: AgentSessionEvent,
+  preview: { text: string; truncated: boolean },
+): SubagentStreamUpdate | undefined {
   if (event.type === 'tool_execution_start' && typeof event.toolName === 'string') {
     return { kind: 'tool', message: `tool ${event.toolName} started` };
   }
@@ -507,8 +511,15 @@ function streamUpdateFromSessionEvent(event: AgentSessionEvent): SubagentStreamU
 
   const update = event.assistantMessageEvent;
   if (update?.type !== 'text_delta' || typeof update.delta !== 'string') return undefined;
-  const text = update.delta.trim();
-  return text.length === 0 ? undefined : { kind: 'message', message: previewText(text, 800) };
+  const nextText = `${preview.text}${update.delta}`;
+  preview.truncated ||= nextText.length > 800;
+  preview.text = nextText.slice(0, 800);
+  return preview.text.trim().length === 0
+    ? undefined
+    : {
+        kind: 'message',
+        message: preview.truncated ? `${preview.text.slice(0, 797)}...` : previewText(preview.text, 800),
+      };
 }
 
 function previewText(value: string, maxChars: number): string {
