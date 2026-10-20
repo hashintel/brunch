@@ -1,11 +1,4 @@
-FROM node:22-slim AS build
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-FROM node:22-slim
+FROM node:22-slim AS base
 WORKDIR /app
 
 # Distrust until updated base image removes compromised intermediate CAs, see: https://bugs.debian.org/1151413
@@ -19,6 +12,16 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Use the system trust store until updated Node.js removes compromised intermediate CAs, see: https://github.com/nodejs/node/pull/66871
+ENV NODE_OPTIONS=--use-openssl-ca
+
+FROM base AS build
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM base
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
@@ -26,6 +29,4 @@ COPY server ./server
 
 EXPOSE 3001
 ENV NODE_ENV=production
-# Use the system trust store until updated Node.js removes compromised intermediate CAs, see: https://github.com/nodejs/node/pull/66871
-ENV NODE_OPTIONS=--use-openssl-ca
 CMD ["node", "server/server.js"]
