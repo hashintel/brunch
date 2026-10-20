@@ -1,14 +1,9 @@
-FROM node:22-slim AS base
+FROM node:22-bookworm-slim AS base
 WORKDIR /app
 
-# Distrust until updated base image removes compromised intermediate CAs, see: https://bugs.debian.org/1151413
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates && \
-    sed -i \
-    -e 's|^mozilla/emSign_ECC_Root_CA_-_G3.crt|!&|' \
-    -e 's|^mozilla/Comodo_AAA_Services_root.crt|!&|' \
-    /etc/ca-certificates.conf && \
-    update-ca-certificates && \
+    dpkg --compare-versions "$(dpkg-query -W -f='${Version}' ca-certificates)" ge 20250419~deb12u2 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
